@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CropXcel – Identify Your Cropland</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  {% load static %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <style>
+    :root { --bg:#f1f7ee; --card:#ffffff; --pill:#eef7f3; --text:#111827; --muted:#6b7280; --accent:#10b981; }
+    body { margin:0; background:var(--bg); font-family:system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color:var(--text); }
+    .shell { max-width:1200px; margin:32px auto; padding:0 16px; }
+    .crumbs { font-size:12px; color:var(--muted); margin-bottom:8px; }
+    .title { font-size:28px; margin:0 0 4px 0; }
+    .subtitle { color:var(--muted); margin:0 0 18px 0; }
+    .grid { display:grid; grid-template-columns: 1.3fr 0.7fr; gap:18px; align-items:start; }
+    .card { background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.06); }
+    .map-card { padding:16px; }
+    .map-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .map-head .btn { background:var(--pill); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; }
+    #map { height:58vh; border-radius:12px; }
+    .draw-palette { position:absolute; right:16px; top:90px; display:flex; flex-direction:column; gap:8px; }
+    .tool { background:#fff; border:1px solid #e5e7eb; padding:10px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.05); cursor:pointer; }
+    .area-badge { position:absolute; left:16px; bottom:16px; background:#fff; border-radius:10px; padding:10px 12px; box-shadow:0 6px 18px rgba(0,0,0,.08); font-size:12px; }
+    .area-badge .val { font-weight:700; font-size:14px; }
+
+    .side { padding:16px; }
+    .side h3 { margin:0 0 8px 0; font-size:18px; }
+    .side .panel { background:#fff; border-radius:16px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.06); }
+    .field-row { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+    .label { font-size:12px; color:var(--muted); }
+    .input { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#fafafa; }
+    .save { width:100%; padding:12px; background:var(--accent); border:none; color:#fff; border-radius:12px; font-weight:600; cursor:pointer; }
+    .muted { color:var(--muted); font-size:12px; }
+    .footer-tip { margin-top:12px; background:#eef6ff; border-radius:12px; padding:12px; font-size:12px; color:#334155; }
+    .stack { position:relative; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="crumbs">Dashboard / Field Management / <span style="color:#10b981">Cropland Recognition</span></div>
+    <h1 class="title">Identify Your Cropland</h1>
+    <p class="subtitle">Use our map to draw your field. We’ll estimate its area in hectares.</p>
+
+    <div class="grid">
+      <!-- Map -->
+      <div class="card map-card stack">
+        <div class="map-head">
+          <div style="font-weight:600;">Interactive Map</div>
+          <div>
+            <button id="layersBtn" class="btn">Layers</button>
+            <button id="locBtn" class="btn">My Location</button>
+          </div>
+        </div>
+        <div id="map"></div>
+
+        <!-- simple tool hints (draw tools are in the map toolbar already) -->
+        <div class="area-badge">Selected Area<br><span id="areaVal" class="val">0.00 hectares</span></div>
+      </div>
+
+      <!-- Side panel -->
+      <div class="side">
+        <div class="panel">
+          <h3>Field Information</h3>
+          <div class="field-row">
+            <div class="label">Estimated Area</div>
+            <input id="areaInput" class="input" type="text" value="0.00 hectares" readonly>
+          </div>
+          <button id="saveBtn" class="save">Save Field</button>
+          <div id="saveMsg" class="muted" style="margin-top:8px;"></div>
+
+          <!-- New: Overlay results button -->
+          <a id="openOverlayBtn" 
+            href="#" 
+            class="hidden save" 
+            style="display:block; text-align:center; margin-top:10px; background:#3b82f6;">
+            View Risk Map
+          </a>
+          <div class="footer-tip">
+            <b>How to use</b><br>
+            • Click <i>My Location</i> to center the map<br>
+            • Use the polygon or rectangle tool to draw your field<br>
+            • Save to store your AOI
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- libs -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <script>
+    // CSRF
+    function getCookie(name){const v=`; ${document.cookie}`.split(`; ${name}=`);if(v.length===2)return v.pop().split(';').shift();}
+    const csrftoken = getCookie('csrftoken');
+
+    // --- Map ---
+    const map = L.map('map').setView([11.45, 105.42], 15);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri'
+    }).addTo(map);
+
+    const drawnItems = new L.FeatureGroup().addTo(map);
+    map.addControl(new L.Control.Draw({
+      draw: {
+        polygon:{ showArea:true, allowIntersection:false, shapeOptions:{ color:'#10b981', weight:2 } },
+        rectangle:{ shapeOptions:{ color:'#22c55e', weight:2 } },
+        polyline:false, circle:false, circlemarker:false, marker:false
+      },
+      edit:{ featureGroup: drawnItems, remove:true }
+    }));
+
+    // UI refs
+    const areaVal   = document.getElementById('areaVal');
+    const areaInput = document.getElementById('areaInput');
+    const saveBtn   = document.getElementById('saveBtn');
+    const saveMsg   = document.getElementById('saveMsg');
+    const viewBtn   = document.getElementById('openOverlayBtn');
+    if (viewBtn) {
+      viewBtn.onclick = onViewRiskClick;
+    }
+
+    // State (declare ONCE)
+    let LAST = null;
+    let LAST_FIELD_ID = null;
+    let LAST_JOB_ID = null;
+
+    function updateAreaDisplay(geojson){
+      if(!geojson){ areaVal.textContent='0.00 hectares'; areaInput.value='0.00 hectares'; return; }
+      let ha = 0;
+      try{
+        if(['Polygon','MultiPolygon'].includes(geojson.geometry.type)){
+          ha = turf.area(geojson)/10000.0;
+        }
+      }catch(_){}
+      const txt = `${ha.toFixed(2)} hectares`;
+      areaVal.textContent = txt;
+      areaInput.value = txt;
+    }
+
+    map.on(L.Draw.Event.CREATED, (e)=>{
+      drawnItems.clearLayers();
+      drawnItems.addLayer(e.layer);
+      LAST = e.layer.toGeoJSON();
+      updateAreaDisplay(LAST);
+    });
+    map.on(L.Draw.Event.EDITED, (e)=>{
+      const layers = e.layers.getLayers();
+      if(layers.length){ LAST = layers[0].toGeoJSON(); updateAreaDisplay(LAST); }
+    });
+    map.on(L.Draw.Event.DELETED, ()=>{
+      LAST = null; updateAreaDisplay(null);
+    });
+
+    document.getElementById('locBtn').onclick = ()=>{
+      if(!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(pos=>{
+        map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+      });
+    };
+
+    async function postJSON(url, body){
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrftoken },
+        body: JSON.stringify(body)
+      });
+      if(!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    // Save → aoi_upload (store file) + /api/fields/ (start analysis job)
+    saveBtn.onclick = async ()=>{
+      if(!LAST){ saveMsg.textContent = "⚠️ Draw a polygon or rectangle first."; return; }
+      saveBtn.disabled = true; saveMsg.textContent = "Saving...";
+      try{
+        const aux = await postJSON("{% url 'aoi_upload' %}", { feature: LAST });
+        const payload = { name: `Field ${new Date().toISOString().slice(0,19).replace('T',' ')}`, geom: LAST.geometry };
+        const api = await postJSON("/api/fields/", payload);
+        LAST_FIELD_ID = api.field_id; LAST_JOB_ID = api.job_id;
+        saveMsg.textContent = `✅ Saved. Server area: ${ (aux.area_ha ?? 0).toFixed(2) } ha — Analysis started (job ${LAST_JOB_ID})`;
+      }catch(e){
+        saveMsg.textContent = "❌ Save failed: " + e.message;
+      }finally{
+        saveBtn.disabled = false;
+      }
+    };
+
+    // View overlay when ready
+    async function onViewRiskClick(e){
+      e.preventDefault();
+      if(!LAST_FIELD_ID){ 
+        saveMsg.textContent = "ℹ️ Save first to start analysis."; 
+        return; 
+      }
+      try{
+        const res  = await fetch(`/api/fields/${LAST_FIELD_ID}/latest_job/`, {cache:'no-store'});
+        if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const data = await res.json();
+
+        if (data.status === "ready" && data.overlay_html) {
+          window.location = data.overlay_html;  // opens Folium HTML you saved
+        } else if (data.status === "failed") {
+          saveMsg.textContent = "❌ " + (data.message || "Analysis failed");
+        } else {
+          saveMsg.textContent = "⏳ Analysis running… try again shortly.";
+        }
+      }catch(e){
+        saveMsg.textContent = "❌ Could not fetch job status: " + e.message;
+      }
+    }
+  </script>
+</body>
+</html>

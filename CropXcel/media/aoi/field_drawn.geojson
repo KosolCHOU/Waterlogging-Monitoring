@@ -1,0 +1,42 @@
+{
+  "type": "Feature",
+  "properties": {
+    "style": {
+      "stroke": true,
+      "color": "#ff7800",
+      "weight": 2,
+      "opacity": 1,
+      "fill": true,
+      "fillColor": null,
+      "fillOpacity": 0.2,
+      "clickable": true
+    }
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          105.408199,
+          11.45352
+        ],
+        [
+          105.418409,
+          11.448515
+        ],
+        [
+          105.410559,
+          11.443089
+        ],
+        [
+          105.40644,
+          11.445613
+        ],
+        [
+          105.408199,
+          11.45352
+        ]
+      ]
+    ]
+  }
+}

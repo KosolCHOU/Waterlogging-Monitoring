@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_92d25a68bf38605b0f6e4c6ab65240ad {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_92d25a68bf38605b0f6e4c6ab65240ad" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_92d25a68bf38605b0f6e4c6ab65240ad = L.map(
+                "map_92d25a68bf38605b0f6e4c6ab65240ad",
+                {
+                    center: [11.452297, 105.416128],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 16,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+            L.control.scale().addTo(map_92d25a68bf38605b0f6e4c6ab65240ad);
+
+            
+
+        
+    
+            var tile_layer_a1b6cbe4e5c31f21a88b80314ed32c6e = L.tileLayer(
+                "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                {
+  "minZoom": 0,
+  "maxZoom": 18,
+  "maxNativeZoom": 18,
+  "noWrap": false,
+  "attribution": "Tiles \u0026copy; Esri \u0026mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_a1b6cbe4e5c31f21a88b80314ed32c6e.addTo(map_92d25a68bf38605b0f6e4c6ab65240ad);
+        
+    
+            var tile_layer_70579b0f21824e144ff59dcf99b81def = L.tileLayer(
+                "https://earthengine.googleapis.com/map/projects/angelic-edition-466705-r8/maps/5f0d1a7c82b67b86ef331c1477ef11f5-22ab9dc5fe4fd8c14c2fc46ab788a78d/{z}/{x}/{y}?token=",
+                {
+  "minZoom": 0,
+  "maxZoom": 18,
+  "maxNativeZoom": 18,
+  "noWrap": false,
+  "attribution": "Earth Engine",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 0.9,
+}
+
+            );
+        
+    
+            tile_layer_70579b0f21824e144ff59dcf99b81def.addTo(map_92d25a68bf38605b0f6e4c6ab65240ad);
+        
+    
+            var circle_marker_411b5df6564e5f8435c97465e8ad0504 = L.circleMarker(
+                [11.451902905012485, 105.41482822439453],
+                {"bubblingMouseEvents": true, "color": "#ff00ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff00ff", "fillOpacity": 1, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 6, "stroke": true, "weight": 2}
+            ).addTo(map_92d25a68bf38605b0f6e4c6ab65240ad);
+        
+    
+        var popup_e0d440694e2b62a4bef98f33a2d127f1 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_b7d5ce1030fe836d9c20506f3072548a = $(`<div id="html_b7d5ce1030fe836d9c20506f3072548a" style="width: 100.0%; height: 100.0%;"><b>Hotspot</b><br>Risk: 73.8%</div>`)[0];
+                popup_e0d440694e2b62a4bef98f33a2d127f1.setContent(html_b7d5ce1030fe836d9c20506f3072548a);
+            
+        
+
+        circle_marker_411b5df6564e5f8435c97465e8ad0504.bindPopup(popup_e0d440694e2b62a4bef98f33a2d127f1)
+        ;
+
+        
+    
+    
+            var layer_control_6d31b8b6f044e58bfb85cceb9b8b63fc_layers = {
+                base_layers : {
+                    "Basemap" : tile_layer_a1b6cbe4e5c31f21a88b80314ed32c6e,
+                },
+                overlays :  {
+                    "Waterlogging risk" : tile_layer_70579b0f21824e144ff59dcf99b81def,
+                },
+            };
+            let layer_control_6d31b8b6f044e58bfb85cceb9b8b63fc = L.control.layers(
+                layer_control_6d31b8b6f044e58bfb85cceb9b8b63fc_layers.base_layers,
+                layer_control_6d31b8b6f044e58bfb85cceb9b8b63fc_layers.overlays,
+                {
+  "position": "topright",
+  "collapsed": false,
+  "autoZIndex": true,
+}
+            ).addTo(map_92d25a68bf38605b0f6e4c6ab65240ad);
+
+        
+    
+            map_92d25a68bf38605b0f6e4c6ab65240ad.fitBounds(
+                [[11.451671, 105.41468], [11.452923, 105.417576]],
+                {}
+            );
+        
+</script>
+</html>

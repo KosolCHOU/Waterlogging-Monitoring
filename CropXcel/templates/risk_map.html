@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>CropXcel – Waterlogging Risk</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body{margin:0;font-family:system-ui,Arial,sans-serif}
+    #map{height:100vh}
+    .toolbar{
+      position:absolute; left:12px; top:12px; z-index:1000;
+      background:#fff; padding:10px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.12);
+      display:flex; flex-direction:column; gap:8px; width:220px
+    }
+    .toolbar label{font-size:12px;color:#475569}
+    .badge{position:absolute; right:12px; top:12px; z-index:1000; background:#fff; padding:8px 10px;
+      border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); font-size:12px;}
+    .bar-wrap{width:100%; height:8px; background:#e2e8f0; border-radius:6px; overflow:hidden}
+    .bar{height:8px; background:#f59e0b; width:0%}
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Controls -->
+  <div class="toolbar">
+    <div>
+      <label>Resolution</label>
+      <select id="resSel">
+        <option value="native">Fine (native)</option>
+        <option value="50">Medium (~50 m)</option>
+        <option value="100">Coarse (~100 m)</option>
+      </select>
+    </div>
+    <div>
+      <label>Overlay opacity</label>
+      <input id="op" type="range" min="0" max="1" step="0.05" value="0.75">
+    </div>
+  </div>
+  <div class="badge">
+    Click the map to sample risk
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const BOUNDS = {{ bounds|safe }};
+    const TILE_URL = "{{ tile_url|default:'' }}";
+    const OVERLAY_URL = "{{ overlay_png|default:'' }}";  // may be EE PNG or saved HTML
+    const HOTSPOTS = "{{ hotspots_url|default:'' }}";
+
+    const map = L.map('map');
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles © Esri'
+    }).addTo(map);
+    map.fitBounds(BOUNDS);
+
+    // Prefer EE tile, else use PNG overlay
+    let overlay;
+    if (TILE_URL) {
+        overlay = L.tileLayer(TILE_URL, { opacity: 0.75 }).addTo(map);
+    } else if (OVERLAY_URL && OVERLAY_URL.endsWith('.png')) {
+        overlay = L.imageOverlay(OVERLAY_URL, BOUNDS, { opacity: 0.75 }).addTo(map);
+    } else if (OVERLAY_URL && OVERLAY_URL.endsWith('.html')) {
+        // optional: show a control button to open the saved folium map in new tab
+        const ctrl = L.control({position:'topright'});
+        ctrl.onAdd = function() {
+        const div = L.DomUtil.create('div','leaflet-control');
+        div.innerHTML = `<a href="${OVERLAY_URL}" target="_blank" style="background:#fff;padding:6px 10px;border-radius:8px;display:inline-block;box-shadow:0 2px 6px rgba(0,0,0,.15);text-decoration:none;">Open saved map</a>`;
+        return div;
+        };
+        ctrl.addTo(map);
+    }
+
+    // Hotspots
+    if (HOTSPOTS) {
+        fetch(HOTSPOTS)
+        .then(r=>r.json())
+        .then(gj=>{
+            L.geoJSON(gj, {
+            pointToLayer: (f, latlng)=> L.circleMarker(latlng, {
+                radius:6, weight:2, color:'#ff00ff', fillOpacity:1
+            }).bindPopup(`<b>Hotspot</b><br>Risk: ${(100*(f.properties?.risk||0)).toFixed(1)}%`)
+            }).addTo(map);
+        });
+    }
+
+    // UI hooks
+    const op = document.getElementById('op');
+    op.oninput = (e)=> overlay.setOpacity(parseFloat(e.target.value));
+
+    const resSel = document.getElementById('resSel');
+    resSel.onchange = ()=>{
+      const v = resSel.value;
+      map.removeLayer(overlay);
+      overlay = L.tileLayer(v==='native' ? TILE_NATIVE : (v==='50'?TILE_50:TILE_100), {opacity:parseFloat(op.value)}).addTo(map);
+    };
+
+    // Hotspots layer (if available)
+    if (HOTSPOTS) {
+        fetch(HOTSPOTS, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(gj => {
+            L.geoJSON(gj, {
+            pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+                radius: 6, weight: 2, color: '#ff00ff', fillOpacity: 1
+            }).bindPopup(`<b>Hotspot</b><br>Risk: ${(100*(f.properties?.risk||0)).toFixed(1)}%`)
+            }).addTo(map);
+        }).catch(()=>{});
+    }
+
+    // Opacity slider works only when overlay exists and is a Leaflet layer that supports setOpacity
+    const op = document.getElementById('op');
+    op.oninput = (e) => {
+        const v = parseFloat(e.target.value);
+        if (overlay && overlay.setOpacity) overlay.setOpacity(v);
+    };
+
+    // Resolution selector (no multi-resolution tiles configured; keep no-op or swap different TILE_URLs if you compute them)
+    const resSel = document.getElementById('resSel');
+    resSel.onchange = () => { /* no-op unless you add more tile URLs */ };
+    
+    // Click to probe value via API
+    map.on('click', async (e)=>{
+      try{
+        const r = await fetch(`/api/fields/{{ field.id }}/probe/?lat=${e.latlng.lat}&lon=${e.latlng.lng}`, {cache:'no-store'});
+        if(!r.ok){ throw new Error(await r.text()); }
+        const j = await r.json();
+        const pct = (100 * (j.value ?? 0)).toFixed(1);
+        const why = j.contrib || {};
+        const sv = Math.round(100*(why.signal_var || 0));
+        const vh = Math.round(100*(why.vh_vv || 0));
+        const rd = Math.round(100*(why.radar_drop || 0));
+        L.popup()
+          .setLatLng(e.latlng)
+          .setContent(`
+            <div style="min-width:260px">
+              <div style="font-weight:600;margin-bottom:6px">Waterlogging risk: ${pct}%</div>
+              <div style="font-size:12px;color:#64748b;margin-bottom:8px">
+                Area clicked: field pixel
+              </div>
+              <div style="font-size:12px">
+                <div style="margin:6px 0">Why risky?</div>
+                <div>Signal variability (${sv}%)</div>
+                <div>VH/VV ratio change (${vh}%)</div>
+                <div>Radar drop (water) (${rd}%)</div>
+              </div>
+            </div>
+          `)
+          .openOn(map);
+      }catch(err){
+        L.popup().setLatLng(e.latlng).setContent("Risk value unavailable").openOn(map);
+      }
+    });
+  </script>
+</body>
+</html>
