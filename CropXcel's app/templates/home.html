@@ -173,16 +173,43 @@
       return res.json();
     }
 
-    // Save → aoi_upload (store file) + /api/fields/ (start analysis job)
+    // Start disabled until we have a field_id
+    viewBtn.style.pointerEvents = 'none';
+    viewBtn.style.opacity = '0.6';
+    viewBtn.href = '#';
+
+    function enableViewBtn(fieldId){
+      LAST_FIELD_ID = fieldId;
+      viewBtn.href = `/fields/${fieldId}/risk/`;
+      viewBtn.style.display = 'block';
+      viewBtn.style.pointerEvents = 'auto';
+      viewBtn.style.opacity = '1';
+    }
+
+    // Save → aoi_upload + /api/fields/
     saveBtn.onclick = async ()=>{
       if(!LAST){ saveMsg.textContent = "⚠️ Draw a polygon or rectangle first."; return; }
       saveBtn.disabled = true; saveMsg.textContent = "Saving...";
       try{
         const aux = await postJSON("{% url 'aoi_upload' %}", { feature: LAST });
-        const payload = { name: `Field ${new Date().toISOString().slice(0,19).replace('T',' ')}`, geom: LAST.geometry };
+
+        const payload = { 
+          name: `Field ${new Date().toISOString().slice(0,19).replace('T',' ')}`, 
+          geom: LAST.geometry 
+        };
         const api = await postJSON("/api/fields/", payload);
-        LAST_FIELD_ID = api.field_id; LAST_JOB_ID = api.job_id;
-        saveMsg.textContent = `✅ Saved. Server area: ${ (aux.area_ha ?? 0).toFixed(2) } ha — Analysis started (job ${LAST_JOB_ID})`;
+
+        // Be tolerant to either shape:
+        // {field_id, job_id}  OR  {id, job:{id:..}}  etc.
+        const fieldId = api.field_id ?? api.id ?? api?.field?.id;
+        const jobId   = api.job_id   ?? api.job?.id   ?? null;
+
+        if(!fieldId) throw new Error("No field_id returned from /api/fields/");
+
+        enableViewBtn(fieldId);
+        LAST_JOB_ID = jobId;
+
+        saveMsg.textContent = `✅ Saved. Server area: ${(aux.area_ha ?? 0).toFixed(2)} ha — Analysis started${jobId?` (job ${jobId})`:''}`;
       }catch(e){
         saveMsg.textContent = "❌ Save failed: " + e.message;
       }finally{
@@ -190,29 +217,27 @@
       }
     };
 
-    // View overlay when ready
+    // On click, only block navigation if job still running
     async function onViewRiskClick(e){
-      e.preventDefault();
       if(!LAST_FIELD_ID){ 
-        saveMsg.textContent = "ℹ️ Save first to start analysis."; 
-        return; 
+        e.preventDefault();
+        saveMsg.textContent = "ℹ️ Save first to start analysis.";
+        return;
       }
       try{
-        const res  = await fetch(`/api/fields/${LAST_FIELD_ID}/latest_job/`, {cache:'no-store'});
-        if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-        const data = await res.json();
-
-        if (data.status === "ready" && data.overlay_html) {
-          window.location = data.overlay_html;  // opens Folium HTML you saved
-        } else if (data.status === "failed") {
-          saveMsg.textContent = "❌ " + (data.message || "Analysis failed");
-        } else {
-          saveMsg.textContent = "⏳ Analysis running… try again shortly.";
+        const r = await fetch(`/api/fields/${LAST_FIELD_ID}/latest_job/?_=${Date.now()}`, {cache:'no-store'});
+        const j = await r.json();
+        if (j.status === "done" || j.status === "ready") {
+          // allow normal navigation to /fields/<id>/risk/
+          return;
         }
-      }catch(e){
-        saveMsg.textContent = "❌ Could not fetch job status: " + e.message;
+        e.preventDefault();
+        saveMsg.textContent = "⏳ Analysis running… try again in a moment.";
+      }catch{
+        // let it navigate; risk page can show 'please wait'
       }
     }
+    viewBtn.onclick = onViewRiskClick;
   </script>
 </body>
 </html>

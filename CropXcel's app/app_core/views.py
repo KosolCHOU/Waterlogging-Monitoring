@@ -107,18 +107,41 @@ class FieldViewSet(viewsets.ModelViewSet):
     queryset = FieldAOI.objects.all().order_by("-id")
     serializer_class = FieldSerializer
 
+    @action(detail=True, methods=["get"])
+    def latest_job(self, request, pk=None):
+        job = AnalysisJob.objects.filter(field_id=pk).order_by("-created_at").first()
+        from .serializers import JobSerializer
+        return Response(JobSerializer(job).data if job else {}, status=200)
+
     def create(self, request, *args, **kwargs):
         ser = self.get_serializer(data=request.data)
         ser.is_valid(raise_exception=True)
         field = ser.save()
-        job = AnalysisJob.objects.create(field=field, status="queued")
-        run_waterlogging_analysis.delay(job.id)
-        return Response({"field_id": field.id, "job_id": job.id}, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["get"])
-    def latest_job(self, request, pk=None):
-        job = AnalysisJob.objects.filter(field_id=pk).order_by("-created_at").first()
-        return Response(JobSerializer(job).data if job else {}, status=200)
+        # DEV: run sync so we get a result immediately
+        from .models import AnalysisJob
+        from analysis.run_analysis_from_notebook import run_analysis_from_notebook
+
+        job = AnalysisJob.objects.create(field=field, status="running", message="Sync analysis…")
+        try:
+            result = run_analysis_from_notebook(aoi_geojson=field.geom)
+            # compute bounds like your task does
+            gj = field.geom
+            coords = gj["coordinates"][0] if gj["type"] == "Polygon" else gj["coordinates"][0][0]
+            lats = [pt[1] for pt in coords]; lons = [pt[0] for pt in coords]
+            bounds = [[min(lats), min(lons)], [max(lats), max(lons)]]
+            result["bounds"] = bounds
+
+            job.result = result
+            job.status = "ready"
+            job.message = "Finished (sync)"
+            job.save()
+        except Exception as e:
+            job.status = "failed"
+            job.message = str(e)
+            job.save()
+
+        return Response({"field_id": field.id, "job_id": job.id}, status=status.HTTP_201_CREATED)
     
 def _bounds_from_geom(geom):
     # Works for Polygon or MultiPolygon GeoJSON
@@ -143,25 +166,39 @@ def risk_map(request, pk):
     field = get_object_or_404(FieldAOI, pk=pk)
     job = AnalysisJob.objects.filter(field=field).order_by('-created_at').first()
 
-    if not job or job.status not in ("ready", "done") or not job.result:
+    # If no job or still running → wait page
+    if not job or job.status in ("queued", "running"):
         return render(request, "risk_wait.html", {"field": field, "job": job})
 
-    # Prefer bounds from result; fallback to AOI bbox
-    bounds = (job.result.get("bounds") if isinstance(job.result, dict) else None) or _bounds_from_geom(field.geom)
+    # Be robust: result might be a JSON string or None
+    res = job.result or {}
+    if isinstance(res, str):
+        try:
+            import json
+            res = json.loads(res)
+        except Exception:
+            res = {}
 
-    # Choose ONE source of overlay for the template:
-    tile_url = job.result.get("tile_url", "")  # EE tiles (recommended)
-    # If you want to expose the saved HTML (optional):
-    overlay_html_rel = job.overlay_html or ""  # e.g. "overlays/field_35_....html"
-    overlay_html_url = f"{settings.MEDIA_URL}{overlay_html_rel}" if overlay_html_rel else ""
+    # Bounds: from result if present, else from AOI
+    bounds = res.get("bounds") or _bounds_from_geom(field.geom)
 
-    # Optional PNG overlay from EE (if you added overlay_png_url in analysis):
-    overlay_png_url = job.result.get("overlay_png_url", "")
+    # Sources for overlay/hotspots
+    tile_url = res.get("tile_url", "")
+    overlay_png_url = res.get("overlay_png_url", "")
+    hotspots_url = ""
+    if job.hotspots_geojson:
+        hotspots_url = job.hotspots_geojson.url
+    else:
+        hotspots_url = res.get("hotspots_url", "")
+
+    # If we truly have nothing to render (no tile, no png, no hotspots), keep waiting
+    if not tile_url and not overlay_png_url and not hotspots_url:
+        return render(request, "risk_wait.html", {"field": field, "job": job})
 
     return render(request, "risk_map.html", {
         "field": field,
         "bounds": bounds,
-        "tile_url": tile_url,                         # used by Leaflet tile layer
-        "overlay_png": overlay_png_url or overlay_html_url,  # fallback to saved HTML if no PNG
-        "hotspots_url": job.result.get("hotspots_url", ""),
+        "tile_url": tile_url,
+        "overlay_png": overlay_png_url,
+        "hotspots_url": hotspots_url,
     })

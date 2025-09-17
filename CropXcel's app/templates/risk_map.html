@@ -46,99 +46,157 @@
   <script>
     const BOUNDS = {{ bounds|safe }};
     const TILE_URL = "{{ tile_url|default:'' }}";
-    const OVERLAY_URL = "{{ overlay_png|default:'' }}";  // may be EE PNG or saved HTML
+    const OVERLAY_URL = "{{ overlay_png|default:'' }}";  // .png or .html or empty
     const HOTSPOTS = "{{ hotspots_url|default:'' }}";
 
     const map = L.map('map');
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles © Esri'
-    }).addTo(map);
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Tiles © Esri' }
+    ).addTo(map);
     map.fitBounds(BOUNDS);
 
-    // Prefer EE tile, else use PNG overlay
-    let overlay;
-    if (TILE_URL) {
-        overlay = L.tileLayer(TILE_URL, { opacity: 0.75 }).addTo(map);
-    } else if (OVERLAY_URL && OVERLAY_URL.endsWith('.png')) {
-        overlay = L.imageOverlay(OVERLAY_URL, BOUNDS, { opacity: 0.75 }).addTo(map);
-    } else if (OVERLAY_URL && OVERLAY_URL.endsWith('.html')) {
-        // optional: show a control button to open the saved folium map in new tab
-        const ctrl = L.control({position:'topright'});
+    // Put overlays on their own pane so they sit above base tiles.
+    map.createPane('overlayPane');
+    map.getPane('overlayPane').style.zIndex = 450;
+
+    let overlay = null;
+
+    function addOverlay() {
+      // Prefer EE tile, else PNG overlay, else HTML button
+      if (TILE_URL) {
+        overlay = L.tileLayer(TILE_URL, { opacity: 0.75, pane: 'overlayPane' }).addTo(map);
+        return 'tile';
+      }
+      if (OVERLAY_URL && OVERLAY_URL.endsWith('.png')) {
+        overlay = L.imageOverlay(OVERLAY_URL, BOUNDS, { opacity: 0.75, pane: 'overlayPane' }).addTo(map);
+        return 'png';
+      }
+      if (OVERLAY_URL && OVERLAY_URL.endsWith('.html')) {
+        const ctrl = L.control({ position: 'topright' });
         ctrl.onAdd = function() {
-        const div = L.DomUtil.create('div','leaflet-control');
-        div.innerHTML = `<a href="${OVERLAY_URL}" target="_blank" style="background:#fff;padding:6px 10px;border-radius:8px;display:inline-block;box-shadow:0 2px 6px rgba(0,0,0,.15);text-decoration:none;">Open saved map</a>`;
-        return div;
+          const div = L.DomUtil.create('div', 'leaflet-control');
+          div.innerHTML = `<a href="${OVERLAY_URL}" target="_blank"
+            style="background:#fff;padding:6px 10px;border-radius:8px;display:inline-block;
+                  box-shadow:0 2px 6px rgba(0,0,0,.15);text-decoration:none;">
+            Open saved map</a>`;
+          return div;
         };
         ctrl.addTo(map);
+        return 'html';
+      }
+      return 'none';
     }
 
-    // Hotspots
+    const overlayType = addOverlay();
+
+    // ---- Hotspots (fetch once) ----
     if (HOTSPOTS) {
-        fetch(HOTSPOTS)
-        .then(r=>r.json())
-        .then(gj=>{
-            L.geoJSON(gj, {
-            pointToLayer: (f, latlng)=> L.circleMarker(latlng, {
-                radius:6, weight:2, color:'#ff00ff', fillOpacity:1
-            }).bindPopup(`<b>Hotspot</b><br>Risk: ${(100*(f.properties?.risk||0)).toFixed(1)}%`)
-            }).addTo(map);
+      fetch(HOTSPOTS, { cache: 'no-store' })
+        .then(r => {
+          if (!r.ok) throw new Error(`Failed to load ${HOTSPOTS}`);
+          return r.json();
+        })
+        .then(gj => {
+          // Expect FeatureCollection of Points with properties.risk in [0..1] or [0..100]
+          const normRisk = (v) => (v > 1 ? v / 100 : v); // normalize if percent
+          const colorFor = (risk) => {
+            // green → yellow → red
+            if (risk >= 0.66) return '#dc2626';
+            if (risk >= 0.33) return '#f59e0b';
+            return '#16a34a';
+          };
+        
+          const layer = L.geoJSON(gj, {
+            pointToLayer: (f, latlng) => {
+              const r = normRisk(f.properties?.risk ?? 0);
+              return L.circleMarker(latlng, {
+                radius: 6 + Math.round(6 * r),   // size encodes risk
+                weight: 2,
+                color: colorFor(r),
+                fillOpacity: 1
+              });
+            },
+            onEachFeature: (f, lyr) => {
+              const r0 = f.properties?.risk ?? 0;
+              const r = normRisk(r0);
+              const pct = (100 * r).toFixed(1);
+            
+              lyr.bindPopup(
+                `<b>Hotspot</b><br>Risk: ${pct}%` +
+                (f.properties?.note ? `<br>${f.properties.note}` : ``)
+              );
+            
+              // Hover highlight
+              lyr.on('mouseover', () => {
+                lyr.setStyle({ weight: 3 });
+              });
+              lyr.on('mouseout', () => {
+                lyr.setStyle({ weight: 2 });
+              });
+            }
+          }).addTo(map);
+        })
+        .catch(err => {
+          console.warn("Hotspots not loaded:", err);
         });
     }
 
-    // UI hooks
+    // ----- UI: Opacity -----
     const op = document.getElementById('op');
-    op.oninput = (e)=> overlay.setOpacity(parseFloat(e.target.value));
+    function setOverlayOpacity(value) {
+      if (overlay && overlay.setOpacity) overlay.setOpacity(value);
+    }
+    op.addEventListener('input', (e) => setOverlayOpacity(parseFloat(e.target.value)));
 
-    const resSel = document.getElementById('resSel');
-    resSel.onchange = ()=>{
-      const v = resSel.value;
-      map.removeLayer(overlay);
-      overlay = L.tileLayer(v==='native' ? TILE_NATIVE : (v==='50'?TILE_50:TILE_100), {opacity:parseFloat(op.value)}).addTo(map);
-    };
-
-    // Hotspots layer (if available)
-    if (HOTSPOTS) {
-        fetch(HOTSPOTS, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(gj => {
-            L.geoJSON(gj, {
-            pointToLayer: (f, latlng) => L.circleMarker(latlng, {
-                radius: 6, weight: 2, color: '#ff00ff', fillOpacity: 1
-            }).bindPopup(`<b>Hotspot</b><br>Risk: ${(100*(f.properties?.risk||0)).toFixed(1)}%`)
-            }).addTo(map);
-        }).catch(()=>{});
+    // Disable opacity slider if there is no Leaflet overlay (HTML-only or none).
+    if (!overlay || !(overlay.setOpacity)) {
+      op.disabled = true;
     }
 
-    // Opacity slider works only when overlay exists and is a Leaflet layer that supports setOpacity
-    const op = document.getElementById('op');
-    op.oninput = (e) => {
-        const v = parseFloat(e.target.value);
-        if (overlay && overlay.setOpacity) overlay.setOpacity(v);
+    // ----- UI: Resolution (placeholder) -----
+    // If you later compute multiple tile URLs (native / 50m /100m), define them here:
+    const TILE_URLS = {
+      native: TILE_URL, // or another URL for native res
+      '50': null,       // fill with actual 50m URL when ready
+      '100': null       // fill with actual 100m URL when ready
     };
 
-    // Resolution selector (no multi-resolution tiles configured; keep no-op or swap different TILE_URLs if you compute them)
     const resSel = document.getElementById('resSel');
-    resSel.onchange = () => { /* no-op unless you add more tile URLs */ };
-    
-    // Click to probe value via API
-    map.on('click', async (e)=>{
-      try{
-        const r = await fetch(`/api/fields/{{ field.id }}/probe/?lat=${e.latlng.lat}&lon=${e.latlng.lng}`, {cache:'no-store'});
-        if(!r.ok){ throw new Error(await r.text()); }
+    resSel.addEventListener('change', () => {
+      const key = resSel.value;
+      const url = TILE_URLS[key];
+
+      // Only act when you have URLs for different resolutions.
+      if (!url) {
+        // No-op for now; avoid breaking by referencing undefined variables.
+        return;
+      }
+      if (overlay) {
+        try { map.removeLayer(overlay); } catch {}
+      }
+      overlay = L.tileLayer(url, { opacity: parseFloat(op.value), pane: 'overlayPane' }).addTo(map);
+    });
+
+    // ----- Click to probe -----
+    map.on('click', async (e) => {
+      try {
+        const r = await fetch(`/api/fields/{{ field.id }}/probe/?lat=${e.latlng.lat}&lon=${e.latlng.lng}`, { cache: 'no-store' });
+        if (!r.ok) throw new Error(await r.text());
         const j = await r.json();
+
         const pct = (100 * (j.value ?? 0)).toFixed(1);
         const why = j.contrib || {};
-        const sv = Math.round(100*(why.signal_var || 0));
-        const vh = Math.round(100*(why.vh_vv || 0));
-        const rd = Math.round(100*(why.radar_drop || 0));
+        const sv = Math.round(100 * (why.signal_var || 0));
+        const vh = Math.round(100 * (why.vh_vv || 0));
+        const rd = Math.round(100 * (why.radar_drop || 0));
+
         L.popup()
           .setLatLng(e.latlng)
           .setContent(`
             <div style="min-width:260px">
               <div style="font-weight:600;margin-bottom:6px">Waterlogging risk: ${pct}%</div>
-              <div style="font-size:12px;color:#64748b;margin-bottom:8px">
-                Area clicked: field pixel
-              </div>
+              <div style="font-size:12px;color:#64748b;margin-bottom:8px">Area clicked: field pixel</div>
               <div style="font-size:12px">
                 <div style="margin:6px 0">Why risky?</div>
                 <div>Signal variability (${sv}%)</div>
@@ -148,7 +206,7 @@
             </div>
           `)
           .openOn(map);
-      }catch(err){
+      } catch {
         L.popup().setLatLng(e.latlng).setContent("Risk value unavailable").openOn(map);
       }
     });
