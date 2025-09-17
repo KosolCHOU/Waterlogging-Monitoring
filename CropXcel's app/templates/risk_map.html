@@ -1,3 +1,4 @@
+<!-- templates/risk_map.html -->
 <!doctype html>
 <html>
 <head>
@@ -8,45 +9,31 @@
   <style>
     body{margin:0;font-family:system-ui,Arial,sans-serif}
     #map{height:100vh}
-    .toolbar{
-      position:absolute; left:12px; top:12px; z-index:1000;
-      background:#fff; padding:10px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.12);
-      display:flex; flex-direction:column; gap:8px; width:220px
+    .badge{
+      position:absolute; right:12px; top:12px; z-index:1000; background:#fff; padding:8px 10px;
+      border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); font-size:12px;
     }
-    .toolbar label{font-size:12px;color:#475569}
-    .badge{position:absolute; right:12px; top:12px; z-index:1000; background:#fff; padding:8px 10px;
-      border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); font-size:12px;}
-    .bar-wrap{width:100%; height:8px; background:#e2e8f0; border-radius:6px; overflow:hidden}
-    .bar{height:8px; background:#f59e0b; width:0%}
+    .hoverpill{
+      position:absolute; left:12px; bottom:12px; z-index:1000;
+      background:#0f172a; color:#fff; padding:6px 10px; border-radius:999px; font-size:12px;
+      opacity:.92;
+    }
+    .riskbar{height:6px; background:#e2e8f0; border-radius:6px; overflow:hidden; margin-top:4px}
+    .riskbar > span{display:block; height:100%}
+    .risk-high{background:#e31a1c}.risk-caution{background:#f59e0b}.risk-low{background:#1f78b4}
   </style>
 </head>
 <body>
   <div id="map"></div>
-
-  <!-- Controls -->
-  <div class="toolbar">
-    <div>
-      <label>Resolution</label>
-      <select id="resSel">
-        <option value="native">Fine (native)</option>
-        <option value="50">Medium (~50 m)</option>
-        <option value="100">Coarse (~100 m)</option>
-      </select>
-    </div>
-    <div>
-      <label>Overlay opacity</label>
-      <input id="op" type="range" min="0" max="1" step="0.05" value="0.75">
-    </div>
-  </div>
-  <div class="badge">
-    Click the map to sample risk
-  </div>
+  <div class="badge">Hover map for risk · Click hotspots for details</div>
+  <div id="hoverpill" class="hoverpill" style="display:none">risk: …</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
+    const JOB_ID = {{ job_id }};
     const BOUNDS = {{ bounds|safe }};
-    const TILE_URL = "{{ tile_url|default:'' }}";
-    const OVERLAY_URL = "{{ overlay_png|default:'' }}";  // .png or .html or empty
+    const TILE_URL = "";  // force PNG route
+    const OVERLAY_URL = "{{ overlay_png|default:'' }}";
     const HOTSPOTS = "{{ hotspots_url|default:'' }}";
 
     const map = L.map('map');
@@ -61,154 +48,79 @@
     map.getPane('overlayPane').style.zIndex = 450;
 
     let overlay = null;
-
-    function addOverlay() {
-      // Prefer EE tile, else PNG overlay, else HTML button
-      if (TILE_URL) {
-        overlay = L.tileLayer(TILE_URL, { opacity: 0.75, pane: 'overlayPane' }).addTo(map);
-        return 'tile';
-      }
-      if (OVERLAY_URL && OVERLAY_URL.endsWith('.png')) {
-        overlay = L.imageOverlay(OVERLAY_URL, BOUNDS, { opacity: 0.75, pane: 'overlayPane' }).addTo(map);
-        return 'png';
-      }
-      if (OVERLAY_URL && OVERLAY_URL.endsWith('.html')) {
-        const ctrl = L.control({ position: 'topright' });
-        ctrl.onAdd = function() {
-          const div = L.DomUtil.create('div', 'leaflet-control');
-          div.innerHTML = `<a href="${OVERLAY_URL}" target="_blank"
-            style="background:#fff;padding:6px 10px;border-radius:8px;display:inline-block;
-                  box-shadow:0 2px 6px rgba(0,0,0,.15);text-decoration:none;">
-            Open saved map</a>`;
-          return div;
-        };
-        ctrl.addTo(map);
-        return 'html';
-      }
-      return 'none';
+    if (OVERLAY_URL && OVERLAY_URL.endsWith('.png')) {
+      overlay = L.imageOverlay(OVERLAY_URL, BOUNDS, { opacity: 0.75, pane: 'overlayPane' }).addTo(map);
     }
 
-    const overlayType = addOverlay();
+    // ---- Hotspots ----
+    function levelToColor(level){
+      if (level === "High") return "#e31a1c";
+      if (level === "Caution") return "#f59e0b";
+      return "#1f78b4";
+    }
+    function pct(x){ return Math.max(0, Math.min(100, Math.round(x*100))); }
 
-    // ---- Hotspots (fetch once) ----
     if (HOTSPOTS) {
       fetch(HOTSPOTS, { cache: 'no-store' })
-        .then(r => {
-          if (!r.ok) throw new Error(`Failed to load ${HOTSPOTS}`);
-          return r.json();
-        })
+        .then(r => r.json())
         .then(gj => {
-          // Expect FeatureCollection of Points with properties.risk in [0..1] or [0..100]
-          const normRisk = (v) => (v > 1 ? v / 100 : v); // normalize if percent
-          const colorFor = (risk) => {
-            // green → yellow → red
-            if (risk >= 0.66) return '#dc2626';
-            if (risk >= 0.33) return '#f59e0b';
-            return '#16a34a';
-          };
-        
-          const layer = L.geoJSON(gj, {
-            pointToLayer: (f, latlng) => {
-              const r = normRisk(f.properties?.risk ?? 0);
-              return L.circleMarker(latlng, {
-                radius: 6 + Math.round(6 * r),   // size encodes risk
-                weight: 2,
-                color: colorFor(r),
-                fillOpacity: 1
+          L.geoJSON(gj, {
+            pointToLayer: function(f, latlng){
+              const risk = Number(f.properties?.risk ?? 0);
+              const level = (f.properties?.level) || (risk>=0.7 ? "High" : (risk>=0.4 ? "Caution" : "Low"));
+              const color = levelToColor(level);
+              const m = L.circleMarker(latlng, {
+                radius: 6,
+                color: "#111", weight: 1, opacity: 0.9,
+                fillColor: color, fillOpacity: 0.9
               });
-            },
-            onEachFeature: (f, lyr) => {
-              const r0 = f.properties?.risk ?? 0;
-              const r = normRisk(r0);
-              const pct = (100 * r).toFixed(1);
-            
-              lyr.bindPopup(
-                `<b>Hotspot</b><br>Risk: ${pct}%` +
-                (f.properties?.note ? `<br>${f.properties.note}` : ``)
-              );
-            
-              // Hover highlight
-              lyr.on('mouseover', () => {
-                lyr.setStyle({ weight: 3 });
-              });
-              lyr.on('mouseout', () => {
-                lyr.setStyle({ weight: 2 });
-              });
+              // Hover tooltip (fast)
+              m.bindTooltip(`Risk: ${pct(risk)}% · ${level}`, {direction:"top", offset:[0,-6]});
+              // Click popup (details)
+              const why = (f.properties?.why) || [];
+              const html = `
+                <div style="min-width:220px">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div style="width:10px;height:10px;border-radius:50%;background:${color}"></div>
+                    <b>Hotspot</b>
+                  </div>
+                  <div class="riskbar"><span class="${level==='High'?'risk-high':level==='Caution'?'risk-caution':'risk-low'}" style="width:${pct(risk)}%"></span></div>
+                  <div style="margin-top:6px;font-size:12px;color:#334155">
+                    ${why.length ? ('Reasons: ' + why.join(', ')) : 'Potential waterlogging area.'}
+                  </div>
+                </div>`;
+              m.bindPopup(html);
+              return m;
             }
           }).addTo(map);
         })
-        .catch(err => {
-          console.warn("Hotspots not loaded:", err);
-        });
+        .catch(_ => {});
     }
 
-    // ----- UI: Opacity -----
-    const op = document.getElementById('op');
-    function setOverlayOpacity(value) {
-      if (overlay && overlay.setOpacity) overlay.setOpacity(value);
-    }
-    op.addEventListener('input', (e) => setOverlayOpacity(parseFloat(e.target.value)));
+    // ---- Hover probe (server-assisted; falls back silently) ----
+    const pill = document.getElementById("hoverpill");
+    let probeTimer = null;
+    function showPill(text){ pill.style.display='block'; pill.textContent = text; }
+    function hidePill(){ pill.style.display='none'; }
 
-    // Disable opacity slider if there is no Leaflet overlay (HTML-only or none).
-    if (!overlay || !(overlay.setOpacity)) {
-      op.disabled = true;
-    }
+    map.on("mousemove", (e) => {
+      // throttle
+      if (probeTimer) return;
+      probeTimer = setTimeout(() => { probeTimer = null; }, 180);
 
-    // ----- UI: Resolution (placeholder) -----
-    // If you later compute multiple tile URLs (native / 50m /100m), define them here:
-    const TILE_URLS = {
-      native: TILE_URL, // or another URL for native res
-      '50': null,       // fill with actual 50m URL when ready
-      '100': null       // fill with actual 100m URL when ready
-    };
-
-    const resSel = document.getElementById('resSel');
-    resSel.addEventListener('change', () => {
-      const key = resSel.value;
-      const url = TILE_URLS[key];
-
-      // Only act when you have URLs for different resolutions.
-      if (!url) {
-        // No-op for now; avoid breaking by referencing undefined variables.
-        return;
-      }
-      if (overlay) {
-        try { map.removeLayer(overlay); } catch {}
-      }
-      overlay = L.tileLayer(url, { opacity: parseFloat(op.value), pane: 'overlayPane' }).addTo(map);
-    });
-
-    // ----- Click to probe -----
-    map.on('click', async (e) => {
-      try {
-        const r = await fetch(`/api/fields/{{ field.id }}/probe/?lat=${e.latlng.lat}&lon=${e.latlng.lng}`, { cache: 'no-store' });
-        if (!r.ok) throw new Error(await r.text());
-        const j = await r.json();
-
-        const pct = (100 * (j.value ?? 0)).toFixed(1);
-        const why = j.contrib || {};
-        const sv = Math.round(100 * (why.signal_var || 0));
-        const vh = Math.round(100 * (why.vh_vv || 0));
-        const rd = Math.round(100 * (why.radar_drop || 0));
-
-        L.popup()
-          .setLatLng(e.latlng)
-          .setContent(`
-            <div style="min-width:260px">
-              <div style="font-weight:600;margin-bottom:6px">Waterlogging risk: ${pct}%</div>
-              <div style="font-size:12px;color:#64748b;margin-bottom:8px">Area clicked: field pixel</div>
-              <div style="font-size:12px">
-                <div style="margin:6px 0">Why risky?</div>
-                <div>Signal variability (${sv}%)</div>
-                <div>VH/VV ratio change (${vh}%)</div>
-                <div>Radar drop (water) (${rd}%)</div>
-              </div>
-            </div>
-          `)
-          .openOn(map);
-      } catch {
-        L.popup().setLatLng(e.latlng).setContent("Risk value unavailable").openOn(map);
-      }
+      const { lat, lng } = e.latlng;
+      fetch(`/probe/${JOB_ID}?lat=${lat}&lon=${lng}`)
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(d => {
+          if (d && typeof d.value === "number") {
+            const p = Math.round(d.value * 100);
+            const lvl = d.level || (d.value>=0.7 ? "High" : d.value>=0.4 ? "Caution" : "Low");
+            showPill(`risk: ${p}% · ${lvl}`);
+          } else {
+            hidePill();
+          }
+        })
+        .catch(_ => hidePill());
     });
   </script>
 </body>

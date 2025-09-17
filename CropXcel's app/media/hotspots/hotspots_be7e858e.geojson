@@ -1,0 +1,13 @@
+{
+"type": "FeatureCollection",
+"name": "hotspots_be7e858e",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "risk_pct": 62, "level": "Caution", "area_m2": 2200.0, "area_ha": 0.22, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.419183224210428, 11.450126379374446 ] } },
+{ "type": "Feature", "properties": { "risk_pct": 61, "level": "Caution", "area_m2": 4000.0, "area_ha": 0.4, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.414236907689983, 11.451789825941331 ] } },
+{ "type": "Feature", "properties": { "risk_pct": 59, "level": "Caution", "area_m2": 3100.0, "area_ha": 0.31, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.412960723712885, 11.449136993706256 ] } },
+{ "type": "Feature", "properties": { "risk_pct": 58, "level": "Caution", "area_m2": 2800.0, "area_ha": 0.28, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.414348998837838, 11.450742234522655 ] } },
+{ "type": "Feature", "properties": { "risk_pct": 58, "level": "Caution", "area_m2": 2800.0, "area_ha": 0.28, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.417116970431337, 11.453832473703603 ] } },
+{ "type": "Feature", "properties": { "risk_pct": 56, "level": "Caution", "area_m2": 1200.0, "area_ha": 0.12, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.417173341196758, 11.452081828221866 ] } }
+]
+}

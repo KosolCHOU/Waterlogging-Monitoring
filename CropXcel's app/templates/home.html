@@ -17,12 +17,10 @@
     .subtitle { color:var(--muted); margin:0 0 18px 0; }
     .grid { display:grid; grid-template-columns: 1.3fr 0.7fr; gap:18px; align-items:start; }
     .card { background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.06); }
-    .map-card { padding:16px; }
+    .map-card { padding:16px; position:relative; }
     .map-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
     .map-head .btn { background:var(--pill); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; }
     #map { height:58vh; border-radius:12px; }
-    .draw-palette { position:absolute; right:16px; top:90px; display:flex; flex-direction:column; gap:8px; }
-    .tool { background:#fff; border:1px solid #e5e7eb; padding:10px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.05); cursor:pointer; }
     .area-badge { position:absolute; left:16px; bottom:16px; background:#fff; border-radius:10px; padding:10px 12px; box-shadow:0 6px 18px rgba(0,0,0,.08); font-size:12px; }
     .area-badge .val { font-weight:700; font-size:14px; }
 
@@ -35,28 +33,27 @@
     .save { width:100%; padding:12px; background:var(--accent); border:none; color:#fff; border-radius:12px; font-weight:600; cursor:pointer; }
     .muted { color:var(--muted); font-size:12px; }
     .footer-tip { margin-top:12px; background:#eef6ff; border-radius:12px; padding:12px; font-size:12px; color:#334155; }
-    .stack { position:relative; }
+    .link-btn { display:block; text-align:center; margin-top:10px; background:#3b82f6; color:#fff; text-decoration:none; padding:12px; border-radius:12px; font-weight:600; }
+    .link-btn[disabled] { opacity:.6; pointer-events:none; }
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="crumbs">Dashboard / Field Management / <span style="color:#10b981">Cropland Recognition</span></div>
     <h1 class="title">Identify Your Cropland</h1>
-    <p class="subtitle">Use our map to draw your field. We’ll estimate its area in hectares.</p>
+    <p class="subtitle">Use the map to draw your field. We’ll estimate its area in hectares and start the analysis.</p>
 
     <div class="grid">
       <!-- Map -->
-      <div class="card map-card stack">
+      <div class="card map-card">
         <div class="map-head">
           <div style="font-weight:600;">Interactive Map</div>
           <div>
-            <button id="layersBtn" class="btn">Layers</button>
-            <button id="locBtn" class="btn">My Location</button>
+            <button id="layersBtn" class="btn" type="button">Layers</button>
+            <button id="locBtn" class="btn" type="button">My Location</button>
           </div>
         </div>
         <div id="map"></div>
-
-        <!-- simple tool hints (draw tools are in the map toolbar already) -->
         <div class="area-badge">Selected Area<br><span id="areaVal" class="val">0.00 hectares</span></div>
       </div>
 
@@ -68,21 +65,17 @@
             <div class="label">Estimated Area</div>
             <input id="areaInput" class="input" type="text" value="0.00 hectares" readonly>
           </div>
-          <button id="saveBtn" class="save">Save Field</button>
+          <button id="saveBtn" class="save" type="button">Save Field</button>
           <div id="saveMsg" class="muted" style="margin-top:8px;"></div>
 
-          <!-- New: Overlay results button -->
-          <a id="openOverlayBtn" 
-            href="#" 
-            class="hidden save" 
-            style="display:block; text-align:center; margin-top:10px; background:#3b82f6;">
-            View Risk Map
-          </a>
+          <!-- Link to overlay result -->
+          <a id="openOverlayBtn" href="#" class="link-btn" disabled>View Risk Map</a>
+
           <div class="footer-tip">
             <b>How to use</b><br>
             • Click <i>My Location</i> to center the map<br>
             • Use the polygon or rectangle tool to draw your field<br>
-            • Save to store your AOI
+            • Click <i>Save Field</i> to store your AOI and start the analysis
           </div>
         </div>
       </div>
@@ -94,15 +87,17 @@
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
   <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
   <script>
-    // CSRF
-    function getCookie(name){const v=`; ${document.cookie}`.split(`; ${name}=`);if(v.length===2)return v.pop().split(';').shift();}
+    // --- CSRF helper ---
+    function getCookie(name){
+      const v = `; ${document.cookie}`.split(`; ${name}=`); 
+      if (v.length === 2) return v.pop().split(';').shift();
+    }
     const csrftoken = getCookie('csrftoken');
 
-    // --- Map ---
+    // --- Map & layers ---
     const map = L.map('map').setView([11.45, 105.42], 15);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '© Esri'
-    }).addTo(map);
+    const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' }).addTo(map);
+    const osm  = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' });
 
     const drawnItems = new L.FeatureGroup().addTo(map);
     map.addControl(new L.Control.Draw({
@@ -114,34 +109,50 @@
       edit:{ featureGroup: drawnItems, remove:true }
     }));
 
+    // Toggle base layers (button opens built-in control)
+    const layerControl = L.control.layers({ "Esri World Imagery": esri, "OpenStreetMap": osm }, {}, { collapsed: true });
+    layerControl.addTo(map);
+    document.getElementById('layersBtn').onclick = () => {
+      // Simulate a click: Leaflet keeps it open; this focuses the control
+      const panes = document.getElementsByClassName('leaflet-control-layers');
+      if (panes[0]) panes[0].classList.remove('leaflet-control-layers-collapsed');
+    };
+
     // UI refs
     const areaVal   = document.getElementById('areaVal');
     const areaInput = document.getElementById('areaInput');
     const saveBtn   = document.getElementById('saveBtn');
     const saveMsg   = document.getElementById('saveMsg');
     const viewBtn   = document.getElementById('openOverlayBtn');
-    if (viewBtn) {
-      viewBtn.onclick = onViewRiskClick;
-    }
 
-    // State (declare ONCE)
-    let LAST = null;
-    let LAST_FIELD_ID = null;
-    let LAST_JOB_ID = null;
+    // State
+    let LAST = null;            // last drawn GeoJSON Feature
+    let LAST_FIELD_ID = null;   // server field id
+    let LAST_JOB_ID = null;     // server job id
 
-    function updateAreaDisplay(geojson){
-      if(!geojson){ areaVal.textContent='0.00 hectares'; areaInput.value='0.00 hectares'; return; }
-      let ha = 0;
+    // Helpers
+    function hectaresFromGeoJSON(gj){
+      if(!gj) return 0;
       try{
-        if(['Polygon','MultiPolygon'].includes(geojson.geometry.type)){
-          ha = turf.area(geojson)/10000.0;
+        if(['Polygon','MultiPolygon'].includes(gj.geometry?.type)) {
+          return turf.area(gj)/10000.0;
         }
       }catch(_){}
+      return 0;
+    }
+    function updateAreaDisplay(gj){
+      const ha = hectaresFromGeoJSON(gj);
       const txt = `${ha.toFixed(2)} hectares`;
       areaVal.textContent = txt;
       areaInput.value = txt;
     }
+    function enableViewBtn(fieldId){
+      LAST_FIELD_ID = fieldId;
+      viewBtn.removeAttribute('disabled');
+      viewBtn.href = `/fields/${fieldId}/risk/`;
+    }
 
+    // Draw events
     map.on(L.Draw.Event.CREATED, (e)=>{
       drawnItems.clearLayers();
       drawnItems.addLayer(e.layer);
@@ -154,8 +165,12 @@
     });
     map.on(L.Draw.Event.DELETED, ()=>{
       LAST = null; updateAreaDisplay(null);
+      viewBtn.setAttribute('disabled','');
+      viewBtn.href = '#';
+      saveMsg.textContent = '';
     });
 
+    // Geolocate
     document.getElementById('locBtn').onclick = ()=>{
       if(!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(pos=>{
@@ -173,43 +188,32 @@
       return res.json();
     }
 
-    // Start disabled until we have a field_id
-    viewBtn.style.pointerEvents = 'none';
-    viewBtn.style.opacity = '0.6';
-    viewBtn.href = '#';
-
-    function enableViewBtn(fieldId){
-      LAST_FIELD_ID = fieldId;
-      viewBtn.href = `/fields/${fieldId}/risk/`;
-      viewBtn.style.display = 'block';
-      viewBtn.style.pointerEvents = 'auto';
-      viewBtn.style.opacity = '1';
-    }
-
-    // Save → aoi_upload + /api/fields/
+    // Save AOI → /aoi_upload + /api/fields/
     saveBtn.onclick = async ()=>{
       if(!LAST){ saveMsg.textContent = "⚠️ Draw a polygon or rectangle first."; return; }
       saveBtn.disabled = true; saveMsg.textContent = "Saving...";
       try{
+        // 1) server-side AOI store + area check
         const aux = await postJSON("{% url 'aoi_upload' %}", { feature: LAST });
 
+        // 2) create Field via DRF (your FieldViewSet)
         const payload = { 
           name: `Field ${new Date().toISOString().slice(0,19).replace('T',' ')}`, 
-          geom: LAST.geometry 
+          geom: LAST.geometry
         };
         const api = await postJSON("/api/fields/", payload);
 
-        // Be tolerant to either shape:
-        // {field_id, job_id}  OR  {id, job:{id:..}}  etc.
+        // tolerate multiple shapes of response
         const fieldId = api.field_id ?? api.id ?? api?.field?.id;
+        await fetch(`/api/fields/${fieldId}/analyze/`, { method: "POST", headers: { "X-CSRFToken": csrftoken }});
         const jobId   = api.job_id   ?? api.job?.id   ?? null;
-
         if(!fieldId) throw new Error("No field_id returned from /api/fields/");
 
         enableViewBtn(fieldId);
         LAST_JOB_ID = jobId;
 
-        saveMsg.textContent = `✅ Saved. Server area: ${(aux.area_ha ?? 0).toFixed(2)} ha — Analysis started${jobId?` (job ${jobId})`:''}`;
+        const sHa = (aux.area_ha ?? hectaresFromGeoJSON(LAST)).toFixed(2);
+        saveMsg.textContent = `✅ Saved. Server area: ${sHa} ha — Analysis started${jobId?` (job ${jobId})`:''}`;
       }catch(e){
         saveMsg.textContent = "❌ Save failed: " + e.message;
       }finally{
@@ -217,27 +221,26 @@
       }
     };
 
-    // On click, only block navigation if job still running
-    async function onViewRiskClick(e){
-      if(!LAST_FIELD_ID){ 
+    // Gate the “View Risk Map” until job is done
+    viewBtn.addEventListener('click', async (e)=>{
+      if(!LAST_FIELD_ID) {
         e.preventDefault();
         saveMsg.textContent = "ℹ️ Save first to start analysis.";
         return;
       }
       try{
         const r = await fetch(`/api/fields/${LAST_FIELD_ID}/latest_job/?_=${Date.now()}`, {cache:'no-store'});
+        if(!r.ok) return; 
         const j = await r.json();
         if (j.status === "done" || j.status === "ready") {
-          // allow normal navigation to /fields/<id>/risk/
-          return;
+          return; // let the link navigate
         }
         e.preventDefault();
         saveMsg.textContent = "⏳ Analysis running… try again in a moment.";
-      }catch{
-        // let it navigate; risk page can show 'please wait'
+      }catch(_){
+        // Allow navigation; the risk page can handle missing overlay gracefully
       }
-    }
-    viewBtn.onclick = onViewRiskClick;
+    });
   </script>
 </body>
 </html>
