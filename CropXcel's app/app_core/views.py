@@ -18,8 +18,7 @@ from django.views.decorators.http import require_http_methods
 from django.db.models import Prefetch
 
 from .models import FieldAOI, AnalysisJob
-from analysis.engine import export_stack_from_geom
-from analysis.hotspots import extract_hotspots
+from analysis.engine import export_stack_from_geom, export_s1_timeseries
 
 # New: local geodesic area (no GEE)
 from shapely.geometry import shape
@@ -82,6 +81,22 @@ def aoi_upload(request):
         else:
             # enqueue for Celery in production
             run_waterlogging_analysis.delay(job.id)
+
+        ts_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "timeseries"
+        ts_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        ts_csv = ts_dir / f"timeseries_field_{field.id}_{stamp}.csv"
+
+        try:
+            export_s1_timeseries(
+                geom_geojson=field.geom,
+                out_csv=str(ts_csv),
+                tz="Asia/Phnom_Penh",
+            )
+            timeseries_file = ts_csv.name
+        except Exception as e:
+            print("⚠️ Time-series export failed:", e)
+            timeseries_file = None
 
         return JsonResponse({
             "ok": True,
@@ -257,6 +272,42 @@ class FieldViewSet(viewsets.ModelViewSet):
         # fire Celery task
         run_waterlogging_analysis.delay(job.id)
         return Response({"ok": True, "job_id": job.id}, status=202)
+    
+    @action(detail=True, methods=["post"])
+    def export_timeseries(self, request, pk=None):
+        field = self.get_object()
+        geom_geojson = field.geom
+
+        start = request.data.get("start")
+        end = request.data.get("end")
+        step_days = int(request.data.get("step_days", 10))
+        orbit = request.data.get("orbit")
+
+        media_root = Path(getattr(settings, "MEDIA_ROOT", "media"))
+        media_url  = getattr(settings, "MEDIA_URL", "/media/")
+        ts_dir = media_root / "timeseries"
+        ts_dir.mkdir(parents=True, exist_ok=True)
+
+        stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        fname = f"timeseries_field_{field.id}_{stamp}.csv"
+        csv_path = ts_dir / fname
+
+        try:
+            export_s1_timeseries(
+                geom_geojson=geom_geojson,
+                out_csv=str(csv_path),
+                start=start,
+                end=end,
+                step_days=step_days,
+                orbit_pass=orbit or None,
+                tz="Asia/Phnom_Penh",
+            )
+        except Exception as e:
+            return Response({"ok": False, "error": f"GEE export failed: {e}"}, status=400)
+
+        csv_rel = f"timeseries/{fname}"
+        csv_url = (media_url.rstrip("/") + "/" + csv_rel).replace("//", "/")
+        return Response({"ok": True, "csv_file": fname, "csv_url": csv_url}, status=200)
 
 def lands(request):
     # If you have a fields list page, redirect there instead.

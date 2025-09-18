@@ -7,6 +7,11 @@ This file is refactored for easier reuse in Django views/tasks.
 import os, json
 from datetime import date as _py_date, timedelta
 import ee, geemap
+from datetime import date as _py_date, datetime, timedelta
+try:
+    from dateutil.relativedelta import relativedelta  # optional but handy
+except Exception:
+    relativedelta = None  # will fallback if missing
 
 # --- Earth Engine auth/init ---
 try:
@@ -158,3 +163,232 @@ def export_stack_from_geom(geom_geojson: dict,
     print("[OK] Exported:", out_tif)
 
     return out_tif
+
+def export_s1_timeseries(geom_geojson: dict,
+                         out_csv: str,
+                         start: str | None = None,
+                         end: str | None = None,
+                         step_days: int = 10,
+                         event_days: int = 15,
+                         base_days: int = 45,
+                         gap_days: int = 5,
+                         orbit_pass: str | None = None,
+                         tz: str = "Asia/Phnom_Penh") -> str:
+    """
+    Export a Sentinel-1 time series (AOI means per step) to CSV.
+
+    Reuses existing helpers in engine.py:
+      - load_s1_ic
+      - db_to_linear_keep
+      - lin_to_db_safe
+      - median_core
+      - std_band
+
+    Args:
+        geom_geojson: GeoJSON geometry dict for the AOI.
+        out_csv: Output CSV filepath.
+        start: ISO date 'YYYY-MM-DD' (default = 4 months before 'end').
+        end: ISO date 'YYYY-MM-DD' (default = yesterday).
+        step_days: Step size (days) for sliding end-date windows.
+        event_days: Event window length.
+        base_days: Baseline window length.
+        gap_days: Gap between baseline end and event start.
+        orbit_pass: 'ASCENDING' | 'DESCENDING' | None.
+        tz: Timezone used for human-readable date strings.
+
+    Returns:
+        Path to the saved CSV.
+    """
+    import pandas as _pd  # keep dependency local
+
+    # ---- Defaults for start/end
+    _end = (end or (_py_date.today() - timedelta(days=1)).strftime("%Y-%m-%d"))
+    if start is None:
+        if relativedelta:
+            _start = (_py_date.today() - relativedelta(months=4)).strftime("%Y-%m-%d")
+        else:
+            _start = (_py_date.today() - timedelta(days=120)).strftime("%Y-%m-%d")
+    else:
+        _start = start
+
+    # ---- Build date steps (inclusive of the last step)
+    def _date_steps(s_str: str, e_str: str, step: int) -> ee.List:
+        d0 = datetime.fromisoformat(s_str)
+        d1 = datetime.fromisoformat(e_str)
+        steps = []
+        while d0 < d1:
+            d2 = min(d0 + timedelta(days=step), d1)
+            steps.append(ee.Date(d2.strftime("%Y-%m-%d")))
+            if d2 == d1:
+                break
+            d0 = d2
+        return ee.List(steps)
+
+    steps = _date_steps(_start, _end, step_days)
+    geom = ee.Geometry(geom_geojson)
+
+    # ---- Min/max day helper for diagnostics
+    MS_PER_DAY = 86400000.0
+    def _minmax_day(ic):
+        times = ee.List(ic.aggregate_array('system:time_start'))
+        day_min = ee.Number(ee.Algorithms.If(times.size().gt(0),
+                                             ee.Number(times.reduce(ee.Reducer.min())).divide(MS_PER_DAY),
+                                             ee.Number(0)))
+        day_max = ee.Number(ee.Algorithms.If(times.size().gt(0),
+                                             ee.Number(times.reduce(ee.Reducer.max())).divide(MS_PER_DAY),
+                                             ee.Number(0)))
+        return day_min.toFloat(), day_max.toFloat()
+
+    # ---- Build one Feature per step_end
+    def _feature_for_step(step_end):
+        step_end = ee.Date(step_end)
+        evt_start  = step_end.advance(-event_days, 'day')
+        base_end   = evt_start.advance(-gap_days, 'day')
+        base_start = base_end.advance(-base_days, 'day')
+
+        # Load collections and convert to linear (reuse helpers)
+        ic_evt_raw  = load_s1_ic(evt_start, step_end.advance(1, 'day'), geom, orbit_pass).map(db_to_linear_keep)
+        ic_base_raw = load_s1_ic(base_start, base_end.advance(1, 'day'), geom, orbit_pass).map(db_to_linear_keep)
+
+        # Baseline median (VV_lin, VH_lin, VH_VV via median_core)
+        base_core_lin = median_core(ic_base_raw, geom)
+
+        # Event "current" = median over event window (to be robust)
+        evt_core_lin = median_core(ic_evt_raw, geom)
+
+        vv_curr   = evt_core_lin.select('VV_lin').rename('S1_VV_CURR')
+        vh_curr   = evt_core_lin.select('VH_lin').rename('S1_VH_CURR')
+        ratio_cur = evt_core_lin.select('VH_VV').rename('S1_VH_VV_CURR')
+
+        vv_base   = base_core_lin.select('VV_lin').rename('S1_VV_BASE')
+        vh_base   = base_core_lin.select('VH_lin').rename('S1_VH_BASE')
+        ratio_bas = base_core_lin.select('VH_VV').rename('S1_VH_VV_BASE')
+
+        # Log-ratios (reuse lin_to_db_safe)
+        vv_logratio_db = lin_to_db_safe(vv_curr.divide(vv_base)).rename('S1_VV_LOGRATIO_DB')
+        vh_logratio_db = lin_to_db_safe(vh_curr.divide(vh_base)).rename('S1_VH_LOGRATIO_DB')
+        vh_vv_diff     = ratio_cur.subtract(ratio_bas).rename('S1_VH_VV_DIFF')
+
+        # STD within event window (reuse std_band; expects linear bands)
+        vv_std = std_band(ic_evt_raw, 'VV_lin', geom).rename('S1_VV_STD')
+        vh_std = std_band(ic_evt_raw, 'VH_lin', geom).rename('S1_VH_STD')
+
+        stack = ee.Image.cat([
+            vv_curr, vh_curr, ratio_cur,
+            vv_base, vh_base, ratio_bas,
+            vv_logratio_db, vh_logratio_db, vh_vv_diff,
+            vv_std, vh_std
+        ]).toFloat()
+
+        # Region mean stats (robust settings for larger AOIs)
+        stats = stack.reduceRegion(
+            reducer=ee.Reducer.mean(),
+            geometry=geom,
+            scale=10,
+            maxPixels=1e13,
+            bestEffort=True,
+            tileScale=4
+        )
+
+        # Diagnostics
+        evt_ct  = ic_evt_raw.size()
+        base_ct = ic_base_raw.size()
+        evt_min_d, evt_max_d   = _minmax_day(ic_evt_raw)
+        base_min_d, base_max_d = _minmax_day(ic_base_raw)
+
+        props = stats.combine(ee.Dictionary({
+            # Millis timestamps (authoritative)
+            'date_ms': step_end.millis(),
+            'evt_start_ms':  evt_start.millis(),
+            'evt_end_ms':    step_end.millis(),
+            'base_start_ms': base_start.millis(),
+            'base_end_ms':   base_end.millis(),
+
+            # Human-friendly labels (do not use for indexing)
+            'date_local': step_end.format('YYYY-MM-dd', tz),
+            'S1_EVENT_START_LOCAL': evt_start.format('YYYY-MM-dd', tz),
+            'S1_EVENT_END_LOCAL':   step_end.format('YYYY-MM-dd', tz),
+            'S1_BASE_START_LOCAL':  base_start.format('YYYY-MM-dd', tz),
+            'S1_BASE_END_LOCAL':    base_end.format('YYYY-MM-dd', tz),
+
+            # Counts & coverage diagnostics
+            'S1_EVENT_COUNT': evt_ct,
+            'S1_BASE_COUNT':  base_ct,
+            'S1_EVENT_DAY_MIN': evt_min_d,
+            'S1_EVENT_DAY_MAX': evt_max_d,
+            'S1_BASE_DAY_MIN':  base_min_d,
+            'S1_BASE_DAY_MAX':  base_max_d
+        }), overwrite=True)
+
+        return ee.Feature(None, props)
+
+    fc = ee.FeatureCollection(steps.map(_feature_for_step))
+
+    # ---- Bring once to client & write CSV locally
+    recs = fc.getInfo().get('features', [])
+    rows = []
+    for f in recs:
+        p = f.get('properties', {})
+        rows.append({
+            "date_local": p.get('date_local'),
+
+            "S1_VV_CURR": p.get('S1_VV_CURR'),
+            "S1_VH_CURR": p.get('S1_VH_CURR'),
+            "S1_VH_VV_CURR": p.get('S1_VH_VV_CURR'),
+
+            "S1_VV_BASE": p.get('S1_VV_BASE'),
+            "S1_VH_BASE": p.get('S1_VH_BASE'),
+            "S1_VH_VV_BASE": p.get('S1_VH_VV_BASE'),
+
+            "S1_VV_LOGRATIO_DB": p.get('S1_VV_LOGRATIO_DB'),
+            "S1_VH_LOGRATIO_DB": p.get('S1_VH_LOGRATIO_DB'),
+            "S1_VH_VV_DIFF": p.get('S1_VH_VV_DIFF'),
+
+            "S1_VV_STD": p.get('S1_VV_STD'),
+            "S1_VH_STD": p.get('S1_VH_STD'),
+
+            "S1_EVENT_COUNT": p.get('S1_EVENT_COUNT'),
+            "S1_BASE_COUNT":  p.get('S1_BASE_COUNT'),
+            "S1_EVENT_START_LOCAL": p.get('S1_EVENT_START_LOCAL'),
+            "S1_EVENT_END_LOCAL":   p.get('S1_EVENT_END_LOCAL'),
+            "S1_BASE_START_LOCAL":  p.get('S1_BASE_START_LOCAL'),
+            "S1_BASE_END_LOCAL":    p.get('S1_BASE_END_LOCAL'),
+
+            "date_ms": p.get('date_ms'),
+            "evt_start_ms": p.get('evt_start_ms'),
+            "evt_end_ms": p.get('evt_end_ms'),
+            "base_start_ms": p.get('base_start_ms'),
+            "base_end_ms": p.get('base_end_ms'),
+        })
+
+    if not rows:
+        # Write an empty CSV with headers to keep downstream code simple
+        _pd.DataFrame(columns=[
+            "date_local","S1_VV_CURR","S1_VH_CURR","S1_VH_VV_CURR",
+            "S1_VV_BASE","S1_VH_BASE","S1_VH_VV_BASE",
+            "S1_VV_LOGRATIO_DB","S1_VH_LOGRATIO_DB","S1_VH_VV_DIFF",
+            "S1_VV_STD","S1_VH_STD",
+            "S1_EVENT_COUNT","S1_BASE_COUNT",
+            "S1_EVENT_START_LOCAL","S1_EVENT_END_LOCAL","S1_BASE_START_LOCAL","S1_BASE_END_LOCAL",
+            "date_ms","evt_start_ms","evt_end_ms","base_start_ms","base_end_ms"
+        ]).to_csv(out_csv, index=False)
+        return out_csv
+
+    df = _pd.DataFrame(rows)
+
+    # Convert ms → Cambodia-local naive datetime for indexing
+    ts = _pd.to_datetime(df['date_ms'], unit='ms', utc=True).dt.tz_convert(tz)
+    df['date'] = ts.dt.tz_localize(None)
+    df = df.sort_values('date').set_index('date')
+
+    metric_cols = [
+        "S1_VV_CURR","S1_VH_CURR","S1_VH_VV_CURR",
+        "S1_VV_BASE","S1_VH_BASE","S1_VH_VV_BASE",
+        "S1_VV_LOGRATIO_DB","S1_VH_LOGRATIO_DB","S1_VH_VV_DIFF",
+        "S1_VV_STD","S1_VH_STD"
+    ]
+    df = df.dropna(how='all', subset=metric_cols)
+
+    df.to_csv(out_csv, float_format="%.6f")
+    print(f"[OK] Saved time series → {out_csv} ({len(df)} rows)")
+    return out_csv
