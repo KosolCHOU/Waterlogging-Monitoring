@@ -13,7 +13,7 @@ from rasterio.transform import array_bounds, from_bounds
 import imageio
 import matplotlib.colors as mcolors
 import matplotlib.cm as cm
-
+from shapely.geometry import shape
 # Reuse your existing hotspot code (do NOT duplicate)
 from .hotspots import extract_hotspots
 
@@ -141,14 +141,16 @@ def run_analysis_from_notebook(
     _save_png01(risk_web, str(out_png))
 
     # --- 5) Hotspots (reuse your module; accurate areas computed on source grid)
+    field_geom = None
+    try:
+        field_geom = shape(aoi_geojson["geometry"]) if aoi_geojson.get("type")=="Feature" else shape(aoi_geojson)
+    except Exception:
+        pass
+
     hs = extract_hotspots(
-        risk=risk,
-        src_transform=src_tr,
-        src_crs=src_crs,
-        field_polygon=None,                # AOI optional; you can pass it later if needed
-        HOTSPOT_PERCENTILE=80,
-        MIN_HOTSPOT_AREA_PIX=10,
-        MAX_HOTSPOTS=25,
+        risk=risk, src_transform=src_tr, src_crs=src_crs,
+        field_polygon=field_geom,                     # <— clip to AOI
+        HOTSPOT_PERCENTILE=80, MIN_HOTSPOT_AREA_PIX=10, MAX_HOTSPOTS=25,
         OUT_GEOJSON=str(HOT_DIR / f"hotspots_{tag}.geojson")
     )
     hotspots_url = f"/media/hotspots/{Path(hs.get('geojson_path','')).name}" if hs.get("geojson_path") else ""

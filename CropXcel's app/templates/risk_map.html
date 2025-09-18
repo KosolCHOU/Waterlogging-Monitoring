@@ -30,12 +30,11 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const JOB_ID = {{ job_id }};
+    const JOB_ID = {{ job_id|safe }};
     const BOUNDS = {{ bounds|safe }};
     const TILE_URL = "";  // force PNG route
     const OVERLAY_URL = "{{ overlay_png|default:'' }}";
     const HOTSPOTS = "{{ hotspots_url|default:'' }}";
-
     const map = L.map('map');
     L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -66,28 +65,42 @@
         .then(gj => {
           L.geoJSON(gj, {
             pointToLayer: function(f, latlng){
-              const risk = Number(f.properties?.risk ?? 0);
-              const level = (f.properties?.level) || (risk>=0.7 ? "High" : (risk>=0.4 ? "Caution" : "Low"));
+              // Use risk (0..1) if present; else compute from risk_pct
+              const hasRisk = typeof f.properties?.risk === "number" && isFinite(f.properties.risk);
+              const rpct = Number(f.properties?.risk_pct);
+              const risk = hasRisk ? Number(f.properties.risk)
+                                  : (isFinite(rpct) ? Math.max(0, Math.min(100, rpct)) / 100 : 0);
+
+              const level = f.properties?.level || (risk>=0.7 ? "High" : risk>=0.4 ? "Caution" : "Low");
               const color = levelToColor(level);
+
               const m = L.circleMarker(latlng, {
-                radius: 6,
-                color: "#111", weight: 1, opacity: 0.9,
+                radius: 6, color: "#111", weight: 1, opacity: 0.9,
                 fillColor: color, fillOpacity: 0.9
               });
-              // Hover tooltip (fast)
+
               m.bindTooltip(`Risk: ${pct(risk)}% · ${level}`, {direction:"top", offset:[0,-6]});
-              // Click popup (details)
-              const why = (f.properties?.why) || [];
+
+              const reason = f.properties?.reason || "Potential waterlogging area";
+              const action = f.properties?.action || "";
+              const chart  = f.properties?.chart_b64 ? `<img src="data:image/png;base64,${f.properties.chart_b64}" style="width:100%;border-radius:8px;margin-top:8px">` : "";
+
               const html = `
-                <div style="min-width:220px">
+                <div style="min-width:240px">
                   <div style="display:flex;align-items:center;gap:8px">
                     <div style="width:10px;height:10px;border-radius:50%;background:${color}"></div>
                     <b>Hotspot</b>
                   </div>
-                  <div class="riskbar"><span class="${level==='High'?'risk-high':level==='Caution'?'risk-caution':'risk-low'}" style="width:${pct(risk)}%"></span></div>
-                  <div style="margin-top:6px;font-size:12px;color:#334155">
-                    ${why.length ? ('Reasons: ' + why.join(', ')) : 'Potential waterlogging area.'}
+                  <div class="riskbar" style="margin-top:6px">
+                    <span class="${level==='High'?'risk-high':level==='Caution'?'risk-caution':'risk-low'}" style="width:${pct(risk)}%"></span>
                   </div>
+                  <div style="margin-top:8px;font-size:12px;color:#334155">
+                    <div><b>Risk:</b> ${pct(risk)}% · ${level}</div>
+                    ${f.properties?.area_ha ? `<div><b>Area:</b> ${Number(f.properties.area_ha).toFixed(4)} ha</div>` : ``}
+                    <div><b>Reason:</b> ${reason}</div>
+                    ${action ? `<div style="margin-top:4px"><b>Action:</b> ${action}</div>` : ``}
+                  </div>
+                  ${chart}
                 </div>`;
               m.bindPopup(html);
               return m;

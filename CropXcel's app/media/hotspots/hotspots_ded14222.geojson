@@ -1,0 +1,12 @@
+{
+"type": "FeatureCollection",
+"name": "hotspots_ded14222",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "risk": 0.6313660740852356, "risk_pct": 63, "level": "Caution", "area_m2": 2100.0, "area_ha": 0.21, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.420052918635349, 11.450895591984633 ] } },
+{ "type": "Feature", "properties": { "risk": 0.62242400646209717, "risk_pct": 62, "level": "Caution", "area_m2": 2500.0, "area_ha": 0.25, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.41923139817105, 11.450127296916461 ] } },
+{ "type": "Feature", "properties": { "risk": 0.61081850528717041, "risk_pct": 61, "level": "Caution", "area_m2": 3900.0, "area_ha": 0.39, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.414227440021961, 11.45178572338917 ] } },
+{ "type": "Feature", "properties": { "risk": 0.60369783639907837, "risk_pct": 60, "level": "Caution", "area_m2": 2600.0, "area_ha": 0.26, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.420103118979654, 11.451802852033889 ] } },
+{ "type": "Feature", "properties": { "risk": 0.57253736257553101, "risk_pct": 57, "level": "Caution", "area_m2": 3000.0, "area_ha": 0.3, "reason": "Radar drop (water)", "action": "Monitor in next 1–2 days. Walk field edges; prepare drainage." }, "geometry": { "type": "Point", "coordinates": [ 105.414378010307161, 11.450578548893787 ] } }
+]
+}

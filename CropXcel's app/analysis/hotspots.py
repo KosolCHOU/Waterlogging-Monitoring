@@ -322,18 +322,20 @@ def extract_hotspots(
     geojson_path = None
     if hotspots:
         if USE_POLYGONS_GEOJSON:
-            # Export centroids as points first (simple & robust).
-            # For polygon footprints, you can extend here if needed later.
             print("[INFO] USE_POLYGONS_GEOJSON=True requested, but polygon export is not enabled in this minimal build.")
+        # include chart_b64 and risk (0..1) for the frontend
         gdf = gpd.GeoDataFrame(
             [{
                 "geometry": Point(h["lon"], h["lat"]),
+                "risk": h["risk"],                 # add 0..1 risk
                 "risk_pct": h["risk_pct"],
                 "level": h["level"],
                 "area_m2": h["area_m2"],
                 "area_ha": h["area_ha"],
                 "reason": h["reason"],
-                "action": h["action"]
+                "action": h["action"],
+                # optional:
+                "chart_b64": h["chart_b64"],
             } for h in hotspots],
             crs="EPSG:4326"
         )
