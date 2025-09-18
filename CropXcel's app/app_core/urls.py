@@ -10,6 +10,7 @@ urlpatterns = [
     path("", views.lands, name="home"),         # NEW root path
     path("lands/", views.lands, name="lands"),
     path("aoi_upload/", views.aoi_upload, name="aoi_upload"),
+    path("dashboard/", views.dashboard_index, name="dashboard_index"),
     path("dashboard/<int:field_id>/", views.dashboard, name="dashboard"),
     path("probe/<int:job_id>/", views.probe, name="probe"),
     path("api/", include(router.urls)),

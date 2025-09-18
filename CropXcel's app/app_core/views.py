@@ -13,7 +13,7 @@ from .tasks import run_waterlogging_analysis
 
 from django.conf import settings
 from django.http import JsonResponse, HttpResponseBadRequest, Http404, HttpResponse
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 from django.db.models import Prefetch
 
@@ -263,21 +263,53 @@ def lands(request):
     return render(request, "lands.html")
 
 
+def dashboard_index(request):
+    # 1) Always try the last viewed field (cookie) first
+    last = request.COOKIES.get("last_field")
+    if last:
+        return redirect(f"/dashboard/{last}/")
+
+    # 2) Fallbacks if no cookie yet
+    latest_field = FieldAOI.objects.order_by("-id").first()
+    if latest_field:
+        return redirect(f"/dashboard/{latest_field.id}/")
+
+    return redirect(reverse("lands"))
+
 def dashboard(request, field_id: int):
     field = get_object_or_404(FieldAOI, id=field_id)
-    job = (AnalysisJob.objects
-           .filter(field=field)
-           .order_by("-id")
-           .first())
+    job = (AnalysisJob.objects.filter(field=field).order_by("-id").first())
+
+    # --- always remember last viewed field ---
+    def remember(resp):
+        resp.set_cookie("last_field", str(field_id), max_age=60*60*24*30, path="/")
+        return resp
 
     if not job or job.status != "done" or not job.result:
-        return HttpResponse("<h1>Analysis pending…</h1>")
+        status_txt = (job and job.status) or "queued"
+        msg = (job and (job.message or "")) or ""
+        html = f"""
+        <!doctype html><meta charset="utf-8">
+        <title>Analyzing…</title>
+        <meta http-equiv="refresh" content="3">
+        <style>
+        body {{ font-family: system-ui, Arial; margin: 24px; }}
+        .pill {{ display:inline-block; padding:.25rem .5rem; border-radius:999px; background:#eef7f3; }}
+        .err {{ background:#fee2e2; color:#991b1b; padding:10px; border-radius:8px; }}
+        a.btn {{ display:inline-block; margin-top:10px; padding:8px 12px; background:#0ea5e9; color:#fff; border-radius:8px; text-decoration:none; }}
+        </style>
+        <h1>Analysis pending…</h1>
+        <p>Status: <span class="pill">{status_txt}</span></p>
+        {"<div class='err'><b>Reason:</b> " + msg + "</div>" if status_txt == "failed" and msg else ""}
+        {"<a class='btn' href='?rerun=1'>↻ Re-run analysis</a>" if job else ""}
+        <p>This page will refresh automatically.</p>
+        """
+        return remember(HttpResponse(html))
 
     bounds = job.result.get("bounds") or [[field.geom["coordinates"][0][0][1],
                                            field.geom["coordinates"][0][0][0]],
                                           [field.geom["coordinates"][0][2][1],
                                            field.geom["coordinates"][0][2][0]]]
-
     ctx = {
         "job_id": job.id,
         "bounds": json.dumps(bounds),
@@ -286,5 +318,5 @@ def dashboard(request, field_id: int):
         "probe_bin": job.result.get("probe_bin_url") or "",
         "probe_meta": job.result.get("probe_meta_url") or "",
     }
-    return render(request, "dashboard.html", ctx)
-
+    resp = render(request, "dashboard.html", ctx)
+    return remember(resp)

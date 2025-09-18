@@ -141,8 +141,13 @@
             <span class="pill">Area: <span id="area-${id}">${areaTxt}</span></span>
             <span class="muted">${created || ""}</span>
           </div>
-          <button class="go" onclick="location.href='${href}'">View risk</button>
+          <button class="go" onclick="setLastField(${id});location.href='${href}'">View risk</button>
         </div>`;
+    }
+
+    function setLastField(id){
+      localStorage.setItem("lastFieldId", id);
+      document.cookie = "last_field=" + id + "; path=/; max-age=" + (60*60*24*30);
     }
 
     async function loadFields(){

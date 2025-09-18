@@ -22,7 +22,10 @@
   <aside class="sidebar">
     <div class="brand">🌾 CropXcel</div>
     <nav class="menu">
-      <a href="{% url 'dashboard' 1 %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a>
+      <a href="{% url 'dashboard_index' %}"
+         class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}">
+        Dashboard
+      </a>
       <a href="{% url 'lands' %}" class="{% if request.resolver_match.url_name == 'lands' %}active{% endif %}">Land</a>
     </nav>
     <div style="margin-top:auto;padding:12px 20px;opacity:.7">© CropXcel</div>
