@@ -140,26 +140,95 @@ def run_analysis_from_notebook(
     out_png = OVER_DIR / f"risk_{tag}.png"
     _save_png01(risk_web, str(out_png))
 
-    # --- 5) Hotspots (reuse your module; accurate areas computed on source grid)
-    field_geom = None
+    # --- 4b) Save a compact client-side probe (risk_web -> Uint16 + meta)
+    PROBE_DIR = MEDIA_ROOT / "probes"
+    PROBE_DIR.mkdir(parents=True, exist_ok=True)
+    probe_tag = uuid.uuid4().hex[:8]
+    probe_bin = PROBE_DIR / f"probe_{probe_tag}.bin"
+    probe_json = PROBE_DIR / f"probe_{probe_tag}.json"
+
+    # pack risk_web (float32 0..1) into uint16 [0..1000]
+    risk_clip = np.clip(risk_web, 0, 1).astype("float32")
+    risk_u16 = np.round(risk_clip * 1000).astype("uint16")
+    # WRITE (overwrite) data bytes
+    with probe_bin.open("wb") as f:
+        f.write(risk_u16.tobytes(order="C"))
+
+    # optional mask: inside AOI = 1, else 0 (keeps tooltip quiet outside)
+    aoi_mask_web = None
     try:
-        field_geom = shape(aoi_geojson["geometry"]) if aoi_geojson.get("type")=="Feature" else shape(aoi_geojson)
+        from shapely.geometry import shape, Point
+        poly = shape(aoi_geojson["geometry"]) if aoi_geojson.get("type")=="Feature" else shape(aoi_geojson)
+        aoi_mask_web = np.zeros_like(risk_u16, dtype="uint8")
+        (south, west), (north, east) = array_bounds(web_h, web_w, web_tr)[1::-1], array_bounds(web_h, web_w, web_tr)[3:1:-1]
+        ys = np.linspace(north - (north-south)/(2*web_h), south + (north-south)/(2*web_h), web_h)
+        xs = np.linspace(west + (east-west)/(2*web_w),  east - (east-west)/(2*web_w),  web_w)
+        minx, miny, maxx, maxy = poly.bounds
+        for r, lat in enumerate(ys):
+            if lat < miny or lat > maxy: continue
+            for c, lon in enumerate(xs):
+                if lon < minx or lon > maxx: continue
+                if poly.contains(Point(lon, lat)):
+                    aoi_mask_web[r, c] = 1
     except Exception:
         pass
 
-    hs = extract_hotspots(
-        risk=risk, src_transform=src_tr, src_crs=src_crs,
-        field_polygon=field_geom,                     # <— clip to AOI
-        HOTSPOT_PERCENTILE=80, MIN_HOTSPOT_AREA_PIX=10, MAX_HOTSPOTS=25,
-        OUT_GEOJSON=str(HOT_DIR / f"hotspots_{tag}.geojson")
-    )
-    hotspots_url = f"/media/hotspots/{Path(hs.get('geojson_path','')).name}" if hs.get("geojson_path") else ""
+    meta = {
+        "rows": int(risk_u16.shape[0]),
+        "cols": int(risk_u16.shape[1]),
+        "web_bounds": [[float(array_bounds(web_h, web_w, web_tr)[1]),
+                        float(array_bounds(web_h, web_w, web_tr)[0])],
+                    [float(array_bounds(web_h, web_w, web_tr)[3]),
+                        float(array_bounds(web_h, web_w, web_tr)[2])]],
+        "scale": 1000,
+        "has_mask": bool(aoi_mask_web is not None),
+        "layout": {"data_bytes": int(risk_u16.size * 2)}
+    }
 
-    # --- 6) Map bounds (Leaflet order) — from AOI, not the raster grid
-    bounds = _bounds_from_geom(aoi_geojson)
+    if aoi_mask_web is not None:
+        # APPEND mask bytes safely
+        with probe_bin.open("ab") as f:
+            f.write(aoi_mask_web.ravel(order="C").tobytes(order="C"))
+        meta["layout"]["mask_bytes"] = int(aoi_mask_web.size)
+
+    probe_json.write_text(json.dumps(meta), encoding="utf-8")
+
+    # --- 5) Hotspots (reuse your module; accurate areas computed on source grid)
+    field_geom = None
+    try:
+        if aoi_geojson.get("type") == "Feature":
+            field_geom = shape(aoi_geojson["geometry"])
+        else:
+            field_geom = shape(aoi_geojson)
+    except Exception:
+        field_geom = None
+
+    hs = {}
+    try:
+        hs = extract_hotspots(
+            risk=risk,
+            src_transform=src_tr, src_crs=src_crs,
+            field_polygon=field_geom,
+            comps=[drop01, ratio01, var01],
+            weights=[0.5, 0.3, 0.2],
+            HOTSPOT_PERCENTILE=80,
+            MIN_HOTSPOT_AREA_PIX=10,
+            MAX_HOTSPOTS=25,
+            OUT_GEOJSON=str(HOT_DIR / f"hotspots_{tag}.geojson")
+        )
+    except Exception as e:
+        print("⚠️ Hotspot extraction failed:", e)
+        hs = {}
+
+    # Safely build hotspots_url
+    from pathlib import Path as _P
+    hs_path = _P(hs.get("geojson_path") or hs.get("filename", ""))
+    hotspots_url = f"/media/hotspots/{hs_path.name}" if hs_path.name else ""
 
     return {
         "overlay_png_url": f"/media/overlays/{out_png.name}",
         "hotspots_url": hotspots_url,
-        "bounds": bounds
+        "bounds": _bounds_from_geom(aoi_geojson),
+        "probe_bin_url": f"/media/probes/{probe_bin.name}",
+        "probe_meta_url": f"/media/probes/{probe_json.name}",
     }

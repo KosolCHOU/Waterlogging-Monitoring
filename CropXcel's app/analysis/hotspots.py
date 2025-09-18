@@ -341,7 +341,7 @@ def extract_hotspots(
         )
         geojson_path = OUT_GEOJSON
         gdf.to_file(geojson_path, driver="GeoJSON")
-        print(f"[OK] {geojson_path} ({len(gdf)} hotspots)")
+        print(f"[OK] {geojson_path} ({len(gdf)} hotsts)")
     else:
         print("[INFO] No hotspots found (after region scoring).")
 

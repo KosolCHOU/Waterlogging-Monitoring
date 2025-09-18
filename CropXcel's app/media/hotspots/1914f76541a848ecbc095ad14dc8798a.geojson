@@ -1,1 +1,0 @@
-{"type": "FeatureCollection", "columns": {"count": "Long<0, 4294967295>", "label": "Byte<0, 1>", "risk": "Object", "system:index": "String"}, "features": [{"type": "Feature", "geometry": {"geodesic": false, "type": "Point", "coordinates": [105.41604095002809, 11.45095967396416]}, "id": "+391162+42490", "properties": {"count": 2, "label": 1, "risk": 0.7084588807024803}}]}

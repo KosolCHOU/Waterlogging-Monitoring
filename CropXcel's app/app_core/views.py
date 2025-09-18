@@ -1,5 +1,6 @@
 # app_core/views.py
 import json
+import math
 from pathlib import Path
 from datetime import datetime
 
@@ -145,6 +146,9 @@ def risk_map(request, field_id: int):
         "tile_url": "",
         "overlay_png": job.result.get("overlay_png_url") or "",
         "hotspots_url": job.result.get("hotspots_url") or "",
+        # NEW:
+        "probe_bin": job.result.get("probe_bin_url") or "",
+        "probe_meta": job.result.get("probe_meta_url") or "",
     }
     return render(request, "risk_map.html", ctx)
 

@@ -78,6 +78,8 @@ def run_waterlogging_analysis(job_id: int):
             "bounds": result.get("bounds"),
             "overlay_png_url": _urlify(result.get("overlay_png_url", "")),
             "hotspots_url": _urlify(result.get("hotspots_url", "")),
+            "probe_bin_url": _urlify(result.get("probe_bin_url", "")),
+            "probe_meta_url": _urlify(result.get("probe_meta_url", "")),
         }
         job.status = "done"
         job.message = "Completed"
