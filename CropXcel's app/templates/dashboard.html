@@ -1,0 +1,204 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+{% block title %}Dashboard – CropXcel{% endblock %}
+{% block head %}
+  <meta charset="utf-8" />
+  <title>CropXcel – Waterlogging Risk</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body{margin:0;font-family:system-ui,Arial,sans-serif}
+    #map{height:100vh}
+    .badge{
+      position:absolute; right:12px; top:12px; z-index:1000; background:#fff; padding:8px 10px;
+      border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); font-size:12px;
+    }
+    .hoverpill{
+      position:absolute; left:12px; bottom:12px; z-index:1000;
+      background:#0f172a; color:#fff; padding:6px 10px; border-radius:999px; font-size:12px;
+      opacity:.92;
+    }
+    .riskbar{height:6px; background:#e2e8f0; border-radius:6px; overflow:hidden; margin-top:4px}
+    .riskbar > span{display:block; height:100%}
+    .risk-high{background:#e31a1c}.risk-caution{background:#f59e0b}.risk-low{background:#1f78b4}
+  </style>
+{% endblock %}
+{% block content %}
+  <div id="map"></div>
+  <div class="badge">Hover map for risk · Click hotspots for details</div>
+  <div id="hoverpill" class="hoverpill" style="display:none">risk: …</div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const JOB_ID = {{ job_id|safe }};
+    const BOUNDS = {{ bounds|safe }};
+    const TILE_URL = "";  // force PNG route
+    const OVERLAY_URL = "{{ overlay_png|default:'' }}";
+    const HOTSPOTS = "{{ hotspots_url|default:'' }}";
+    const map = L.map('map');
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Tiles © Esri' }
+    ).addTo(map);
+    map.fitBounds(BOUNDS);
+
+    // Put overlays on their own pane so they sit above base tiles.
+    map.createPane('overlayPane');
+    map.getPane('overlayPane').style.zIndex = 450;
+
+    let overlay = null;
+    if (OVERLAY_URL && OVERLAY_URL.endsWith('.png')) {
+      overlay = L.imageOverlay(OVERLAY_URL, BOUNDS, { opacity: 0.75, pane: 'overlayPane' }).addTo(map);
+    }
+
+    // ---- Hotspots ----
+    function levelToColor(level){
+      if (level === "High") return "#e31a1c";
+      if (level === "Caution") return "#f59e0b";
+      return "#1f78b4";
+    }
+    function pct(x){ return Math.max(0, Math.min(100, Math.round(x*100))); }
+
+    if (HOTSPOTS) {
+      fetch(HOTSPOTS, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(gj => {
+          L.geoJSON(gj, {
+            pointToLayer: function(f, latlng){
+              // Use risk (0..1) if present; else compute from risk_pct
+              const hasRisk = typeof f.properties?.risk === "number" && isFinite(f.properties.risk);
+              const rpct = Number(f.properties?.risk_pct);
+              const risk = hasRisk ? Number(f.properties.risk)
+                                  : (isFinite(rpct) ? Math.max(0, Math.min(100, rpct)) / 100 : 0);
+
+              const level = f.properties?.level || (risk>=0.7 ? "High" : risk>=0.4 ? "Caution" : "Low");
+              const color = levelToColor(level);
+
+              const m = L.circleMarker(latlng, {
+                radius: 6, color: "#111", weight: 1, opacity: 0.9,
+                fillColor: color, fillOpacity: 0.9
+              });
+
+              m.bindTooltip(`Risk: ${pct(risk)}% · ${level}`, {direction:"top", offset:[0,-6]});
+
+              const reason = f.properties?.reason || "Potential waterlogging area";
+              const action = f.properties?.action || "";
+              const chart  = f.properties?.chart_b64 ? `<img src="data:image/png;base64,${f.properties.chart_b64}" style="width:100%;border-radius:8px;margin-top:8px">` : "";
+
+              const html = `
+                <div style="min-width:240px">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div style="width:10px;height:10px;border-radius:50%;background:${color}"></div>
+                    <b>Hotspot</b>
+                  </div>
+                  <div class="riskbar" style="margin-top:6px">
+                    <span class="${level==='High'?'risk-high':level==='Caution'?'risk-caution':'risk-low'}" style="width:${pct(risk)}%"></span>
+                  </div>
+                  <div style="margin-top:8px;font-size:12px;color:#334155">
+                    <div><b>Risk:</b> ${pct(risk)}% · ${level}</div>
+                    ${f.properties?.area_ha ? `<div><b>Area:</b> ${Number(f.properties.area_ha).toFixed(4)} ha</div>` : ``}
+                    <div><b>Reason:</b> ${reason}</div>
+                    ${action ? `<div style="margin-top:4px"><b>Action:</b> ${action}</div>` : ``}
+                  </div>
+                  ${chart}
+                </div>`;
+              m.bindPopup(html);
+              return m;
+            }
+          }).addTo(map);
+        })
+        .catch(_ => {});
+    }
+
+    // ---- Hover probe (server-assisted; falls back silently) ----
+    const pill = document.getElementById("hoverpill");
+    let probeTimer = null;
+    function showPill(text){ pill.style.display='block'; pill.textContent = text; }
+    function hidePill(){ pill.style.display='none'; }
+
+    map.on("mousemove", (e) => {
+      // throttle
+      if (probeTimer) return;
+      probeTimer = setTimeout(() => { probeTimer = null; }, 180);
+
+      const { lat, lng } = e.latlng;
+      fetch(`/probe/${JOB_ID}?lat=${lat}&lon=${lng}`)
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(d => {
+          if (d && typeof d.value === "number") {
+            const p = Math.round(d.value * 100);
+            const lvl = d.level || (d.value>=0.7 ? "High" : d.value>=0.4 ? "Caution" : "Low");
+            showPill(`risk: ${p}% · ${lvl}`);
+          } else {
+            hidePill();
+          }
+        })
+        .catch(_ => hidePill());
+    });
+
+    const PROBE_BIN  = "{{ probe_bin|default:'' }}";
+    const PROBE_META = "{{ probe_meta|default:'' }}";
+
+    let probe = null;  // { rows, cols, south, west, north, east, data: Uint16Array, mask: Uint8Array|null, scale }
+    let tip = null, raf = null, lastIdx = -2;
+
+    async function loadProbe() {
+      if (!PROBE_META || !PROBE_BIN) return;
+      const meta = await fetch(PROBE_META, {cache:'no-store'}).then(r=>r.json());
+      const resp = await fetch(PROBE_BIN, {cache:'no-store'});
+      const buf = await resp.arrayBuffer();
+
+      const rows = meta.rows, cols = meta.cols;
+      const [[south, west],[north, east]] = meta.web_bounds;  // web grid bounds (EPSG:4326)
+      const scale = meta.scale || 1000;
+
+      const dataBytes = meta.layout?.data_bytes ?? (rows*cols*2);
+      const data = new Uint16Array(buf.slice(0, dataBytes));
+      let mask = null;
+      if (meta.has_mask) {
+        mask = new Uint8Array(buf.slice(dataBytes, dataBytes + rows*cols));
+      }
+      probe = {rows, cols, south, west, north, east, scale, data, mask};
+    }
+
+    function gridIndex(lat, lng) {
+      if (!probe) return -1;
+      const {rows, cols, south, west, north, east} = probe;
+      if (lat < south || lat > north || lng < west || lng > east) return -1;
+      const r = Math.floor((north - lat) / (north - south) * rows);
+      const c = Math.floor((lng  - west)  / (east - west)  * cols);
+      if (r < 0 || r >= rows || c < 0 || c >= cols) return -1;
+      return r*cols + c;
+    }
+
+    map.whenReady(async () => {
+      await loadProbe();
+      tip = L.tooltip({permanent:false, direction:'top', opacity:0.96, offset:[0,-10]});
+
+      map.on('mousemove', (e) => {
+        if (!probe) return;
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+          raf = null;
+          const k = gridIndex(e.latlng.lat, e.latlng.lng);
+          if (k < 0 || (probe.mask && probe.mask[k] === 0)) {
+            if (map.hasLayer(tip)) map.removeLayer(tip);
+            lastIdx = -2; return;
+          }
+          if (k === lastIdx) { tip.setLatLng(e.latlng); if(!map.hasLayer(tip)) tip.addTo(map); return; }
+          lastIdx = k;
+          const v = probe.data[k] / probe.scale;
+          const pct = (v*100).toFixed(1);
+          tip.setLatLng(e.latlng).setContent(
+            `<div style="font:13px/1.35 system-ui;min-width:210px">
+              <div style="font-weight:700;margin-bottom:2px">Waterlogging risk</div>
+              <div style="font-size:12px;color:#0f172a">Value: <b>${pct}%</b>
+                <span style="opacity:.6">(${v.toFixed(3)})</span></div>
+            </div>`
+          ).addTo(map);
+        });
+      });
+      map.on('mouseout', () => { if (map.hasLayer(tip)) map.removeLayer(tip); lastIdx = -2; });
+    });
+  </script>
+{% endblock %}

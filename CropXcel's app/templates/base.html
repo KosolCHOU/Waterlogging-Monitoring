@@ -1,0 +1,32 @@
+<!-- templates/base.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{% block title %}CropXcel{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% block head %}{% endblock %}   <!-- NEW: lets child templates add Leaflet CSS/inline styles -->
+  <style>
+    body { margin:0; display:flex; font-family:system-ui, sans-serif; }
+    .sidebar { width:220px; background:#111827; color:#fff; min-height:100vh; display:flex; flex-direction:column; }
+    .brand { padding:20px; font-weight:700; font-size:18px; }
+    .menu a { display:block; padding:12px 20px; color:#fff; text-decoration:none; border-radius:6px; margin:4px 8px; }
+    .menu a.active { background:#10b981; }
+    .menu a:hover { background:#374151; }
+    .content { flex:1; background:#f1f7ee; min-height:100vh; padding:20px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">🌾 CropXcel</div>
+    <nav class="menu">
+      <a href="{% url 'dashboard' 1 %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a>
+      <a href="{% url 'lands' %}" class="{% if request.resolver_match.url_name == 'lands' %}active{% endif %}">Land</a>
+    </nav>
+    <div style="margin-top:auto;padding:12px 20px;opacity:.7">© CropXcel</div>
+  </aside>
+  <main class="content">{% block content %}{% endblock %}</main>
+</body>
+</html>

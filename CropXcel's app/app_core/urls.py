@@ -7,9 +7,10 @@ router = DefaultRouter()
 router.register(r'fields', views.FieldViewSet, basename='fields')
 
 urlpatterns = [
-    path("", views.home, name="home"),
-    path("aoi_upload/", views.aoi_upload, name="aoi_upload"),  # ← add this
-    path("fields/<int:field_id>/risk/", views.risk_map, name="risk_map"),
+    path("", views.lands, name="home"),         # NEW root path
+    path("lands/", views.lands, name="lands"),
+    path("aoi_upload/", views.aoi_upload, name="aoi_upload"),
+    path("dashboard/<int:field_id>/", views.dashboard, name="dashboard"),
     path("probe/<int:job_id>/", views.probe, name="probe"),
     path("api/", include(router.urls)),
 ]

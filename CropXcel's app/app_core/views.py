@@ -258,6 +258,33 @@ class FieldViewSet(viewsets.ModelViewSet):
         run_waterlogging_analysis.delay(job.id)
         return Response({"ok": True, "job_id": job.id}, status=202)
 
-def home(request):
+def lands(request):
     # If you have a fields list page, redirect there instead.
-    return render(request, "home.html")
+    return render(request, "lands.html")
+
+
+def dashboard(request, field_id: int):
+    field = get_object_or_404(FieldAOI, id=field_id)
+    job = (AnalysisJob.objects
+           .filter(field=field)
+           .order_by("-id")
+           .first())
+
+    if not job or job.status != "done" or not job.result:
+        return HttpResponse("<h1>Analysis pending…</h1>")
+
+    bounds = job.result.get("bounds") or [[field.geom["coordinates"][0][0][1],
+                                           field.geom["coordinates"][0][0][0]],
+                                          [field.geom["coordinates"][0][2][1],
+                                           field.geom["coordinates"][0][2][0]]]
+
+    ctx = {
+        "job_id": job.id,
+        "bounds": json.dumps(bounds),
+        "overlay_png": job.result.get("overlay_png_url") or "",
+        "hotspots_url": job.result.get("hotspots_url") or "",
+        "probe_bin": job.result.get("probe_bin_url") or "",
+        "probe_meta": job.result.get("probe_meta_url") or "",
+    }
+    return render(request, "dashboard.html", ctx)
+

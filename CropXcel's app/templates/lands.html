@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Land – CropXcel{% endblock %}
+
+{% block head %}
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  {% load static %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <style>
+    :root { --bg:#f1f7ee; --card:#ffffff; --pill:#eef7f3; --text:#111827; --muted:#6b7280; --accent:#10b981; }
+    body { margin:0; background:var(--bg); font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:var(--text); }
+    .shell { max-width:1200px; margin:32px auto; padding:0 16px; }
+    .crumbs { font-size:12px; color:var(--muted); margin-bottom:8px; }
+    .titlebar { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .title { font-size:28px; margin:0; }
+    .subtitle { color:var(--muted); margin:4px 0 18px 0; }
+    .add-btn { background:#10b981; color:#fff; border:none; padding:10px 14px; border-radius:12px; font-weight:600; cursor:pointer; }
+    .grid-cards { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+    .card { background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.06); padding:14px; }
+    .card h4 { margin:0 0 6px 0; font-size:16px; }
+    .muted { color:var(--muted); font-size:12px; }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
+    .pill { background:#eef7f3; padding:6px 10px; border-radius:999px; font-size:12px; }
+    .go { display:block; width:100%; text-align:center; background:#3b82f6; color:#fff; border:none; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600; margin-top:10px; }
+    .drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.28);display:none;z-index:1000}
+    .drawer{position:fixed;top:0;right:-560px;width:560px;height:100vh;background:#fff;box-shadow:-10px 0 30px rgba(0,0,0,.15);z-index:1001;transition:right .28s ease;display:flex;flex-direction:column;}
+    .drawer.open{right:0}
+    .drawer-mask.open{display:block}
+    .drawer-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #eef2f7;flex:0 0 auto}
+    .drawer-body{padding:12px 16px; overflow:auto; height:calc(100vh - 56px);} /* scrollable drawer */
+    .map-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .map-head .btn { background:var(--pill); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; }
+    #map { height:58vh; border-radius:12px; }
+    .area-badge { position:absolute; left:16px; bottom:16px; background:#fff; border-radius:10px; padding:10px 12px; box-shadow:0 6px 18px rgba(0,0,0,.08); font-size:12px; }
+    .area-badge .val { font-weight:700; font-size:14px; }
+    .panel { background:#fff; border-radius:16px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.06); }
+    .field-row { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+    .input { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#fafafa; }
+    .save { width:100%; padding:12px; background:var(--accent); border:none; color:#fff; border-radius:12px; font-weight:600; cursor:pointer; }
+    :root { --header-h: 172px; }
+    .listwrap{ max-height: calc(100vh - var(--header-h)); overflow: auto; padding-bottom: 12px; }
+    @media (max-width: 640px){ :root { --header-h: 200px; } }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="shell">
+    <div class="crumbs">Dashboard / <span style="color:#10b981">Land</span></div>
+    <div class="titlebar">
+      <div>
+        <h1 class="title">Your Fields</h1>
+        <p class="subtitle">Select a field to view its risk map, or add a new one.</p>
+      </div>
+      <button id="addFieldBtn" class="add-btn">+ Add field</button>
+    </div>
+
+    <div class="listwrap">
+      <div id="fieldsList" class="grid-cards"></div>
+    </div>
+    <p id="emptyMsg" class="muted" style="margin-top:8px; display:none">No fields yet. Click <b>“Add field”</b> to create one.</p>
+  </div>
+
+  <!-- Drawer -->
+  <div id="drawerMask" class="drawer-mask"></div>
+  <div id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <b>Add field</b>
+      <button id="closeDrawer" class="btn" style="background:#eef2f7;border:none;padding:6px 10px;border-radius:8px;cursor:pointer">Close</button>
+    </div>
+    <div class="drawer-body">
+      <div class="card map-card" style="position:relative">
+        <div class="map-head">
+          <div style="font-weight:600;">Interactive Map</div>
+          <div>
+            <button id="layersBtn" class="btn" type="button">Layers</button>
+            <button id="locBtn" class="btn" type="button">My Location</button>
+          </div>
+        </div>
+        <div id="map"></div>
+        <div class="area-badge">Selected Area<br><span id="areaVal" class="val">0.00 hectares</span></div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <div class="field-row">
+          <div class="label">Field Name</div>
+          <input id="nameInput" class="input" type="text" placeholder="e.g. Huljia's North Field">
+        </div>
+        <div class="field-row">
+          <div class="label">Estimated Area</div>
+          <input id="areaInput" class="input" type="text" value="0.00 hectares" readonly>
+        </div>
+        <button id="saveBtn" class="save" type="button">Save Field</button>
+        <div id="saveMsg" class="muted" style="margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- libs -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <script>
+    // CSRF
+    function getCookie(name){
+      const v = `; ${document.cookie}`.split(`; ${name}=`); 
+      if (v.length === 2) return v.pop().split(';').shift();
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    async function getJSON(url){
+      const r = await fetch(url, {cache:'no-store'});
+      if(!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
+    async function postJSON(url, body){
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrftoken },
+        body: JSON.stringify(body)
+      });
+      if(!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    // Field cards
+    const fieldsList = document.getElementById('fieldsList');
+    const emptyMsg   = document.getElementById('emptyMsg');
+
+    function fieldCardHtml(f){
+      const id = f.id ?? f.field_id;
+      const name = f.name || `Field ${id}`;
+      const created = (f.created_at || f.created || "").toString().slice(0,10);
+      const href = `/dashboard/${id}/`;
+      const areaTxt = (f.area_ha != null) ? `${Number(f.area_ha).toFixed(2)} ha` : "—";
+      return `
+        <div class="card" data-id="${id}">
+          <h4>${name}</h4>
+          <div class="row">
+            <span class="pill">Area: <span id="area-${id}">${areaTxt}</span></span>
+            <span class="muted">${created || ""}</span>
+          </div>
+          <button class="go" onclick="location.href='${href}'">View risk</button>
+        </div>`;
+    }
+
+    async function loadFields(){
+      try{
+        const j = await getJSON("/api/fields/?ordering=-id");
+        const items = Array.isArray(j) ? j : (j.results || []);
+        fieldsList.innerHTML = items.map(fieldCardHtml).join("");
+        emptyMsg.style.display = items.length ? "none" : "block";
+        fillAreasIfMissing(items);
+      }catch(e){
+        fieldsList.innerHTML = `<div class="muted">Failed to load fields: ${e.message}</div>`;
+      }
+    }
+
+    async function fillAreasIfMissing(items){
+      for(const f of items){
+        const id = f.id ?? f.field_id;
+        const areaSpan = document.getElementById(`area-${id}`);
+        if(!areaSpan) continue;
+        const already = areaSpan.textContent && areaSpan.textContent !== "—";
+        if (already) continue;
+        try{
+          const detail = await getJSON(`/api/fields/${id}/`);
+          const geom = detail.geom || detail.geometry || (detail.field?.geom);
+          if(geom){
+            const m2 = turf.area({ type:"Feature", geometry: geom, properties:{} });
+            const ha = m2 / 10000.0;
+            areaSpan.textContent = `${ha.toFixed(2)} ha`;
+          }
+        }catch(_){}
+      }
+    }
+
+    // Drawer
+    const drawer = document.getElementById('drawer');
+    const mask   = document.getElementById('drawerMask');
+    const openBtn= document.getElementById('addFieldBtn');
+    const closeBtn=document.getElementById('closeDrawer');
+    function openDrawer(){ drawer.classList.add('open'); mask.classList.add('open'); initMapIfNeeded(); }
+    function closeDrawer(){ drawer.classList.remove('open'); mask.classList.remove('open'); }
+    openBtn.addEventListener('click', openDrawer);
+    closeBtn.addEventListener('click', closeDrawer);
+    mask.addEventListener('click', closeDrawer);
+
+    // Map + draw
+    let map = null, drawnItems = null;
+    let LAST = null;
+    const areaVal   = () => document.getElementById('areaVal');
+    const areaInput = () => document.getElementById('areaInput');
+    const saveBtn   = () => document.getElementById('saveBtn');
+    const saveMsg   = () => document.getElementById('saveMsg');
+
+    function hectaresFromGeoJSON(gj){
+      if(!gj) return 0;
+      try{ if(['Polygon','MultiPolygon'].includes(gj.geometry?.type)) return turf.area(gj)/10000.0; }catch(_){}
+      return 0;
+    }
+    function updateAreaDisplay(gj){
+      const ha = hectaresFromGeoJSON(gj);
+      const txt = `${ha.toFixed(2)} hectares`;
+      areaVal().textContent = txt; areaInput().value = txt;
+    }
+
+    function initMapIfNeeded(){
+      if (map) return;
+      map = L.map('map').setView([11.45, 105.42], 15);
+      const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' }).addTo(map);
+      const osm  = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' });
+      drawnItems = new L.FeatureGroup().addTo(map);
+      map.addControl(new L.Control.Draw({
+        draw: {
+          polygon:{ showArea:true, allowIntersection:false, shapeOptions:{ color:'#10b981', weight:2 } },
+          rectangle:{ shapeOptions:{ color:'#22c55e', weight:2 } },
+          polyline:false, circle:false, circlemarker:false, marker:false
+        },
+        edit:{ featureGroup: drawnItems, remove:true }
+      }));
+      L.control.layers({ "Esri World Imagery": esri, "OpenStreetMap": osm }, {}, { collapsed: true }).addTo(map);
+
+      document.getElementById('layersBtn').onclick = () => {
+        const panes = document.getElementsByClassName('leaflet-control-layers');
+        if (panes[0]) panes[0].classList.remove('leaflet-control-layers-collapsed');
+      };
+      document.getElementById('locBtn').onclick = ()=>{
+        if(!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(pos=>{
+          map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+        });
+      };
+
+      map.on(L.Draw.Event.CREATED, (e)=>{ drawnItems.clearLayers(); drawnItems.addLayer(e.layer); LAST = e.layer.toGeoJSON(); updateAreaDisplay(LAST); });
+      map.on(L.Draw.Event.EDITED, (e)=>{ const layers=e.layers.getLayers(); if(layers.length){ LAST=layers[0].toGeoJSON(); updateAreaDisplay(LAST);} });
+      map.on(L.Draw.Event.DELETED, ()=>{ LAST=null; updateAreaDisplay(null); saveMsg().textContent=''; });
+    }
+
+    async function saveField(){
+      if(!LAST){ saveMsg().textContent = "⚠️ Draw a polygon or rectangle first."; return; }
+      saveBtn().disabled = true; saveMsg().textContent = "Saving...";
+      try{
+        const aux = await postJSON("{% url 'aoi_upload' %}", { feature: LAST });
+        const inputName = document.getElementById('nameInput').value.trim();
+        let fieldName = inputName;
+        if (!fieldName) {
+          const existing = await getJSON("/api/fields/");
+          const count = Array.isArray(existing) ? existing.length : (existing.results?.length || 0);
+          fieldName = `Field ${count + 1}`;
+        }
+        const payload = { name: fieldName, geom: LAST.geometry };
+        const api = await postJSON("/api/fields/", payload);
+        const fieldId = api.field_id ?? api.id ?? api?.field?.id;
+        if(!fieldId) throw new Error("No field_id returned from /api/fields/");
+
+        await fetch(`/api/fields/${fieldId}/analyze/`, { method: "POST", headers: { "X-CSRFToken": csrftoken }});
+
+        const sHa = (aux.area_ha ?? hectaresFromGeoJSON(LAST)).toFixed(2);
+        saveMsg().textContent = `✅ Saved. Server area: ${sHa} ha — analysis started.`;
+
+        await loadFields();
+        setTimeout(closeDrawer, 500);
+      }catch(e){
+        saveMsg().textContent = "❌ Save failed: " + e.message;
+      }finally{
+        saveBtn().disabled = false;
+      }
+    }
+    document.getElementById('saveBtn').addEventListener('click', saveField);
+
+    // boot
+    loadFields();
+  </script>
+{% endblock %}
