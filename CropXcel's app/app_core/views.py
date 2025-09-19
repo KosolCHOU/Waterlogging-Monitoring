@@ -1,4 +1,5 @@
 # app_core/views.py
+import os
 import json
 import math
 from pathlib import Path
@@ -16,13 +17,14 @@ from django.http import JsonResponse, HttpResponseBadRequest, Http404, HttpRespo
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 from django.db.models import Prefetch
+from django.urls import reverse
 
 from .models import FieldAOI, AnalysisJob
 from analysis.engine import export_stack_from_geom, export_s1_timeseries
 from analysis.insights import compute_temporal_engine_s1, build_insights_html
 
 # New: local geodesic area (no GEE)
-from shapely.geometry import shape
+from shapely.geometry import shape, mapping
 from pyproj import Geod
 
 @require_http_methods(["POST"])
@@ -394,75 +396,87 @@ def dashboard(request, field_id: int):
         plot_path=job.result.get("plot_path"),
     )
 
-    ctx = { 
-        "job_id": job.id,
-        "bounds": json.dumps(bounds),
-        "overlay_png": job.result.get("overlay_png_url") or "",
-        "hotspots_url": job.result.get("hotspots_url") or "",
-        "probe_bin": job.result.get("probe_bin_url") or "",
-        "probe_meta": job.result.get("probe_meta_url") or "",
-        "timeseries_file": job.result.get("timeseries_file") or "",
-        # existing parts
-        **parts,
+    ctx = {
+    "job_id": job.id,
+    "bounds": json.dumps(bounds),
+    "overlay_png": job.result.get("overlay_png_url") or "",
+    "hotspots_url": job.result.get("hotspots_url") or "",
+    "probe_bin": job.result.get("probe_bin_url") or "",
+    "probe_meta": job.result.get("probe_meta_url") or "",
+    "field": field,  # <-- important for template
     }
     resp = render(request, "dashboard.html", ctx)
     return remember(resp)
 
+# app_core/views.py → field_insights_api()
 def field_insights_api(request, field_id: int):
-    # 1) find the latest completed job for this field
     job = (AnalysisJob.objects
            .filter(field_id=field_id, status="done")
            .order_by("-id").first())
     if not job or not job.result:
         raise Http404("No completed analysis for this field yet.")
 
-    # 2) locate the CSV
-    ts_path = job.result.get("timeseries_path")  # e.g., "media/timeseries/timeseries_field_182.csv"
-    if not ts_path:
-        raise Http404("No time series CSV in job result.")
+    # 1) Preferred: the stored full path
+    ts_path = job.result.get("timeseries_path")
 
-    # Make absolute if necessary
-    csv_path = ts_path
-    if not os.path.isabs(csv_path):
-        csv_path = os.path.join(settings.BASE_DIR, csv_path)  # works if ts_path is project-relative
-    if not os.path.exists(csv_path):
-        # try MEDIA_ROOT + relative piece (defensive)
-        rel = ts_path
-        for prefix in ("media/", "/media/"):
-            if rel.startswith(prefix): rel = rel[len(prefix):]
-        alt = os.path.join(settings.MEDIA_ROOT, rel)
-        csv_path = alt if os.path.exists(alt) else csv_path
+    # 2) Fallback: try MEDIA_ROOT + relative
+    if not ts_path or not os.path.exists(ts_path):
+        rel = (job.result.get("timeseries_file") or "").lstrip("/")
+        if rel.startswith("media/"):
+            rel = rel[6:]
+        candidate = os.path.join(settings.MEDIA_ROOT, rel)
+        if rel and os.path.exists(candidate):
+            ts_path = candidate
 
-    # 3) run the insights engine
+    # 3) Fallback: pick the newest CSV that matches this field
+    if (not ts_path) or (not os.path.exists(ts_path)):
+        ts_dir = os.path.join(settings.MEDIA_ROOT, "timeseries")
+        if os.path.isdir(ts_dir):
+            import glob
+            pattern = os.path.join(ts_dir, f"timeseries_field_{field_id}_*.csv")
+            matches = sorted(glob.glob(pattern), reverse=True)
+            if matches:
+                ts_path = matches[0]
+
+    if not ts_path or not os.path.exists(ts_path):
+        # return empty UI instead of 404, so the page stays usable
+        return JsonResponse({
+            "plot_png": None,
+            "insights_csv": None,
+            "alerts_count": 0,
+            "area_by_class": job.result.get("area_by_class") or {},
+            "total_ha": job.result.get("total_ha") or 0.0,
+            **build_insights_html(
+                insights_csv=None,
+                area_by_class=job.result.get("area_by_class") or {},
+                total_ha=job.result.get("total_ha"),
+                plot_path=None,
+            )
+        })
+
+    # --- proceed with computation ---
     alerts_df, insights_df, plot_png, insights_csv = compute_temporal_engine_s1(
-    csv_path,
-    media_root=settings.MEDIA_ROOT,
-    media_url=getattr(settings, "MEDIA_URL", "/media/"),
-)
+        ts_path,
+        media_root=settings.MEDIA_ROOT,
+    )
 
-    # Persist for reuse by /dashboard/
     job.result = {
         **(job.result or {}),
         "plot_path": plot_png,
-        "plot_url": (settings.MEDIA_URL.rstrip("/") + "/plots/" + os.path.basename(plot_png)).replace("//","/"),
+        "plot_url": (settings.MEDIA_URL.rstrip("/") + "/plots/" + os.path.basename(plot_png)).replace("//","/") if plot_png else None,
         "insights_csv_path": insights_csv,
-        "insights_csv_url": (settings.MEDIA_URL.rstrip("/") + "/insights/" + os.path.basename(insights_csv)).replace("//","/"),
+        "insights_csv_url": (settings.MEDIA_URL.rstrip("/") + "/insights/" + os.path.basename(insights_csv)).replace("//","/") if insights_csv else None,
     }
     job.save(update_fields=["result"])
 
-    # 4) area_by_class and total_ha should come from your raster/overlay step
-    #    For now, read from job.result if you saved them; else fallback to 0s
-    abc = job.result.get("area_by_class") or {}   # expected like {0: ha, 1: ha, 2: ha, 3: ha}
+    abc = job.result.get("area_by_class") or {}
     total_ha = sum(abc.values()) if abc else 0.0
 
     html = build_insights_html(
         insights_csv=insights_csv,
-        recs_csv=None,
         area_by_class=abc,
         total_ha=total_ha,
         plot_path=plot_png,
-        farmer_rows=14,
-        technical_rows=20,
     )
 
     return JsonResponse({
