@@ -527,7 +527,6 @@ def classify_and_area(
     risk_tif: str,
     aoi_mask: str | None = None,
     *,
-    edges = np.array([0.00, 0.30, 0.50, 0.70, 1.00], dtype=float),
     default_pixel_area_m2: float = 100.0,  # fallback (10m × 10m)
 ):
     """
@@ -554,6 +553,11 @@ def classify_and_area(
             mask = ms.read(1).astype(bool)
         if mask.shape == risk.shape:
             valid &= mask
+
+    # Calculate percentiles for classification edges
+    risk_clip = risk[valid]
+    p30, p60, p85 = np.percentile(risk_clip, [30, 60, 85])
+    edges = np.array([0.0, p30, p60, p85, 1.0])
 
     # Classify 0..3 with half-open bins [0,.3), [.3,.5), [.5,.7), [.7,1]
     classes = np.digitize(risk, bins=edges[1:-1], right=False).astype(np.int32)
