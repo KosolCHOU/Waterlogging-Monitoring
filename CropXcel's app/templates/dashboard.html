@@ -26,7 +26,6 @@
 {% block content %}
   <div id="map"></div>
   <div class="badge">Hover map for risk · Click hotspots for details</div>
-  <div id="hoverpill" class="hoverpill" style="display:none">risk: …</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
@@ -171,6 +170,21 @@
       return r*cols + c;
     }
 
+    function mean3x3(idx, rows, cols, data, scale, mask){
+      const r0 = Math.floor(idx / cols), c0 = idx % cols;
+      let s = 0, n = 0;
+      for(let dr=-1; dr<=1; dr++){
+        for(let dc=-1; dc<=1; dc++){
+          const r = r0 + dr, c = c0 + dc;
+          if (r<0 || r>=rows || c<0 || c>=cols) continue;
+          const k = r*cols + c;
+          if (mask && mask[k] === 0) continue;
+          s += data[k]; n++;
+        }
+      }
+      return n ? (s/n)/scale : (data[idx]/scale);
+    }
+
     map.whenReady(async () => {
       await loadProbe();
       tip = L.tooltip({permanent:false, direction:'top', opacity:0.96, offset:[0,-10]});
@@ -187,13 +201,25 @@
           }
           if (k === lastIdx) { tip.setLatLng(e.latlng); if(!map.hasLayer(tip)) tip.addTo(map); return; }
           lastIdx = k;
-          const v = probe.data[k] / probe.scale;
+          // const v = probe.data[k] / probe.scale;
+          // const pct = (v*100).toFixed(1);
+
+          const v = mean3x3(k, probe.rows, probe.cols, probe.data, probe.scale, probe.mask);
           const pct = (v*100).toFixed(1);
+
+          // level + color (same thresholds used for hotspots)
+          const level = v >= 0.7 ? "High" : (v >= 0.4 ? "Caution" : "Low");
+          const color = level === "High" ? "#e31a1c" : (level === "Caution" ? "#f59e0b" : "#1f78b4");
+
           tip.setLatLng(e.latlng).setContent(
-            `<div style="font:13px/1.35 system-ui;min-width:210px">
-              <div style="font-weight:700;margin-bottom:2px">Waterlogging risk</div>
-              <div style="font-size:12px;color:#0f172a">Value: <b>${pct}%</b>
-                <span style="opacity:.6">(${v.toFixed(3)})</span></div>
+            `<div style="font:13px/1.35 system-ui;min-width:230px">
+              <div style="display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:2px">
+                <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block"></span>
+                Waterlogging risk · <span style="font-weight:600">${level}</span>
+              </div>
+              <div style="font-size:12px;color:#0f172a">
+                Value: <b>${pct}%</b> <span style="opacity:.6">(${v.toFixed(3)})</span>
+              </div>
             </div>`
           ).addTo(map);
         });
