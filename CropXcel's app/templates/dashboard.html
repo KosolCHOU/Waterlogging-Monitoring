@@ -102,6 +102,31 @@
       text-align: center;      /* center the text */
       margin-top: 8px;         /* keep your spacing */
     }
+    @keyframes spinCW {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @keyframes spinCCW {
+      from { transform: rotate(360deg); }
+      to   { transform: rotate(0deg); }
+    }
+
+    .scale-donut .seg-0 {
+      transform-origin: 70px 70px;
+      animation: spinCW 12s linear infinite;
+    }
+    .scale-donut .seg-1 {
+      transform-origin: 70px 70px;
+      animation: spinCCW 18s linear infinite;
+    }
+    .scale-donut .seg-2 {
+      transform-origin: 70px 70px;
+      animation: spinCW 24s linear infinite;
+    }
+    .scale-donut .seg-3 {
+      transform-origin: 70px 70px;
+      animation: spinCCW 30s linear infinite;
+    }
   </style>
 {% endblock %}
 
@@ -142,13 +167,24 @@
       <div class="scaleRow">
         <!-- Donut -->
         <div class="donutWrap">
+          <!-- Analysis Scale donut -->
           <svg class="scale-donut" width="140" height="140" viewBox="0 0 140 140" aria-label="Analysis Scale">
+            <!-- STATIC background rings (drawn first) -->
+            <g class="bg" transform="rotate(-90 70 70)">
+              <circle cx="70" cy="70" r="58" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+              <circle cx="70" cy="70" r="46" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+              <circle cx="70" cy="70" r="34" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+              <circle cx="70" cy="70" r="22" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+            </g>
+
+            <!-- ROTATING, COLORED segments (drawn on top) -->
             <g class="segments" transform="rotate(-90 70 70)" data-sw="10">
               <circle class="seg seg-0" cx="70" cy="70" r="58" fill="none" stroke-width="10" pathLength="100"/>
               <circle class="seg seg-1" cx="70" cy="70" r="46" fill="none" stroke-width="10" pathLength="100"/>
               <circle class="seg seg-2" cx="70" cy="70" r="34" fill="none" stroke-width="10" pathLength="100"/>
               <circle class="seg seg-3" cx="70" cy="70" r="22" fill="none" stroke-width="10" pathLength="100"/>
             </g>
+
             <text id="donutCenter" x="70" y="72" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0 Ha</text>
           </svg>
         </div>
