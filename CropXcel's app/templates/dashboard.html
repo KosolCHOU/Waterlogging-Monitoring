@@ -320,19 +320,19 @@
   /* ===== SAMPLE A PIXEL FROM PROBE ===== */
   function sampleClient(latlng){
     if (!canClient) return null;
-    const [[S,W],[N,E]] = EFFECTIVE_BOUNDS; // use web grid bounds from meta for perfect alignment
+    const [[S,W],[N,E]] = EFFECTIVE_BOUNDS;
     const x = Math.floor(((latlng.lng - W) / (E - W)) * probeMeta.width);
     const y = Math.floor(((N - latlng.lat) / (N - S)) * probeMeta.height);
     if (x<0 || x>=probeMeta.width || y<0 || y>=probeMeta.height) return null;
     const idx = y*probeMeta.width + x;
 
-    // Respect AOI mask (if present): stay quiet outside polygon/overlay
+    // ✅ Respect AOI mask
     if (maskArray && maskArray[idx] === 0) return null;
 
     let v01;
     if (dtype==='u8')       v01 = probeArray[idx] / 255;
     else if (dtype==='u16') v01 = probeArray[idx] / (probeMeta.scale || 1000);
-    else { // f32
+    else {
       const raw = probeArray[idx];
       const hasMM = Number.isFinite(probeMeta.min) && Number.isFinite(probeMeta.max) && (probeMeta.max>probeMeta.min);
       v01 = hasMM ? (raw - probeMeta.min) / (probeMeta.max - probeMeta.min) : raw;
@@ -344,20 +344,25 @@
   /* ===== SMOOTH HOVER (rAF + EMA), with server fallback only if probe missing ===== */
   let lastLL=null, emaV=null, raf=0, srvCooldown=false;
   function renderPill(ll){
-    const pt = map.latLngToContainerPoint(ll);
-    pill.style.display='block';
-    pill.style.left=(pt.x+14)+'px'; pill.style.top=(pt.y+14)+'px';
-
     const c = sampleClient(ll);
-    if (c){ emaV = (emaV==null) ? c.v : (0.6*emaV + 0.4*c.v); }
-    const v = (emaV==null) ? null : clamp01(emaV);
 
-    if (v==null){
-      // If client has no value here (outside AOI/mask), show subtle idle text
-      pill.textContent = "Waterlogging risk · …";
+    // if no valid risk value → hide pill immediately
+    if (!c){
+      pill.style.display = 'none';
+      emaV = null;  // reset smoothed value
       return;
     }
+
+    // if inside AOI/raster → update pill
+    emaV = (emaV==null) ? c.v : (0.6*emaV + 0.4*c.v);
+    const v = clamp01(emaV);
     const p = pct(v), lvl = levelFrom(v), col = colorFor(v);
+
+    const pt = map.latLngToContainerPoint(ll);
+    pill.style.display='block';
+    pill.style.left=(pt.x+14)+'px';
+    pill.style.top=(pt.y+14)+'px';
+
     pill.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:2px;min-width:180px">
         <div>Waterlogging risk · ${p}% · ${lvl}</div>
