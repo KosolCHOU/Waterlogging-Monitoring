@@ -111,6 +111,7 @@
   <!-- LEFT: MAP -->
   <div class="mapCard">
     <div id="map" style="height:100%; width:100%"></div>
+    <div id="hoverpill"></div>
     <button class="btn btn-brand exit-maponly" id="exitMapOnlyBtn" title="Exit Map Only">Exit Map Only</button>
   </div>
 
@@ -244,26 +245,168 @@
       .catch(()=>{});
   }
 
-  // Hover probe (simple server endpoint)
+  /* ===== helpers (keep if you already have them) ===== */
   const pill = document.getElementById("hoverpill");
-  function showPill(text){ pill.style.display='block'; pill.textContent = text; }
-  function hidePill(){ pill.style.display='none'; }
-  let probeTimer = null;
-  map.on("mousemove", (e) => {
-    if (probeTimer) return;
-    probeTimer = setTimeout(() => { probeTimer = null; }, 180);
-    fetch(`/probe/${JOB_ID}?lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(d => {
-        if (d && typeof d.value === "number") {
-          const p = Math.round(d.value * 100);
-          const lvl = d.level || (d.value>=0.7 ? "High" : d.value>=0.4 ? "Caution" : "Low");
-          showPill(`risk: ${p}% · ${lvl}`);
-        } else hidePill();
-      })
-      .catch(()=>hidePill());
-  });
+  function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+  function pct(x){ return Math.round(clamp01(x)*100); }
+  function levelFrom(v){ return v>=0.7 ? "High" : v>=0.4 ? "Caution" : "Low"; }
+  function colorFor(v){ return v>=0.7 ? '#e31a1c' : v>=0.4 ? '#f59e0b' : '#2ecc71'; }
+  function tipsFor(level){
+    if (level==="High")    return "Standing water likely. Drain within 24h; open outlets/pump.";
+    if (level==="Caution") return "Watch next 2–3 days. Avoid heavy irrigation; check after rain.";
+    return "Normal. Maintain current irrigation schedule.";
+  }
 
+  /* ===== LOAD PROBE (robust to u8/u16/f32 + appended mask) =====
+    Back-end writes: uint16 [0..1000] + optional uint8 AOI mask appended.
+    Meta example:
+    { rows, cols, scale:1000, web_bounds:[[S,W],[N,E]], layout:{data_bytes, mask_bytes?} }
+    */
+  let probeMeta=null, probeArray=null, maskArray=null, dtype=null, canClient=false;
+  let EFFECTIVE_BOUNDS = BOUNDS;  // will be replaced by meta.web_bounds if present
+
+  (async function(){
+    try{
+      if (!PROBE_BIN || !PROBE_META) return;
+      // 1) meta
+      probeMeta = await fetch(PROBE_META, {cache:'no-store'}).then(r=>r.json());
+      // normalize meta keys
+      const W = probeMeta.cols ?? probeMeta.width;
+      const H = probeMeta.rows ?? probeMeta.height;
+      probeMeta.width = Number(W); probeMeta.height = Number(H);
+      probeMeta.scale = probeMeta.scale || 1000; // your pipeline scale
+      if (Array.isArray(probeMeta.web_bounds)) EFFECTIVE_BOUNDS = probeMeta.web_bounds; // match web grid
+
+      // 2) data
+      const buf = await fetch(PROBE_BIN, {cache:'no-store'}).then(r=>r.arrayBuffer());
+      const npx = probeMeta.width * probeMeta.height;
+      const layout = probeMeta.layout || {};
+      const dataBytes = layout.data_bytes ?? (npx*2);         // default u16
+      const maskBytes = layout.mask_bytes ?? 0;
+
+      // Expect: [data][mask?]
+      if (buf.byteLength < dataBytes) throw new Error("Probe buffer smaller than data_bytes");
+      const dataView = buf.slice(0, dataBytes);
+      const maskView = (maskBytes>0 && buf.byteLength >= dataBytes+maskBytes) ? buf.slice(dataBytes, dataBytes+maskBytes) : null;
+
+      // Decide dtype by dataBytes/npx
+      if (dataBytes === npx)       { probeArray = new Uint8Array(dataView);  dtype='u8'; }
+      else if (dataBytes === npx*2){ probeArray = new Uint16Array(dataView); dtype='u16'; }
+      else if (dataBytes === npx*4){ probeArray = new Float32Array(dataView);dtype='f32'; }
+      else {
+        // be tolerant: try u16 if divisible by 2
+        probeArray = (dataBytes % 4 === 0) ? new Float32Array(dataView)
+                  : (dataBytes % 2 === 0) ? new Uint16Array(dataView)
+                  : new Uint8Array(dataView);
+        dtype = (probeArray.BYTES_PER_ELEMENT===4) ? 'f32' : (probeArray.BYTES_PER_ELEMENT===2 ? 'u16' : 'u8');
+        console.warn("Nonstandard data_bytes; inferred dtype =", dtype);
+      }
+
+      if (maskView) {
+        maskArray = new Uint8Array(maskView); // 0=outside AOI, 1=inside
+        if (maskArray.length !== npx) {
+          console.warn("Mask size mismatch (ignoring mask)", maskArray.length, "vs", npx);
+          maskArray = null;
+        }
+      }
+      canClient = !!(probeArray && probeMeta.width && probeMeta.height);
+      console.log("Probe ready:", {dtype, w:probeMeta.width, h:probeMeta.height, scale:probeMeta.scale, hasMask:!!maskArray});
+    }catch(e){
+      console.warn("Probe load failed:", e);
+      canClient=false;
+    }
+  })();
+
+  /* ===== SAMPLE A PIXEL FROM PROBE ===== */
+  function sampleClient(latlng){
+    if (!canClient) return null;
+    const [[S,W],[N,E]] = EFFECTIVE_BOUNDS; // use web grid bounds from meta for perfect alignment
+    const x = Math.floor(((latlng.lng - W) / (E - W)) * probeMeta.width);
+    const y = Math.floor(((N - latlng.lat) / (N - S)) * probeMeta.height);
+    if (x<0 || x>=probeMeta.width || y<0 || y>=probeMeta.height) return null;
+    const idx = y*probeMeta.width + x;
+
+    // Respect AOI mask (if present): stay quiet outside polygon/overlay
+    if (maskArray && maskArray[idx] === 0) return null;
+
+    let v01;
+    if (dtype==='u8')       v01 = probeArray[idx] / 255;
+    else if (dtype==='u16') v01 = probeArray[idx] / (probeMeta.scale || 1000);
+    else { // f32
+      const raw = probeArray[idx];
+      const hasMM = Number.isFinite(probeMeta.min) && Number.isFinite(probeMeta.max) && (probeMeta.max>probeMeta.min);
+      v01 = hasMM ? (raw - probeMeta.min) / (probeMeta.max - probeMeta.min) : raw;
+    }
+    if (!Number.isFinite(v01)) return null;
+    return { v: clamp01(v01) };
+  }
+
+  /* ===== SMOOTH HOVER (rAF + EMA), with server fallback only if probe missing ===== */
+  let lastLL=null, emaV=null, raf=0, srvCooldown=false;
+  function renderPill(ll){
+    const pt = map.latLngToContainerPoint(ll);
+    pill.style.display='block';
+    pill.style.left=(pt.x+14)+'px'; pill.style.top=(pt.y+14)+'px';
+
+    const c = sampleClient(ll);
+    if (c){ emaV = (emaV==null) ? c.v : (0.6*emaV + 0.4*c.v); }
+    const v = (emaV==null) ? null : clamp01(emaV);
+
+    if (v==null){
+      // If client has no value here (outside AOI/mask), show subtle idle text
+      pill.textContent = "Waterlogging risk · …";
+      return;
+    }
+    const p = pct(v), lvl = levelFrom(v), col = colorFor(v);
+    pill.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:180px">
+        <div>Waterlogging risk · ${p}% · ${lvl}</div>
+        <div style="width:100%;height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden">
+          <span style="display:block;height:100%;width:${p}%;background:${col}"></span>
+        </div>
+      </div>`;
+  }
+  function loop(){
+    raf = requestAnimationFrame(loop);
+    if (lastLL) renderPill(lastLL);
+
+    // Only fallback if we never got the client probe at all
+    if (!canClient && lastLL && !srvCooldown){
+      srvCooldown = true; setTimeout(()=>srvCooldown=false, 200);
+      fetch(`/probe/${JOB_ID}?lat=${lastLL.lat}&lon=${lastLL.lng}`)
+        .then(r=>r.ok?r.json():null).then(d=>{
+          if (d && typeof d.value==='number'){
+            const v = clamp01(d.value);
+            emaV = (emaV==null) ? v : (0.6*emaV + 0.4*v);
+          }
+        }).catch(()=>{});
+    }
+  }
+  map.on('mousemove', e=>{ lastLL=e.latlng; if(!raf) loop(); });
+  map.on('mouseout', ()=>{ lastLL=null; emaV=null; pill.style.display='none'; cancelAnimationFrame(raf); raf=0; });
+
+  /* ===== CLICK: freeze popup with level-specific tips ===== */
+  map.on('click', async (e)=>{
+    let v = sampleClient(e.latlng)?.v;
+    if (v==null && !canClient){ // only if client probe missing entirely
+      try{
+        const r = await fetch(`/probe/${JOB_ID}?lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
+        const d = await r.json(); if (typeof d?.value==='number') v = clamp01(d.value);
+      }catch{}
+    }
+    if (v==null) return;
+    const p=pct(v), lvl=levelFrom(v), col=colorFor(v);
+    const html = `
+      <div style="min-width:260px">
+        <b>Waterlogging risk</b>
+        <div style="margin-top:6px;font-size:12px;color:#334155">Value: ${p}% · <b>${lvl}</b></div>
+        <div style="width:100%;height:8px;background:#e5e7eb;border-radius:999px;margin-top:6px;overflow:hidden">
+          <span style="display:block;height:100%;width:${p}%;background:${col}"></span>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:#64748b"><i>Tip:</i> ${tipsFor(lvl)}</div>
+      </div>`;
+    L.popup({offset:[0,-6]}).setLatLng(e.latlng).setContent(html).openOn(map);
+  });
   /* ================= INSIGHTS + SCALE ================= */
   const tableWrap = document.getElementById('insightsTable');
   const title     = document.getElementById('insTitle');
