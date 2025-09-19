@@ -2,30 +2,40 @@
 {% extends "base.html" %}
 {% block title %}Dashboard – CropXcel{% endblock %}
 {% block head %}
-  <meta charset="utf-8" />
-  <title>CropXcel – Waterlogging Risk</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    body{margin:0;font-family:system-ui,Arial,sans-serif}
-    #map{height:100vh}
-    .badge{
-      position:absolute; right:12px; top:12px; z-index:1000; background:#fff; padding:8px 10px;
-      border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); font-size:12px;
-    }
-    .hoverpill{
-      position:absolute; left:12px; bottom:12px; z-index:1000;
-      background:#0f172a; color:#fff; padding:6px 10px; border-radius:999px; font-size:12px;
-      opacity:.92;
-    }
-    .riskbar{height:6px; background:#e2e8f0; border-radius:6px; overflow:hidden; margin-top:4px}
-    .riskbar > span{display:block; height:100%}
-    .risk-high{background:#e31a1c}.risk-caution{background:#f59e0b}.risk-low{background:#1f78b4}
+    body{margin:0;font-family:system-ui,Arial,sans-serif;display:flex;height:100vh}
+    #map{flex:1}
+    #side{width:420px;overflow-y:auto;border-left:1px solid #e5e7eb;background:#fff;padding:16px}
+    h3{margin:12px 0 6px;font-size:15px;color:#0f172a}
+    .panel{margin-bottom:18px;padding:12px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+    .water-advice{background:#fef9c3;border-left:5px solid #f59e0b;padding:12px;border-radius:8px}
   </style>
 {% endblock %}
+
 {% block content %}
   <div id="map"></div>
-  <div class="badge">Hover map for risk · Click hotspots for details</div>
+<div id="plot-section"></div>
+
+<div class="insights">
+  <div class="panel">
+    <h3>Farmer View</h3>
+    <div id="farmer-table"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Technical View</h3>
+    <div id="technical-table"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Analysis Scale</h3>
+    <div class="legend">
+      <div id="legend-rows"></div>
+      <div class="total">Total: <span id="total-badge">—</span></div>
+    </div>
+  </div>
+</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
@@ -226,5 +236,25 @@
       });
       map.on('mouseout', () => { if (map.hasLayer(tip)) map.removeLayer(tip); lastIdx = -2; });
     });
+  (async function() {
+    const fieldId = {{ field.id }};   // ensure 'field' is in template context
+    const url = `/fields/${fieldId}/insights/`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      // inject
+      document.getElementById("plot-section").innerHTML   = data.plot_section || "";
+      document.getElementById("farmer-table").innerHTML   = data.farmer_table_html || "";
+      document.getElementById("technical-table").innerHTML= data.technical_table_html || "";
+      document.getElementById("legend-rows").innerHTML    = data.legend_rows_html || "";
+      document.getElementById("total-badge").textContent  = data.total_badge || "—";
+    } catch (err) {
+      console.error("Insights load failed:", err);
+      document.getElementById("farmer-table").innerHTML = "<div class='empty'>No records.</div>";
+    }
+  })();
   </script>
 {% endblock %}

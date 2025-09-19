@@ -19,6 +19,7 @@ from django.db.models import Prefetch
 
 from .models import FieldAOI, AnalysisJob
 from analysis.engine import export_stack_from_geom, export_s1_timeseries
+from analysis.insights import compute_temporal_engine_s1, build_insights_html
 
 # New: local geodesic area (no GEE)
 from shapely.geometry import shape
@@ -87,16 +88,35 @@ def aoi_upload(request):
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         ts_csv = ts_dir / f"timeseries_field_{field.id}_{stamp}.csv"
 
+        media_url = getattr(settings, "MEDIA_URL", "/media/")
+        csv_rel   = f"timeseries/{ts_csv.name}"
+        csv_url   = (media_url.rstrip("/") + "/" + csv_rel).replace("//", "/")
+
         try:
             export_s1_timeseries(
                 geom_geojson=field.geom,
                 out_csv=str(ts_csv),
                 tz="Asia/Phnom_Penh",
             )
-            timeseries_file = ts_csv.name
+            timeseries_file = csv_url
+            timeseries_path = str(ts_csv)
+
+            job.result = {
+                **(job.result or {}),
+                "timeseries_file": timeseries_file,
+                "timeseries_path": timeseries_path,
+            }
+            job.save(update_fields=["result"])
         except Exception as e:
             print("⚠️ Time-series export failed:", e)
             timeseries_file = None
+            timeseries_path = None
+
+        # --- run analysis after time-series write in DEBUG (sync), else async ---
+        if settings.DEBUG:
+            run_waterlogging_analysis(job.id)
+        else:
+            run_waterlogging_analysis.delay(job.id)
 
         return JsonResponse({
             "ok": True,
@@ -105,6 +125,8 @@ def aoi_upload(request):
             "tif_file": tif_exported,
             "field_id": field.id,
             "job_id": job.id,
+            "timeseries_file": timeseries_file,   # URL for browser
+            "timeseries_path": timeseries_path,   # full path for backend
             "next_url": f"/fields/{field.id}/risk/",
         })
     except Exception as e:
@@ -357,17 +379,96 @@ def dashboard(request, field_id: int):
         """
         return remember(HttpResponse(html))
 
-    bounds = job.result.get("bounds") or [[field.geom["coordinates"][0][0][1],
-                                           field.geom["coordinates"][0][0][0]],
-                                          [field.geom["coordinates"][0][2][1],
-                                           field.geom["coordinates"][0][2][0]]]
-    ctx = {
+    bounds = job.result.get("bounds") or [[...],[...]]
+    # build insights HTML parts
+    # Resolve insights CSV from the saved timeseries path (preferred) or fallbacks
+    insights_csv = job.result.get("timeseries_path") \
+        or job.result.get("insights_csv_path") \
+        or job.result.get("insights_csv_url")   # last resort if you ever store a URL
+
+    parts = build_insights_html(
+        insights_csv=job.result.get("insights_csv_path"),  # ← use processed insights
+        recs_csv=job.result.get("recs_csv_url"),
+        area_by_class=job.result.get("area_by_class") or {},
+        total_ha=job.result.get("total_ha"),
+        plot_path=job.result.get("plot_path"),
+    )
+
+    ctx = { 
         "job_id": job.id,
         "bounds": json.dumps(bounds),
         "overlay_png": job.result.get("overlay_png_url") or "",
         "hotspots_url": job.result.get("hotspots_url") or "",
         "probe_bin": job.result.get("probe_bin_url") or "",
         "probe_meta": job.result.get("probe_meta_url") or "",
+        "timeseries_file": job.result.get("timeseries_file") or "",
+        # existing parts
+        **parts,
     }
     resp = render(request, "dashboard.html", ctx)
     return remember(resp)
+
+def field_insights_api(request, field_id: int):
+    # 1) find the latest completed job for this field
+    job = (AnalysisJob.objects
+           .filter(field_id=field_id, status="done")
+           .order_by("-id").first())
+    if not job or not job.result:
+        raise Http404("No completed analysis for this field yet.")
+
+    # 2) locate the CSV
+    ts_path = job.result.get("timeseries_path")  # e.g., "media/timeseries/timeseries_field_182.csv"
+    if not ts_path:
+        raise Http404("No time series CSV in job result.")
+
+    # Make absolute if necessary
+    csv_path = ts_path
+    if not os.path.isabs(csv_path):
+        csv_path = os.path.join(settings.BASE_DIR, csv_path)  # works if ts_path is project-relative
+    if not os.path.exists(csv_path):
+        # try MEDIA_ROOT + relative piece (defensive)
+        rel = ts_path
+        for prefix in ("media/", "/media/"):
+            if rel.startswith(prefix): rel = rel[len(prefix):]
+        alt = os.path.join(settings.MEDIA_ROOT, rel)
+        csv_path = alt if os.path.exists(alt) else csv_path
+
+    # 3) run the insights engine
+    alerts_df, insights_df, plot_png, insights_csv = compute_temporal_engine_s1(
+    csv_path,
+    media_root=settings.MEDIA_ROOT,
+    media_url=getattr(settings, "MEDIA_URL", "/media/"),
+)
+
+    # Persist for reuse by /dashboard/
+    job.result = {
+        **(job.result or {}),
+        "plot_path": plot_png,
+        "plot_url": (settings.MEDIA_URL.rstrip("/") + "/plots/" + os.path.basename(plot_png)).replace("//","/"),
+        "insights_csv_path": insights_csv,
+        "insights_csv_url": (settings.MEDIA_URL.rstrip("/") + "/insights/" + os.path.basename(insights_csv)).replace("//","/"),
+    }
+    job.save(update_fields=["result"])
+
+    # 4) area_by_class and total_ha should come from your raster/overlay step
+    #    For now, read from job.result if you saved them; else fallback to 0s
+    abc = job.result.get("area_by_class") or {}   # expected like {0: ha, 1: ha, 2: ha, 3: ha}
+    total_ha = sum(abc.values()) if abc else 0.0
+
+    html = build_insights_html(
+        insights_csv=insights_csv,
+        recs_csv=None,
+        area_by_class=abc,
+        total_ha=total_ha,
+        plot_path=plot_png,
+        farmer_rows=14,
+        technical_rows=20,
+    )
+
+    return JsonResponse({
+        "plot_png": plot_png,
+        "insights_csv": insights_csv,
+        "alerts_count": int(getattr(alerts_df, "shape", [0, 0])[0]),
+        "area_by_class": abc, "total_ha": total_ha,
+        **html
+    })

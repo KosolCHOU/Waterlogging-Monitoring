@@ -13,6 +13,7 @@ urlpatterns = [
     path("dashboard/", views.dashboard_index, name="dashboard_index"),
     path("dashboard/<int:field_id>/", views.dashboard, name="dashboard"),
     path("probe/<int:job_id>/", views.probe, name="probe"),
-    path("fields/<int:field_id>/timeseries/", views.export_s1_timeseries, name="export_timeseries"),
+    # path("fields/<int:field_id>/timeseries/", views.export_s1_timeseries, name="export_timeseries"),
+    path("fields/<int:field_id>/insights/", views.field_insights_api, name="field_insights_api"),
     path("api/", include(router.urls)),
 ]

@@ -119,13 +119,29 @@ def run_waterlogging_analysis(job_id: int):
                 if not _fs_from_media(url).exists():
                     raise FileNotFoundError(f"{label} missing on disk -> {_fs_from_media(url)}")
 
-        job.result = {
+        # --- keep anything saved earlier (e.g., timeseries_file/timeseries_path) ---
+        merged = dict(job.result or {})
+        merged.update({
             "bounds": result.get("bounds"),
             "overlay_png_url": overlay_url,
             "hotspots_url": hotspots_url,
             "probe_bin_url": probe_bin_url,
             "probe_meta_url": probe_meta_url,
-        }
+        })
+
+        # (optional) If timeseries wasn't set yet, auto-attach the newest CSV for this field
+        if not merged.get("timeseries_path"):
+            ts_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "timeseries"
+            if ts_dir.exists():
+                cand = sorted(ts_dir.glob(f"timeseries_field_{field.id}_*.csv"),
+                            key=lambda p: p.stat().st_mtime, reverse=True)
+                if cand:
+                    latest = cand[0]
+                    rel = latest.relative_to(Path(getattr(settings, "MEDIA_ROOT", "media")))
+                    merged["timeseries_path"] = str(latest)
+                    merged["timeseries_file"] = f"{getattr(settings, 'MEDIA_URL', '/media/')}{rel.as_posix()}"
+
+        job.result = merged
         job.status = "done"
         job.message = "Completed"
         job.save(update_fields=["result", "status", "message"])
