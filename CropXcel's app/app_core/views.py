@@ -21,7 +21,7 @@ from django.urls import reverse
 
 from .models import FieldAOI, AnalysisJob
 from analysis.engine import export_stack_from_geom, export_s1_timeseries
-from analysis.insights import compute_temporal_engine_s1, build_insights_html
+from analysis.insights import compute_temporal_engine_s1, build_insights_html, classify_and_area
 
 # New: local geodesic area (no GEE)
 from shapely.geometry import shape, mapping
@@ -41,17 +41,16 @@ def aoi_upload(request):
 
         geom_geojson = feature["geometry"] if feature.get("type") == "Feature" else feature
         g = shape(geom_geojson)
-
         if g.is_empty:
             return HttpResponseBadRequest("Empty geometry")
 
         # Geodesic area (m² → ha)
         geod = Geod(ellps="WGS84")
-        area_m2, _perim = geod.geometry_area_perimeter(g)
+        area_m2, _ = geod.geometry_area_perimeter(g)
         area_ha = abs(area_m2) / 10_000.0
 
         # Save AOI file
-        media_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "aoi"
+        media_dir = Path(settings.MEDIA_ROOT) / "aoi"
         media_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         aoi_path = media_dir / f"field_{ts}.geojson"
@@ -60,40 +59,43 @@ def aoi_upload(request):
             indent=2
         ), encoding="utf-8")
 
-        # Export stack to /media/stacks/
-        stack_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "stacks"
+        # Export stack → /media/stacks/
+        stack_dir = Path(settings.MEDIA_ROOT) / "stacks"
         stack_dir.mkdir(parents=True, exist_ok=True)
         tif_path = stack_dir / f"stack_{ts}.tif"
         try:
             export_stack_from_geom(geom_geojson, str(tif_path))
-            tif_exported = tif_path.name
+            tif_exported = tif_path.name if tif_path.exists() else None
         except Exception as gee_err:
             print("⚠️ GEE export failed:", gee_err)
             tif_exported = None
 
-        # --- NEW: create FieldAOI + AnalysisJob ---
-        field = FieldAOI.objects.create(
-            geom=geom_geojson,
-            # add other required fields if your model needs them (e.g. name="Field 58")
-        )
+        # Create Field + Job
+        field = FieldAOI.objects.create(geom=geom_geojson)
         job = AnalysisJob.objects.create(field=field, status="queued", message="Created from AOI upload")
 
+        # Always record stack_path if file exists
+        job.result = {**(job.result or {}), "stack_path": str(tif_path) if tif_exported else None}
+        job.save(update_fields=["result"])
+
+        # Run analysis sync/async
         if settings.DEBUG:
-            # run synchronously in dev → avoids 404 when opening /fields/{id}/risk/
             run_waterlogging_analysis(job.id)
         else:
-            # enqueue for Celery in production
             run_waterlogging_analysis.delay(job.id)
 
-        ts_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "timeseries"
+        # Export time-series → /media/timeseries/
+        ts_dir = Path(settings.MEDIA_ROOT) / "timeseries"
         ts_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         ts_csv = ts_dir / f"timeseries_field_{field.id}_{stamp}.csv"
 
-        media_url = getattr(settings, "MEDIA_URL", "/media/")
-        csv_rel   = f"timeseries/{ts_csv.name}"
-        csv_url   = (media_url.rstrip("/") + "/" + csv_rel).replace("//", "/")
+        media_url = settings.MEDIA_URL.rstrip("/")
+        csv_rel = f"timeseries/{ts_csv.name}"
+        csv_url = f"{media_url}/{csv_rel}"
 
+        timeseries_file = None
+        timeseries_path = None
         try:
             export_s1_timeseries(
                 geom_geojson=field.geom,
@@ -102,7 +104,6 @@ def aoi_upload(request):
             )
             timeseries_file = csv_url
             timeseries_path = str(ts_csv)
-
             job.result = {
                 **(job.result or {}),
                 "timeseries_file": timeseries_file,
@@ -111,10 +112,8 @@ def aoi_upload(request):
             job.save(update_fields=["result"])
         except Exception as e:
             print("⚠️ Time-series export failed:", e)
-            timeseries_file = None
-            timeseries_path = None
 
-        # --- run analysis after time-series write in DEBUG (sync), else async ---
+        # Optionally re-run analysis after TS write
         if settings.DEBUG:
             run_waterlogging_analysis(job.id)
         else:
@@ -127,8 +126,8 @@ def aoi_upload(request):
             "tif_file": tif_exported,
             "field_id": field.id,
             "job_id": job.id,
-            "timeseries_file": timeseries_file,   # URL for browser
-            "timeseries_path": timeseries_path,   # full path for backend
+            "timeseries_file": timeseries_file,
+            "timeseries_path": timeseries_path,
             "next_url": f"/fields/{field.id}/risk/",
         })
     except Exception as e:
@@ -454,7 +453,17 @@ def field_insights_api(request, field_id: int):
             )
         })
 
-    # --- proceed with computation ---
+    # --- compute/update scale if missing ---
+    risk_tif = job.result.get("stack_path")  # make sure your pipeline saved it
+    if risk_tif and os.path.exists(risk_tif):
+        abc, tot = classify_and_area(risk_tif)
+        job.result = {**(job.result or {}), "area_by_class": abc, "total_ha": tot}
+        job.save(update_fields=["result"])
+    else:
+        abc = job.result.get("area_by_class") or {}
+        tot = job.result.get("total_ha") or 0.0
+
+    # --- proceed with computation (alerts/insights) ---
     alerts_df, insights_df, plot_png, insights_csv = compute_temporal_engine_s1(
         ts_path,
         media_root=settings.MEDIA_ROOT,
@@ -466,16 +475,15 @@ def field_insights_api(request, field_id: int):
         "plot_url": (settings.MEDIA_URL.rstrip("/") + "/plots/" + os.path.basename(plot_png)).replace("//","/") if plot_png else None,
         "insights_csv_path": insights_csv,
         "insights_csv_url": (settings.MEDIA_URL.rstrip("/") + "/insights/" + os.path.basename(insights_csv)).replace("//","/") if insights_csv else None,
+        "area_by_class": abc,
+        "total_ha": tot,
     }
     job.save(update_fields=["result"])
-
-    abc = job.result.get("area_by_class") or {}
-    total_ha = sum(abc.values()) if abc else 0.0
 
     html = build_insights_html(
         insights_csv=insights_csv,
         area_by_class=abc,
-        total_ha=total_ha,
+        total_ha=tot,
         plot_path=plot_png,
     )
 
@@ -483,6 +491,7 @@ def field_insights_api(request, field_id: int):
         "plot_png": plot_png,
         "insights_csv": insights_csv,
         "alerts_count": int(getattr(alerts_df, "shape", [0, 0])[0]),
-        "area_by_class": abc, "total_ha": total_ha,
+        "area_by_class": abc,
+        "total_ha": tot,
         **html
     })

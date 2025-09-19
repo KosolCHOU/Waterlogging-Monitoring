@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from django.conf import settings
 
 def _default_media_root() -> str:
     try:
@@ -521,3 +522,55 @@ def rel_to_media(abs_path: str) -> str:
     if ap.startswith(os.path.abspath(mr) + os.sep):
         return os.path.relpath(ap, mr).replace("\\","/")
     return ""
+
+def classify_and_area(
+    risk_tif: str,
+    aoi_mask: str | None = None,
+    *,
+    edges = np.array([0.00, 0.30, 0.50, 0.70, 1.00], dtype=float),
+    default_pixel_area_m2: float = 100.0,  # fallback (10m × 10m)
+):
+    """
+    Classify a risk raster into 4 classes (0..3) using fixed edges and compute
+    area (ha) per class + total area. Optional AOI mask is respected.
+
+    Returns
+    -------
+    area_by_class : dict[int, float]  -> {0..3: hectares}
+    total_ha      : float
+    """
+    import rasterio
+    with rasterio.open(risk_tif) as ds:
+        risk = ds.read(1).astype("float32")
+        transform = ds.transform
+
+    # Valid data mask
+    risk = np.clip(risk, 0.0, 1.0)
+    valid = np.isfinite(risk)
+
+    # Optional AOI mask (same grid)
+    if aoi_mask:
+        with rasterio.open(aoi_mask) as ms:
+            mask = ms.read(1).astype(bool)
+        if mask.shape == risk.shape:
+            valid &= mask
+
+    # Classify 0..3 with half-open bins [0,.3), [.3,.5), [.5,.7), [.7,1]
+    classes = np.digitize(risk, bins=edges[1:-1], right=False).astype(np.int32)
+    classes = np.where(valid, classes, -1)  # mark invalid as -1
+
+    # Pixel area (m²) from affine; fallback if transform is weird
+    try:
+        px_area_m2 = abs(transform.a * transform.e - transform.b * transform.d)
+        if not np.isfinite(px_area_m2) or px_area_m2 <= 0:
+            px_area_m2 = float(default_pixel_area_m2)
+    except Exception:
+        px_area_m2 = float(default_pixel_area_m2)
+    px_area_ha = px_area_m2 / 10_000.0
+
+    # Counts → hectares
+    flat = classes.ravel()
+    counts = np.bincount(flat[flat >= 0], minlength=4)
+    area_by_class = {k: float(counts[k]) * px_area_ha for k in range(4)}
+    total_ha = float(sum(area_by_class.values()))
+    return area_by_class, total_ha
