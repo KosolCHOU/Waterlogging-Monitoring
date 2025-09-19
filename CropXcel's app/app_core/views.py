@@ -124,7 +124,7 @@ def risk_map(request, field_id: int):
     force_rerun = request.GET.get("rerun") == "1"
 
     # 2) If no job yet, or force rerun → create one and kick it off
-    if (job is None) or force_rerun:
+    if (job is None) and force_rerun:
         job = AnalysisJob.objects.create(field=field, status="queued", message="Created from risk_map")
         if settings.DEBUG:
             # run synchronously during dev so the page can show quickly

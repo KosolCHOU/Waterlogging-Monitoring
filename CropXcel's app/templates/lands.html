@@ -248,19 +248,8 @@
       saveBtn().disabled = true; saveMsg().textContent = "Saving...";
       try{
         const aux = await postJSON("{% url 'aoi_upload' %}", { feature: LAST });
-        const inputName = document.getElementById('nameInput').value.trim();
-        let fieldName = inputName;
-        if (!fieldName) {
-          const existing = await getJSON("/api/fields/");
-          const count = Array.isArray(existing) ? existing.length : (existing.results?.length || 0);
-          fieldName = `Field ${count + 1}`;
-        }
-        const payload = { name: fieldName, geom: LAST.geometry };
-        const api = await postJSON("/api/fields/", payload);
-        const fieldId = api.field_id ?? api.id ?? api?.field?.id;
-        if(!fieldId) throw new Error("No field_id returned from /api/fields/");
-
-        await fetch(`/api/fields/${fieldId}/analyze/`, { method: "POST", headers: { "X-CSRFToken": csrftoken }});
+        const fieldId = aux.field_id;
+        if(!fieldId) throw new Error("No field_id returned from aoi_upload");
 
         const sHa = (aux.area_ha ?? hectaresFromGeoJSON(LAST)).toFixed(2);
         saveMsg().textContent = `✅ Saved. Server area: ${sHa} ha — analysis started.`;
