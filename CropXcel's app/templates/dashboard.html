@@ -49,7 +49,6 @@
 
     .minitable.farmer{ table-layout:fixed; }
     .minitable.farmer th, .minitable.farmer td{ height:32px; text-align:center; }
-    .minitable.farmer td:last-child, .minitable.farmer th:last-child{ text-align:left; white-space:normal; overflow-wrap:anywhere; }
 
     .minitable.tech{ table-layout:auto; min-width:980px; font-variant-numeric:tabular-nums; }
     .minitable.tech th, .minitable.tech td{ height:30px; white-space:nowrap; text-align:center; }
@@ -97,6 +96,12 @@
     /* Hover pill (for simple server probe) */
     #hoverpill{position:absolute;top:10px;left:10px;z-index:1000;display:none;
       background:#0f172a;color:#fff;padding:6px 10px;border-radius:999px;font-size:12px;opacity:.92}
+    #toggleInsights {
+      display: block;          /* makes it respect width */
+      width: 100%;             /* full width of its container */
+      text-align: center;      /* center the text */
+      margin-top: 8px;         /* keep your spacing */
+    }
   </style>
 {% endblock %}
 
@@ -354,7 +359,20 @@
       seg.setAttribute('stroke-dashoffset', '0');
     });
   }
-
+  function ensureFarmerColgroup(t) {
+    if (!t || t.classList.contains('has-colgroup')) return;
+    if (!t.querySelector('colgroup')) {
+      const cg = document.createElement('colgroup');
+      //             Date   Value  Risk   Area   Action
+      ['75px','65px','55px','70px','auto'].forEach(w=>{
+        const c = document.createElement('col');
+        if (w !== 'auto') c.style.width = w;
+        cg.appendChild(c);
+      });
+      t.insertBefore(cg, t.firstChild);
+    }
+    t.classList.add('has-colgroup');
+  }
   function renderTables(){
     const maxF = Number(tableWrap?.dataset?.max ?? 5);
     const maxT = Number(tableWrap?.dataset?.techMax ?? 5);
@@ -374,9 +392,13 @@
       tableWrap.innerHTML = farmerHTML || "<div class='empty'>No records.</div>";
       moreBtn.textContent = expandedFarmer ? 'Show less' : 'Show more';
       techBtn.textContent = 'Show Technical Details';
+
       const t = tableWrap.querySelector('table');
-      if (t){ t.classList.add('minitable','farmer');
-        const dateTH = t.querySelector('thead th:first-child'); if (dateTH) sortByColumn(t, 0, dateTH, 'desc');
+      if (t){
+        ensureFarmerColgroup(t);             // sets Date/Value/Risk/Area/Action widths
+        t.classList.add('minitable','farmer');
+        const dateTH = t.querySelector('thead th:first-child');
+        if (dateTH) sortByColumn(t, 0, dateTH, 'desc');
         if (!expandedFarmer) applyRowLimit(t, maxF);
       }
     }
