@@ -417,10 +417,10 @@ def build_scale_data(
     total_ha: Optional[float] = None,
     names: Optional[Dict[int, str]] = None,
     palette: Optional[Dict[int, str]] = None,
-    classes: Iterable[int] = (0, 1, 2, 3),
+    classes: Iterable[int] = (0, 1, 3),   # ⬅️ drop 2 (Concern)
 ) -> List[Dict]:
-    names = names or {0: "Healthy", 1: "Watch", 2: "Concern", 3: "Alert"}
-    palette = palette or {0: "#2ecc71", 1: "#f1c40f", 2: "#e67e22", 3: "#e74c3c"}
+    names = names or {0: "Healthy", 1: "Watch", 3: "Alert"}   # ⬅️ drop Concern
+    palette = palette or {0: "#2ecc71", 1: "#f1c40f", 3: "#e74c3c"}  # ⬅️ drop orange
 
     # normalize so both int and str keys work
     def _get(d, k, default=0.0):
@@ -480,8 +480,17 @@ def prepare_farmer_view(insights_df: Optional[pd.DataFrame],
                            pd.to_numeric(d[f + "_r"], errors="coerce"))
                     d.drop(columns=[f + "_r"], inplace=True)
     if "status" in d.columns:
-        badge = lambda s: {"Healthy":"🟢 Healthy","Watch":"🟡 Watch","Alert":"🔴 Alert"}.get(s, s)
-        d["status"] = d["status"].apply(badge)
+        def badge_html(s):
+            mapping = {
+                "Healthy": '<span class="healthy">🟢 Healthy</span>',
+                "Watch":   '<span class="watch">🟡 Watch</span>',
+                "Alert":   '<span class="alert">🔴 Alert</span>'
+            }
+            return mapping.get(s.replace("🟢 ","").replace("🟡 ","").replace("🔴 ",""), s)
+        d["status"] = d["status"].apply(badge_html)
+
+    if "actions" in d.columns:
+        d["actions"] = d["actions"].apply(lambda a: f"<div>{a}</div>" if a else "")
 
     d = d.sort_values("date", ascending=False)
     d["date"] = d["date"].dt.strftime("%Y-%m-%d")
@@ -494,16 +503,16 @@ def prepare_farmer_view(insights_df: Optional[pd.DataFrame],
     d["confidence_0_1"] = pd.to_numeric(d["confidence_0_1"], errors="coerce").map(
         lambda x: (f"{x:.2f}" if pd.notna(x) else "")
     )
-    cols = [c for c in ["date","status","severity_0_100","confidence_0_1","actions"] if c in d.columns]
-    return d[cols].rename(columns={"severity_0_100":"severity", "confidence_0_1":"confidence"})
+    cols = [c for c in ["date","status","actions"] if c in d.columns]
+    return d[cols]
 
 def prepare_technical_view(insights_df: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
     if insights_df is None or insights_df.empty:
         return None
     d = insights_df.copy()
     d = d.drop(columns=[c for c in ["status","actions"] if c in d.columns], errors="ignore")
-    ordered = ["date","zscore","S1_VH_CURR","S1_VV_CURR","S1_VH_LOGRATIO_DB","S1_VV_LOGRATIO_DB",
-               "S1_VH_VV_CURR","S1_VH_VV_DIFF"]
+    ordered = ["date","zscore","severity_0_100","confidence_0_1","S1_VH_CURR","S1_VV_CURR","S1_VH_LOGRATIO_DB","S1_VV_LOGRATIO_DB",
+            "S1_VH_VV_CURR","S1_VH_VV_DIFF"]
     ordered = [c for c in ordered if c in d.columns]
     d = d[ordered]
     if "date" in d.columns:
@@ -512,9 +521,10 @@ def prepare_technical_view(insights_df: Optional[pd.DataFrame]) -> Optional[pd.D
     for c in num_cols:
         d[c] = pd.to_numeric(d[c], errors="coerce").map(lambda x: (f"{x:.4f}" if pd.notna(x) else ""))
     d = d.rename(columns={
-        "zscore":"z","S1_VH_CURR":"VH","S1_VV_CURR":"VV",
+        "zscore":"z","severity_0_100":"Severity","confidence_0_1":"Confidence","S1_VH_CURR":"VH","S1_VV_CURR":"VV",
         "S1_VH_LOGRATIO_DB":"VH_log","S1_VV_LOGRATIO_DB":"VV_log",
         "S1_VH_VV_CURR":"VH/VV","S1_VH_VV_DIFF":"Δ(VH/VV)"
+        
     })
     return d
 
@@ -579,7 +589,7 @@ import numpy as np, rasterio
 
 def classify_and_area(
     risk_tif_path: str,
-    thresholds=(0.20, 0.40, 0.60),
+    thresholds=(0.25, 0.45, 0.65),
     scale_from: str | None = None,
     default_pixel_area_m2: float | None = None,
 ):
@@ -605,13 +615,18 @@ def classify_and_area(
 
         t0, t1, t2 = thresholds
         cls0 = (vals <  t0)
-        cls1 = (vals >= t0) & (vals <  t1)
-        cls2 = (vals >= t1) & (vals <  t2)
+        cls1 = (vals >= t0) & (vals <  t2)   # merge old cls1 + cls2
         cls3 = (vals >= t2)
 
-        counts = [int(cls0.sum()), int(cls1.sum()), int(cls2.sum()), int(cls3.sum())]
-        areas_m2 = [c * px_m2 for c in counts]
-        areas_ha = [round(x / 10000.0, 6) for x in areas_m2]
+        count0 = int(cls0.sum())
+        count1 = int(cls1.sum())
+        count3 = int(cls3.sum())
+
+        areas_m2 = [count0*px_m2, count1*px_m2, count3*px_m2]
+        areas_ha = [round(x/10000.0, 6) for x in areas_m2]
         total_ha = round(sum(areas_ha), 6)
-        area_by_class = {str(i): v for i, v in enumerate(areas_ha)}
+
+        # return only 3 keys
+        area_by_class = {"0": areas_ha[0], "1": areas_ha[1], "3": areas_ha[2]}
         return area_by_class, total_ha
+

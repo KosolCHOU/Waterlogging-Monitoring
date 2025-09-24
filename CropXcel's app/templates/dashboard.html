@@ -49,6 +49,41 @@
 
     .minitable.farmer{ table-layout:fixed; }
     .minitable.farmer th, .minitable.farmer td{ height:32px; text-align:center; }
+    /* Farmer table: friendlier look */
+    .minitable.farmer td, .minitable.farmer th {
+      text-align: left;   /* left align for readability */
+      font-size: 13px;
+      padding: 8px 10px;
+    }
+
+    /* Status badge */
+    .minitable.farmer td.status-cell {
+      font-weight: 700;
+    }
+    .minitable.farmer td.status-cell span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .minitable.farmer td.status-cell span.healthy { background: #22c55e; }
+    .minitable.farmer td.status-cell span.watch   { background: #f59e0b; }
+    .minitable.farmer td.status-cell span.alert   { background: #ef4444; }
+
+    /* Action bubble */
+    .minitable.farmer td.action-cell {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .minitable.farmer td.action-cell div {
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
 
     .minitable.tech{ table-layout:auto; min-width:980px; font-variant-numeric:tabular-nums; }
     .minitable.tech th, .minitable.tech td{ height:30px; white-space:nowrap; text-align:center; }
@@ -90,7 +125,6 @@
     .scale-donut .segments .seg{ transition: stroke-dasharray .45s ease, stroke .2s ease; stroke-linecap:round; }
     .scale-donut .seg-0{ stroke:#2ecc71; } /* Healthy */
     .scale-donut .seg-1{ stroke:#f1c40f; } /* Watch   */
-    .scale-donut .seg-2{ stroke:#e67e22; } /* Concern */
     .scale-donut .seg-3{ stroke:#e74c3c; } /* Alert   */
 
     /* Hover pill (for simple server probe) */
@@ -127,6 +161,140 @@
       transform-origin: 70px 70px;
       animation: spinCCW 30s linear infinite;
     }
+    /* Donut center chip */
+    #donutCenterChip circle.inner {
+      fill:#ffffff; stroke:#e5e7eb; stroke-width:1.5;
+      filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.06));
+    }
+    #donutCenter { font-size:18px; font-weight:800; fill:#0f172a; }
+    #donutUnit   { font-size:11px; fill:#475569; }  /* "Ha" */
+    #donutLabel  { font-size:10px; fill:#64748b; }
+
+    /* Tiny info tooltip next to "Analysis Scale" */
+    .info {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:18px; height:18px; margin-left:6px; border-radius:999px;
+      background:#e2e8f0; color:#0f172a; font-size:12px; font-weight:700;
+      cursor:default; position:relative;
+    }
+    .info:hover { background:#cbd5e1; }
+    .info .tip {
+      display:none; position:absolute; left:22px; top:50%; transform:translateY(-50%);
+      padding:8px 10px; background:#0f172a; color:#fff; border-radius:8px;
+      font-size:12px; max-width:240px; line-height:1.35;
+      box-shadow:0 8px 24px rgba(0,0,0,.18);
+    }
+    .info:hover .tip { display:block; }
+    .info .tip::before{
+      content:""; position:absolute; left:-6px; top:50%; transform:translateY(-50%);
+      width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-right:6px solid #0f172a;
+    }
+    #donutCenterChip { transition: transform .25s ease; }
+    .scaleRow:hover #donutCenterChip { transform: scale(1.02); }
+    /* Info icon */
+    .info {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:18px; height:18px; margin-left:6px; border-radius:999px;
+      background:#e2e8f0; color:#0f172a; font-size:12px; font-weight:700;
+      cursor:default; position:relative;
+    }
+    .info:hover { background:#cbd5e1; }
+
+    /* Tooltip bubble */
+    .info .tip {
+      display:none;
+      position:absolute;
+      top:125%; left:50%; transform:translateX(-50%);
+      padding:8px 12px;
+      background:#0f172a; color:#fff;
+      border-radius:8px;
+      font-size:12px; line-height:1.4;
+      max-width:260px;
+      text-align:left;
+      box-shadow:0 6px 18px rgba(0,0,0,.18);
+      white-space:normal;          /* ✅ allow wrapping */
+      z-index:1000;
+    }
+    .info:hover .tip { display:block; }
+
+    /* Tooltip arrow */
+    .info .tip::before {
+      content:"";
+      position:absolute;
+      top:-6px; left:50%; transform:translateX(-50%);
+      border-width:0 6px 6px 6px;
+      border-style:solid;
+      border-color:transparent transparent #0f172a transparent;
+    }
+    /* === Reusable hover tooltip icon === */
+    .hint{
+      display:inline-block; width:18px; height:18px; margin-left:6px;
+      border-radius:999px; background:#e2e8f0; position:relative; vertical-align:middle;
+    }
+    .hint::before{
+      content:"i"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      font:700 12px/18px system-ui; color:#0f172a;
+    }
+    .hint:hover{ background:#cbd5e1; }
+
+    /* Bubble (wider + wraps nicely) */
+    .hint::after{
+      content: attr(data-tip);
+      position:absolute; top:130%; left:50%; transform:translateX(-50%);
+      background:#0f172a; color:#fff; padding:10px 12px; border-radius:8px;
+      font-size:12px; line-height:1.45; text-align:left; white-space:normal;
+      min-width:220px; max-width:420px; width:max-content; word-wrap: break-word; /* 𝗪𝗜𝗗𝗘𝗥 */
+      box-shadow:0 8px 24px rgba(0,0,0,.18); z-index:1000;
+      opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease;
+    }
+    .hint:hover::after{ opacity:1; transform:translateX(-50%) translateY(2px); }
+
+    /* Optional: force bubble to align left of icon if needed */
+    .hint[data-side="left"]::after{
+      left:auto; right:0; transform:none;
+    }
+    .hint[data-side="left"]:hover::after{
+      transform:translateY(2px);
+    }
+    .card{ background:#fff; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.12);
+          padding:12px; overflow:hidden; flex:0 0 auto; }
+    .hint[data-side="center"]::after{
+      left:50%; transform:translateX(-50%);
+      text-align:center;
+    }
+
+    .hint::after {
+      content: attr(data-tip);
+      position: fixed;              /* relative to viewport */
+      top: 50%;                     /* middle vertically */
+      right: 20px;                  /* offset from right edge */
+      transform: translateY(-50%);  /* perfectly center vertically */
+      background:#0f172a;
+      color:#fff;
+      padding:12px 14px;
+      border-radius:8px;
+      font-size:13px;
+      line-height:1.5;
+      text-align:left;
+      white-space:normal;
+      min-width:240px;
+      max-width:400px;
+      word-wrap: break-word;
+      box-shadow:0 8px 24px rgba(0,0,0,.18);
+      z-index:9999;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .2s ease, transform .2s ease;
+    }
+    .hint:hover::after {
+      opacity:1;
+      transform: translateY(-50%) translateX(-4px); /* small slide in */
+    }
+
+    /* Ensure cards don’t clip the tooltip */
+    .card {
+      overflow: visible !important;
+    }
   </style>
 {% endblock %}
 
@@ -144,7 +312,10 @@
   <div class="colR">
     <div class="card">
       <div class="card-head">
-        <h3 id="insTitle" class="pretty">Per-pass Insights</h3>
+        <h3 id="insTitle" class="pretty">
+          Per-pass Insights
+          <span class="hint" data-tip="Each row comes from a Sentinel-1 satellite pass. It shows the date, your field’s risk level, and what you should do. Farmers can use this to decide when to irrigate, drain, or simply monitor."></span>
+        </h3>
         <div class="head-actions">
           <button class="btn btn-brand" id="techBtn">Show Technical Details</button>
           <button class="btn btn-brand" id="mapOnlyBtn">Map Only</button>
@@ -162,7 +333,10 @@
 
     <div class="card">
       <div class="card-head">
-        <div class="pretty">Analysis Scale</div>
+        <div class="pretty">
+          Analysis Scale
+          <span class="hint" data-tip="Breaks your field into Healthy, Watch, and Alert zones. The areas are estimated from pixels, helping you see which part of the field may need urgent action."></span>
+        </div>
       </div>
       <div class="scaleRow">
         <!-- Donut -->
@@ -174,7 +348,6 @@
               <circle cx="70" cy="70" r="58" fill="none" stroke="#e5e7eb" stroke-width="10"/>
               <circle cx="70" cy="70" r="46" fill="none" stroke="#e5e7eb" stroke-width="10"/>
               <circle cx="70" cy="70" r="34" fill="none" stroke="#e5e7eb" stroke-width="10"/>
-              <circle cx="70" cy="70" r="22" fill="none" stroke="#e5e7eb" stroke-width="10"/>
             </g>
 
             <!-- ROTATING, COLORED segments (drawn on top) -->
@@ -182,10 +355,14 @@
               <circle class="seg seg-0" cx="70" cy="70" r="58" fill="none" stroke-width="10" pathLength="100"/>
               <circle class="seg seg-1" cx="70" cy="70" r="46" fill="none" stroke-width="10" pathLength="100"/>
               <circle class="seg seg-2" cx="70" cy="70" r="34" fill="none" stroke-width="10" pathLength="100"/>
-              <circle class="seg seg-3" cx="70" cy="70" r="22" fill="none" stroke-width="10" pathLength="100"/>
             </g>
 
-            <text id="donutCenter" x="70" y="72" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0 Ha</text>
+            <!-- Center chip -->
+            <g id="donutCenterChip">
+              <circle class="inner" cx="70" cy="70" r="26"></circle>
+              <text id="donutCenter" x="70" y="68" text-anchor="middle">0.00</text>
+              <text id="donutUnit"   x="70" y="83" text-anchor="middle">Ha</text>
+            </g>
           </svg>
         </div>
         <!-- Legend -->
@@ -196,7 +373,10 @@
     </div>
 
     <div class="card">
-      <h3 class="pretty">Plot</h3>
+      <h3 class="pretty">
+        Plot
+        <span class="hint" data-tip="A 4-month history of waterlogging risk. Farmers can spot trends: if risk is climbing, prepare drainage; if it’s falling, you’re safe to irrigate. Helps you plan day-to-day decisions."></span>
+      </h3>
       <div id="plotSection"><!-- injected --></div>
     </div>
   </div>
@@ -234,49 +414,109 @@
     if (level === "Caution") return "#f59e0b";
     return "#1f78b4";
   }
+  // helper: color from percent (0..100)
+  function colorFromPercent(p){
+    if (p >= 70) return '#ef4444';      // Alert
+    if (p >= 40) return '#f59e0b';      // Watch
+    return '#22c55e';                   // Healthy/Low
+  }
   function pct(x){ return Math.max(0, Math.min(100, Math.round(x*100))); }
 
   if (HOTSPOTS) {
     fetch(HOTSPOTS, { cache: 'no-store' })
       .then(r => r.json())
       .then(gj => {
-        L.geoJSON(gj, {
-          pointToLayer: function(f, latlng){
-            const hasRisk = typeof f.properties?.risk === "number" && isFinite(f.properties.risk);
-            const rpct = Number(f.properties?.risk_pct);
-            const risk = hasRisk ? Number(f.properties.risk)
-                                : (isFinite(rpct) ? Math.max(0, Math.min(100, rpct)) / 100 : 0);
-            const level = f.properties?.level || (risk>=0.7 ? "High" : risk>=0.4 ? "Caution" : "Low");
-            const color = levelToColor(level);
+        const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-            const m = L.circleMarker(latlng, { radius:6, color:"#111", weight:1, opacity:0.9, fillColor:color, fillOpacity:0.9 });
-            m.bindTooltip(`Risk: ${pct(risk)}% · ${level}`, {direction:"top", offset:[0,-6]});
+        const hotspotLayer = L.geoJSON(gj, {
+          pointToLayer: (f, latlng) => {
+            // ---- data from GeoJSON ----
+            const riskRaw = f.properties?.risk ?? f.properties?.risk_pct ?? 0; // 0..1 or 0..100
+            const riskPercent = clamp(
+              (riskRaw <= 1 ? Math.round(riskRaw * 100) : Math.round(riskRaw)),
+              0, 100
+            );
+            const level  = f.properties?.level || (riskPercent >= 70 ? 'Alert' : (riskPercent >= 40 ? 'Watch' : 'Healthy'));
+            const areaHa = f.properties?.area_ha;
+            const reason = f.properties?.reason || '—';
+            const action = f.properties?.action || '';
+            const color  = colorFromPercent(riskPercent); // use your existing helper
+            const chartB64 = f.properties?.chart_b64;     // ✅ backend-provided PNG of "Why risky?"
 
-            const reason = f.properties?.reason || "Potential waterlogging area";
-            const action = f.properties?.action || "";
-            const chart  = f.properties?.chart_b64 ? `<img src="data:image/png;base64,${f.properties.chart_b64}" style="width:100%;border-radius:8px;margin-top:8px">` : "";
+            // thresholds (fixed)
+            const T1 = 40, T2 = 70;
 
+            // marker
+            const m = L.circleMarker(latlng, {
+              radius: 6,
+              color: '#0f172a',
+              weight: 1,
+              fillColor: color,
+              fillOpacity: 0.9
+            });
+
+            // ---- Popup HTML ----
             const html = `
-              <div style="min-width:240px">
-                <div style="display:flex;align-items:center;gap:8px">
-                  <div style="width:10px;height:10px;border-radius:50%;background:${color}"></div>
-                  <b>Hotspot</b>
+              <div style="
+                min-width:320px;max-width:400px;background:#fff;border-radius:16px;
+                box-shadow:0 10px 30px rgba(2,6,23,.20);padding:18px 20px;
+                font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;line-height:1.55">
+
+                <!-- Header -->
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                  <div style="width:14px;height:14px;border-radius:50%;background:${color};
+                              box-shadow:0 0 0 2px #fff, 0 0 0 6px ${color}22"></div>
+                  <div style="font-weight:800;font-size:15px">Hotspot detected</div>
                 </div>
-                <div style="width:100%;height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px">
-                  <span style="display:block;height:100%;width:${pct(risk)}%;background:${color}"></span>
+
+                <!-- Risk row -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <div style="font-size:14px"><strong>Water Risk</strong></div>
+                  <div style="font-size:14px"><strong>${riskPercent}% · ${level}</strong></div>
                 </div>
-                <div style="margin-top:8px;font-size:12px;color:#334155">
-                  <div><b>Risk:</b> ${pct(risk)}% · ${level}</div>
-                  ${f.properties?.area_ha ? `<div><b>Area:</b> ${Number(f.properties.area_ha).toFixed(4)} ha</div>` : ``}
-                  <div><b>Reason:</b> ${reason}</div>
-                  ${action ? `<div style="margin-top:4px"><b>Action:</b> ${action}</div>` : ``}
+
+                <!-- Fixed-threshold color bar -->
+                <div style="position:relative;height:12px;border-radius:999px;overflow:visible;margin-bottom:6px">
+                  <div style="position:absolute;inset:0;background:#e5e7eb;border-radius:999px"></div>
+                  <div style="position:absolute;inset:0;border-radius:999px;
+                      background:linear-gradient(90deg,
+                        #22c55e 0%, #22c55e ${T1}%,
+                        #f59e0b ${T1}%, #f59e0b ${T2}%,
+                        #ef4444 ${T2}%, #ef4444 100%)"></div>
+                  <!-- center the thumb exactly at value -->
+                  <div style="
+                        position:absolute;top:50%;left:${riskPercent}%;
+                        transform:translate(-50%,-50%);
+                        width:10px;height:20px;border-radius:4px;background:#0f172a;
+                        box-shadow:0 1px 6px rgba(0,0,0,.25)"></div>
                 </div>
-                ${chart}
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:12px">
+                  <span>0%</span><span>${T1}%</span><span>${T2}%</span><span>100%</span>
+                </div>
+
+                <!-- Details -->
+                ${areaHa!=null ? `<div style="margin-bottom:6px"><strong>Size:</strong> ${Number(areaHa).toFixed(2)} ha</div>` : ``}
+                <div style="margin-bottom:6px"><strong>Why risky:</strong> ${reason}</div>
+                ${action ? `<div style="margin-bottom:6px"><strong>What you should do:</strong><br>${action}</div>` : ``}
+
+                <!-- "Why risky?" chart: use backend PNG if present -->
+                ${chartB64 ? `
+                  <div style="margin-top:10px;border-radius:12px;background:#f8fafc;padding:10px">
+                    <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#0f172a">Why risky?</div>
+                    <img
+                      src="data:image/png;base64,${chartB64}"
+                      alt="Why risky contributions"
+                      style="display:block;width:100%;height:auto;border-radius:8px;image-rendering:-webkit-optimize-contrast" />
+                  </div>` : ``}
               </div>`;
-            m.bindPopup(html);
+
+            // single popup (no extra tooltip)
+            m.bindPopup(html, { maxWidth: 440, className: 'hotspot-popup' });
             return m;
           }
-        }).addTo(map);
+        });
+
+        hotspotLayer.addTo(map);
       })
       .catch(()=>{});
   }
@@ -530,9 +770,12 @@
     const rows = Array.from(document.querySelectorAll('.legend .legrow'));
     if (!svg || !segs || !rows.length) return;
 
-    // total ha to center
+    // total ha → center chip (value + unit)
     const totalHa = rows.reduce((s, r) => s + (parseFloat(r.dataset.ha) || 0), 0);
-    if (donutCtr) donutCtr.textContent = totalHa ? `${totalHa.toFixed(2)} Ha` : '0 Ha';
+    const val = (totalHa || 0);
+    const valStr = (val < 10) ? val.toFixed(2) : (val < 100 ? val.toFixed(1) : Math.round(val).toString());
+    const center = document.getElementById('donutCenter');
+    if (center) center.textContent = valStr;
 
     segs.forEach((seg, i) => {
       const row = rows[i]; if (!row) return;
@@ -547,8 +790,8 @@
     if (!t || t.classList.contains('has-colgroup')) return;
     if (!t.querySelector('colgroup')) {
       const cg = document.createElement('colgroup');
-      //             Date   Value  Risk   Area   Action
-      ['75px','65px','55px','70px','auto'].forEach(w=>{
+      // Farmer table: Date | Status | Actions
+      ['90px','110px','auto'].forEach(w=>{
         const c = document.createElement('col');
         if (w !== 'auto') c.style.width = w;
         cg.appendChild(c);
@@ -562,7 +805,7 @@
     const maxT = Number(tableWrap?.dataset?.techMax ?? 5);
 
     if (techMode) {
-      title.textContent = 'Technical Details';
+      title.innerHTML = 'Technical Details <span class="hint" data-tip="Detailed raw indicators from Sentinel-1 (VH/VV, ratios, etc.). Useful for agronomists and advanced users."></span>';
       tableWrap.innerHTML = techHTML || "<div class='empty'>No records.</div>";
       moreBtn.textContent = expandedTech ? 'Show less' : 'Show more';
       techBtn.textContent = 'Exit Technical Details';
@@ -572,7 +815,7 @@
         if (!expandedTech) applyRowLimit(t, maxT);
       }
     } else {
-      title.textContent = 'Per-pass Insights';
+      title.innerHTML = 'Per-pass Insights <span class="hint" data-tip="Shows each satellite pass. Farmers can check the date, risk status, and suggested action. Helpful for deciding when to irrigate or drain."></span>';
       tableWrap.innerHTML = farmerHTML || "<div class='empty'>No records.</div>";
       moreBtn.textContent = expandedFarmer ? 'Show less' : 'Show more';
       techBtn.textContent = 'Show Technical Details';
