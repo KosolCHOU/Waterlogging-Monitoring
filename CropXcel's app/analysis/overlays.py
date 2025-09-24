@@ -1,6 +1,7 @@
 # PLACE INTO: CropXcel/analysis/overlays.py
 
 import os, io, base64, json
+from django.conf import settings
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
@@ -43,11 +44,11 @@ FIELD_SHP     = r""
 
 # Contributor weights (set to 0.0 if layer not present)
 WEIGHTS = {
-    "sar_water_drop":  0.40,  # dominated by LOGRATIO_DB (VH mostly)
-    "sar_ratio_change":0.25,  # from S1_VH_VV_DIFF (and/or ratio deltas)
-    "sar_variability": 0.15,  # from S1_*_STD
-    "water_extent":    0.15,  # requires MNDWI/water mask (set to 0.0 if unavailable)
-    "veg_signal":      0.05,  # requires NDVI/VARI (set to 0.0 if unavailable)
+    "sar_water_drop": 0.40,
+    "sar_ratio_change": 0.25,
+    "sar_variability": 0.15,
+    "water_extent": 0.15,
+    "veg_signal": 0.05,
 }
 
 # Hotspot extraction
@@ -562,6 +563,49 @@ top_lat, left_lon  = latlon_from_transform(web_transform, 0, 0)
 bot_lat, right_lon = latlon_from_transform(web_transform, risk_web.shape[0]-1, risk_web.shape[1]-1)
 bounds = [[bot_lat, left_lon], [top_lat, right_lon]]
 
+# --- NEW: save a web overlay PNG into MEDIA_ROOT/overlays and expose URL ---
+from pathlib import Path
+media_root = Path(getattr(settings, "MEDIA_ROOT", "media"))
+media_url  = getattr(settings, "MEDIA_URL", "/media/").rstrip("/")
+
+ov_dir = media_root / "overlays"
+ov_dir.mkdir(parents=True, exist_ok=True)
+
+overlay_name = f"overlay_{tag}.png"
+overlay_abs  = ov_dir / overlay_name
+save_overlay_png(
+    risk_web, str(overlay_abs),
+    aoi_mask=aoi_mask_web, fixed01=True,
+    with_colorbar=False, outside_mode="transparent", feather_px=2,
+    cmap=risk_cmap_redgreen()
+)
+overlay_png_url = f"{media_url}/overlays/{overlay_name}"
+
+# --- NEW: write probe data & meta for client hover ---
+probe_bin_name = f"probe_{tag}.bin"
+probe_meta_name= f"probe_{tag}.json"
+probe_bin_abs  = ov_dir / probe_bin_name
+probe_meta_abs = ov_dir / probe_meta_name
+
+arr01 = np.clip(risk_web, 0, 1)
+arr_u16 = (arr01 * 1000.0).round().astype("uint16")  # scale 0..1000
+arr_u16.tofile(probe_bin_abs)
+
+# Leaflet bounds style [[S,W],[N,E]]
+S, W = bounds[0][0], bounds[0][1]
+N, E = bounds[1][0], bounds[1][1]
+
+probe_meta = {
+    "rows": int(risk_web.shape[0]),
+    "cols": int(risk_web.shape[1]),
+    "scale": 1000,
+    "web_bounds": [[S, W], [N, E]],
+    "layout": {"data_bytes": int(arr_u16.size * 2)}
+}
+probe_meta_abs.write_text(json.dumps(probe_meta), encoding="utf-8")
+probe_bin_url  = f"{media_url}/overlays/{probe_bin_name}"
+probe_meta_url = f"{media_url}/overlays/{probe_meta_name}"
+
 # With colorbar
 save_overlay_png(
     risk_web, OUT_PNG_CB,
@@ -579,3 +623,25 @@ save_overlay_png(
     outside_mode="transparent", feather_px=2,
     cmap=risk_cmap_redgreen()
 )
+
+profile_web = profile.copy()
+profile_web.update(
+    count=1,
+    dtype="float32",
+    nodata=-9999.0,
+    crs=rasterio.crs.CRS.from_epsg(4326),
+    transform=web_transform,           # NOTE: web_transform, not web_tr
+    width=risk_web.shape[1],
+    height=risk_web.shape[0],
+)
+
+# Save overlay risk as a 1-band GeoTIFF (absolute path under MEDIA_ROOT)
+import uuid, os
+tag = uuid.uuid4().hex[:8]
+risk_tif_name = f"risk_{tag}.tif"
+risk_tif_abs  = os.path.join(settings.MEDIA_ROOT, "overlays", risk_tif_name)  # NEW
+os.makedirs(os.path.dirname(risk_tif_abs), exist_ok=True)                     # NEW
+save_geotiff(risk_tif_abs, risk_web, profile_web)                             # uses your helper
+
+# Also compute the URL you’ll store in job.result
+risk_tif_url = (settings.MEDIA_URL.rstrip("/") + "/overlays/" + risk_tif_name).replace("//", "/")  # NEW

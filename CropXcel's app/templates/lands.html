@@ -48,7 +48,6 @@
 
 {% block content %}
   <div class="shell">
-    <div class="crumbs">Dashboard / <span style="color:#10b981">Land</span></div>
     <div class="titlebar">
       <div>
         <h1 class="title">Your Fields</h1>
@@ -247,7 +246,13 @@
       if(!LAST){ saveMsg().textContent = "⚠️ Draw a polygon or rectangle first."; return; }
       saveBtn().disabled = true; saveMsg().textContent = "Saving...";
       try{
-        const aux = await postJSON("{% url 'aoi_upload' %}", { feature: LAST });
+        const nameVal = document.getElementById('nameInput').value.trim();
+
+        const aux = await postJSON("{% url 'aoi_upload' %}", { 
+          feature: LAST,
+          name: nameVal || null   // send the user’s input (or null if empty)
+        });
+
         const fieldId = aux.field_id;
         if(!fieldId) throw new Error("No field_id returned from aoi_upload");
 

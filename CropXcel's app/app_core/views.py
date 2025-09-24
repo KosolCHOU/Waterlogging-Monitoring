@@ -26,6 +26,7 @@ from analysis.insights import compute_temporal_engine_s1, build_insights_html, c
 # New: local geodesic area (no GEE)
 from shapely.geometry import shape, mapping
 from pyproj import Geod
+import rasterio
 
 @require_http_methods(["POST"])
 def aoi_upload(request):
@@ -36,6 +37,7 @@ def aoi_upload(request):
     try:
         payload = json.loads(request.body.decode("utf-8"))
         feature = payload.get("feature")
+        user_name = (payload.get("name") or "").strip()
         if not feature:
             return HttpResponseBadRequest("Missing 'feature'")
 
@@ -71,7 +73,7 @@ def aoi_upload(request):
             tif_exported = None
 
         # Create Field + Job
-        field = FieldAOI.objects.create(geom=geom_geojson)
+        field = FieldAOI.objects.create(name=user_name, geom=geom_geojson, area_ha=area_ha)
         job = AnalysisJob.objects.create(field=field, status="queued", message="Created from AOI upload")
 
         # Always record stack_path if file exists
@@ -125,6 +127,7 @@ def aoi_upload(request):
             "aoi_file": aoi_path.name,
             "tif_file": tif_exported,
             "field_id": field.id,
+            "name": user_name,
             "job_id": job.id,
             "timeseries_file": timeseries_file,
             "timeseries_path": timeseries_path,
@@ -454,12 +457,27 @@ def field_insights_api(request, field_id: int):
         })
 
     # --- compute/update scale if missing ---
-    risk_tif = job.result.get("stack_path")  # make sure your pipeline saved it
+    risk_tif = job.result.get("risk_tif_path")  # REMOVE fallback to stack_path
+    with rasterio.open(risk_tif) as ds:
+        rows, cols = ds.height, ds.width
+        left, bottom, right, top = ds.bounds
     if risk_tif and os.path.exists(risk_tif):
-        abc, tot = classify_and_area(risk_tif)
+        g = Geod(ellps="WGS84")
+        poly_lons = [left, right, right, left, left]
+        poly_lats = [bottom, bottom, top, top, bottom]
+        footprint_m2, _ = g.polygon_area_perimeter(poly_lons, poly_lats)[:2]
+        px_area_m2 = abs(footprint_m2) / float(rows * cols)
+
+        abc, tot = classify_and_area(
+            risk_tif,
+            thresholds=(0.20, 0.40, 0.60),
+            scale_from=None,
+            default_pixel_area_m2=px_area_m2    # ✅ pass real pixel area
+        )
         job.result = {**(job.result or {}), "area_by_class": abc, "total_ha": tot}
         job.save(update_fields=["result"])
     else:
+        # don't recompute from stack; keep whatever is there
         abc = job.result.get("area_by_class") or {}
         tot = job.result.get("total_ha") or 0.0
 
@@ -469,6 +487,8 @@ def field_insights_api(request, field_id: int):
         media_root=settings.MEDIA_ROOT,
     )
 
+    risk_tif_path_existing = job.result.get("risk_tif_path")
+
     job.result = {
         **(job.result or {}),
         "plot_path": plot_png,
@@ -477,6 +497,10 @@ def field_insights_api(request, field_id: int):
         "insights_csv_url": (settings.MEDIA_URL.rstrip("/") + "/insights/" + os.path.basename(insights_csv)).replace("//","/") if insights_csv else None,
         "area_by_class": abc,
         "total_ha": tot,
+        # only include these if they already exist
+        "risk_tif_path": risk_tif_path_existing,
+        "risk_tif_url":  ((settings.MEDIA_URL.rstrip("/") + "/overlays/" + os.path.basename(risk_tif_path_existing)).replace("//","/")
+                      if risk_tif_path_existing else None),
     }
     job.save(update_fields=["result"])
 

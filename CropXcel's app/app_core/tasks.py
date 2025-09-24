@@ -103,10 +103,14 @@ def run_waterlogging_analysis(job_id: int):
         result = run_analysis_from_notebook(aoi_geojson, stack_tif_path=str(tif_path))
 
         # 3) Normalize everything to MEDIA_URL for the frontend
-        overlay_url   = _media_urlify(result.get("overlay_png_url", ""))
-        hotspots_url  = _media_urlify(result.get("hotspots_url", ""))
-        probe_bin_url = _media_urlify(result.get("probe_bin_url", ""))
-        probe_meta_url= _media_urlify(result.get("probe_meta_url", ""))
+        overlay_url    = _media_urlify(result.get("overlay_png_url", ""))
+        hotspots_url   = _media_urlify(result.get("hotspots_url", ""))
+        probe_bin_url  = _media_urlify(result.get("probe_bin_url", ""))
+        probe_meta_url = _media_urlify(result.get("probe_meta_url", ""))
+
+        # --- NEW: pass through risk tif ---
+        risk_tif_url   = _media_urlify(result.get("risk_tif_url", ""))
+        risk_tif_path  = result.get("risk_tif_path", "")  # keep filesystem path as-is
 
         # 4) (Optional) sanity check: the files actually exist on disk if they’re local
         for label, url in [
@@ -127,6 +131,8 @@ def run_waterlogging_analysis(job_id: int):
             "hotspots_url": hotspots_url,
             "probe_bin_url": probe_bin_url,
             "probe_meta_url": probe_meta_url,
+            "risk_tif_path": risk_tif_path,
+            "risk_tif_url": risk_tif_url,
         })
 
         # (optional) If timeseries wasn't set yet, auto-attach the newest CSV for this field

@@ -527,52 +527,59 @@ def classify_and_area(
     risk_tif: str,
     aoi_mask: str | None = None,
     *,
-    default_pixel_area_m2: float = 100.0,  # fallback (10m × 10m)
+    band_index: int | None = None,
+    band_name_hint: str = "risk",
+    thresholds: tuple[float, float, float] = (0.20, 0.40, 0.60),
+    scale_from: str | None = None,   # "uint8" or "0-100"
+    default_pixel_area_m2: float = 100.0,
 ):
-    """
-    Classify a risk raster into 4 classes (0..3) using fixed edges and compute
-    area (ha) per class + total area. Optional AOI mask is respected.
+    import rasterio, numpy as np
 
-    Returns
-    -------
-    area_by_class : dict[int, float]  -> {0..3: hectares}
-    total_ha      : float
-    """
-    import rasterio
     with rasterio.open(risk_tif) as ds:
-        risk = ds.read(1).astype("float32")
-        transform = ds.transform
+        # pick band
+        b = band_index
+        if b is None:
+            for i in range(1, ds.count+1):
+                desc = (ds.descriptions[i-1] or "").lower()
+                tags = {k.lower(): str(v).lower() for k,v in ds.tags(i).items()}
+                name = tags.get("name","") or tags.get("band","")
+                if band_name_hint in desc or band_name_hint in name:
+                    b = i; break
+            if b is None: b = 1
+        risk = ds.read(b).astype("float32")
+        transform, nodata = ds.transform, ds.nodata
 
-    # Valid data mask
-    risk = np.clip(risk, 0.0, 1.0)
     valid = np.isfinite(risk)
+    if nodata is not None:
+        valid &= (risk != nodata)
 
-    # Optional AOI mask (same grid)
+    # scale
+    if scale_from == "uint8":
+        risk = risk / 255.0
+    elif scale_from == "0-100":
+        risk = risk / 100.0
+    risk = np.clip(risk, 0.0, 1.0)
+
     if aoi_mask:
         with rasterio.open(aoi_mask) as ms:
             mask = ms.read(1).astype(bool)
         if mask.shape == risk.shape:
             valid &= mask
 
-    # Calculate percentiles for classification edges
-    risk_clip = risk[valid]
-    p30, p60, p85 = np.percentile(risk_clip, [30, 60, 85])
-    edges = np.array([0.0, p30, p60, p85, 1.0])
+    # classify
+    edges = np.array([0.0, *thresholds, 1.0], dtype="float32")
+    classes = np.digitize(risk, bins=edges[1:-1], right=False).astype("int16")
+    classes = np.where(valid, classes, -1)
 
-    # Classify 0..3 with half-open bins [0,.3), [.3,.5), [.5,.7), [.7,1]
-    classes = np.digitize(risk, bins=edges[1:-1], right=False).astype(np.int32)
-    classes = np.where(valid, classes, -1)  # mark invalid as -1
-
-    # Pixel area (m²) from affine; fallback if transform is weird
+    # pixel area
     try:
         px_area_m2 = abs(transform.a * transform.e - transform.b * transform.d)
         if not np.isfinite(px_area_m2) or px_area_m2 <= 0:
-            px_area_m2 = float(default_pixel_area_m2)
+            px_area_m2 = default_pixel_area_m2
     except Exception:
-        px_area_m2 = float(default_pixel_area_m2)
+        px_area_m2 = default_pixel_area_m2
     px_area_ha = px_area_m2 / 10_000.0
 
-    # Counts → hectares
     flat = classes.ravel()
     counts = np.bincount(flat[flat >= 0], minlength=4)
     area_by_class = {k: float(counts[k]) * px_area_ha for k in range(4)}
