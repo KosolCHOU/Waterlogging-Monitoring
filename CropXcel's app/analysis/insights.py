@@ -368,9 +368,9 @@ def compute_temporal_engine_s1(
 
     return alerts, insights_df, plot_png_path, insights_csv
 
-# ---------- Scale / legend ----------
+# --- replace build_scale_data(...) with this version ---
 def build_scale_data(
-    area_by_class: Dict[int, float],
+    area_by_class: Dict[int, float] | Dict[str, float],
     total_ha: Optional[float] = None,
     names: Optional[Dict[int, str]] = None,
     palette: Optional[Dict[int, str]] = None,
@@ -378,12 +378,20 @@ def build_scale_data(
 ) -> List[Dict]:
     names = names or {0: "Healthy", 1: "Watch", 2: "Concern", 3: "Alert"}
     palette = palette or {0: "#2ecc71", 1: "#f1c40f", 2: "#e67e22", 3: "#e74c3c"}
+
+    # normalize so both int and str keys work
+    def _get(d, k, default=0.0):
+        if d is None: return default
+        if k in d: return d[k]
+        sk = str(k)
+        return d.get(sk, default)
+
     total = (float(total_ha) if total_ha is not None
-             else float(sum(area_by_class.values())) if area_by_class else 0.0)
+             else float(sum(_get(area_by_class, k, 0.0) for k in classes)) if area_by_class else 0.0)
 
     rows = []
     for k in classes:
-        ha = float(area_by_class.get(k, 0.0)) if area_by_class else 0.0
+        ha = float(_get(area_by_class, k, 0.0)) if area_by_class else 0.0
         pct = _pct(ha, total)
         rows.append({
             "k": k, "label": names.get(k, str(k)), "ha": ha, "pct": pct,
@@ -523,65 +531,44 @@ def rel_to_media(abs_path: str) -> str:
         return os.path.relpath(ap, mr).replace("\\","/")
     return ""
 
+# analysis/insights.py
+import numpy as np, rasterio
+
 def classify_and_area(
-    risk_tif: str,
-    aoi_mask: str | None = None,
-    *,
-    band_index: int | None = None,
-    band_name_hint: str = "risk",
-    thresholds: tuple[float, float, float] = (0.20, 0.40, 0.60),
-    scale_from: str | None = None,   # "uint8" or "0-100"
-    default_pixel_area_m2: float = 100.0,
+    risk_tif_path: str,
+    thresholds=(0.20, 0.40, 0.60),
+    scale_from: str | None = None,
+    default_pixel_area_m2: float | None = None,
 ):
-    import rasterio, numpy as np
+    """
+    Returns (area_by_class_dict, total_ha).
+      Classes: 0=Healthy, 1=Watch, 2=Concern, 3=Alert (>= last threshold)
+    """
+    with rasterio.open(risk_tif_path) as ds:
+        a = ds.read(1).astype("float32")
+        a[np.isclose(a, ds.nodata)] = np.nan if ds.nodata is not None else a
+        transform = ds.transform
+        # pixel area (m²) from geotransform (approx; fine for small AOIs)
+        if default_pixel_area_m2 is not None:
+            px_m2 = default_pixel_area_m2
+        else:
+            # area of one pixel in projected CRS; if EPSG:4326, fallback to ~meter scale later
+            px_m2 = abs(transform.a * transform.e)  # width * height
+            if px_m2 == 0 or not np.isfinite(px_m2):
+                px_m2 = 1.0  # fallback; better: pass default_pixel_area_m2
 
-    with rasterio.open(risk_tif) as ds:
-        # pick band
-        b = band_index
-        if b is None:
-            for i in range(1, ds.count+1):
-                desc = (ds.descriptions[i-1] or "").lower()
-                tags = {k.lower(): str(v).lower() for k,v in ds.tags(i).items()}
-                name = tags.get("name","") or tags.get("band","")
-                if band_name_hint in desc or band_name_hint in name:
-                    b = i; break
-            if b is None: b = 1
-        risk = ds.read(b).astype("float32")
-        transform, nodata = ds.transform, ds.nodata
+        finite = np.isfinite(a)
+        vals = a[finite]
 
-    valid = np.isfinite(risk)
-    if nodata is not None:
-        valid &= (risk != nodata)
+        t0, t1, t2 = thresholds
+        cls0 = (vals <  t0)
+        cls1 = (vals >= t0) & (vals <  t1)
+        cls2 = (vals >= t1) & (vals <  t2)
+        cls3 = (vals >= t2)
 
-    # scale
-    if scale_from == "uint8":
-        risk = risk / 255.0
-    elif scale_from == "0-100":
-        risk = risk / 100.0
-    risk = np.clip(risk, 0.0, 1.0)
-
-    if aoi_mask:
-        with rasterio.open(aoi_mask) as ms:
-            mask = ms.read(1).astype(bool)
-        if mask.shape == risk.shape:
-            valid &= mask
-
-    # classify
-    edges = np.array([0.0, *thresholds, 1.0], dtype="float32")
-    classes = np.digitize(risk, bins=edges[1:-1], right=False).astype("int16")
-    classes = np.where(valid, classes, -1)
-
-    # pixel area
-    try:
-        px_area_m2 = abs(transform.a * transform.e - transform.b * transform.d)
-        if not np.isfinite(px_area_m2) or px_area_m2 <= 0:
-            px_area_m2 = default_pixel_area_m2
-    except Exception:
-        px_area_m2 = default_pixel_area_m2
-    px_area_ha = px_area_m2 / 10_000.0
-
-    flat = classes.ravel()
-    counts = np.bincount(flat[flat >= 0], minlength=4)
-    area_by_class = {k: float(counts[k]) * px_area_ha for k in range(4)}
-    total_ha = float(sum(area_by_class.values()))
-    return area_by_class, total_ha
+        counts = [int(cls0.sum()), int(cls1.sum()), int(cls2.sum()), int(cls3.sum())]
+        areas_m2 = [c * px_m2 for c in counts]
+        areas_ha = [round(x / 10000.0, 6) for x in areas_m2]
+        total_ha = round(sum(areas_ha), 6)
+        area_by_class = {str(i): v for i, v in enumerate(areas_ha)}
+        return area_by_class, total_ha

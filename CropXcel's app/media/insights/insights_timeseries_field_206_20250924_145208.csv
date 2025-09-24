@@ -1,0 +1,14 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,status,severity_0_100,confidence_0_1,reasons,actions
+2025-06-03 07:00:00,0.01995,0.155772,2.100988,4.248527,0.155034,-0.061828,,Alert,29,0.7,VH/VV drop ≥ 8% vs base,Check field now. Drain standing water if possible (open outlets/pump).
+2025-06-13 07:00:00,0.005392,0.041229,-4.660642,-2.438693,0.146617,-0.069835,,Alert,74,0.8,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base",Check field now. Drain standing water if possible (open outlets/pump).
+2025-06-23 07:00:00,0.004514,0.039508,-6.104952,-3.712731,0.140908,-0.071302,-0.962651553693414,Alert,67,0.7000000000000001,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, z = -1.0",Check field now. Drain standing water if possible (open outlets/pump).
+2025-07-03 07:00:00,0.007253,0.086657,-3.761892,0.146385,0.100119,-0.099466,0.4197207490081771,Watch,44,0.6,"VH logΔ ≤ -1.5 dB, VH/VV drop ≥ 8% vs base, z = 0.4",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-13 07:00:00,0.008225,0.10379,0.761482,3.080411,0.093958,-0.05635,2.863024592199944,Watch,14,0.55,"VH/VV drop ≥ 8% vs base, z = 2.9",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-23 07:00:00,0.011066,0.124208,3.175632,3.839878,0.099797,-0.014578,1.9971148574940465,Watch,14,0.55,"VH/VV drop ≥ 8% vs base, z = 2.0",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-08-02 07:00:00,0.015672,0.13433,4.416746,3.25501,0.136544,0.03575,1.180479691879029,Healthy,0,0.5,z = 1.2,All good. Keep routine checks.
+2025-08-12 07:00:00,0.015542,0.075486,2.843632,-1.172364,0.235367,0.141728,0.7546293961611211,Watch,15,0.55,"VV logΔ ≤ -1.0 dB, z = 0.8",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-08-22 07:00:00,0.015065,0.13248,1.674259,0.726582,0.127656,0.026325,-0.04340670745654164,Healthy,0,0.5,z = -0.0,All good. Keep routine checks.
+2025-09-01 07:00:00,0.016753,0.147915,1.561608,1.857026,0.132324,-0.000119,-0.3896643901580265,Healthy,0,0.5,z = -0.4,All good. Keep routine checks.
+2025-09-11 07:00:00,0.015452,0.130054,0.481313,0.336548,0.140658,0.012549,-1.4857438566588848,Watch,34,0.55,z = -1.5,Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-21 07:00:00,0.015057,0.102517,-0.235608,-0.892233,0.175952,0.032031,-2.084945869144449,Watch,53,0.55,z = -2.1,Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-23 07:00:00,0.015057,0.102517,-0.196793,-1.053329,0.175952,0.038994,-1.0362978278970791,Watch,31,0.6,"VV logΔ ≤ -1.0 dB, z = -1.0",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.

@@ -28,11 +28,12 @@ from shapely.geometry import shape, mapping
 from pyproj import Geod
 import rasterio
 
+# app_core/views.py
 @require_http_methods(["POST"])
 def aoi_upload(request):
     """
-    Save a drawn AOI to /media/aoi, export its stack, create Field + Job,
-    and return info with a link to the risk map.
+    Save a drawn AOI, create Field + Job, export a field-scoped stack and time-series,
+    then kick off the analysis.
     """
     try:
         payload = json.loads(request.body.decode("utf-8"))
@@ -42,16 +43,18 @@ def aoi_upload(request):
             return HttpResponseBadRequest("Missing 'feature'")
 
         geom_geojson = feature["geometry"] if feature.get("type") == "Feature" else feature
+
+        # --- area calc ---
+        from shapely.geometry import shape
+        from pyproj import Geod
         g = shape(geom_geojson)
         if g.is_empty:
             return HttpResponseBadRequest("Empty geometry")
-
-        # Geodesic area (m² → ha)
         geod = Geod(ellps="WGS84")
         area_m2, _ = geod.geometry_area_perimeter(g)
         area_ha = abs(area_m2) / 10_000.0
 
-        # Save AOI file
+        # --- Save AOI file ---
         media_dir = Path(settings.MEDIA_ROOT) / "aoi"
         media_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -61,61 +64,43 @@ def aoi_upload(request):
             indent=2
         ), encoding="utf-8")
 
-        # Export stack → /media/stacks/
-        stack_dir = Path(settings.MEDIA_ROOT) / "stacks"
-        stack_dir.mkdir(parents=True, exist_ok=True)
-        tif_path = stack_dir / f"stack_{ts}.tif"
+        # --- Create Field first (we need field.id in filenames) ---
+        field = FieldAOI.objects.create(name=user_name, geom=geom_geojson, area_ha=area_ha)
+
+        # --- Export stack with FIELD ID in name ---
+        stacks_dir = Path(settings.MEDIA_ROOT) / "stacks"
+        stacks_dir.mkdir(parents=True, exist_ok=True)
+        tif_path = stacks_dir / f"stack_field_{field.id}_{ts}.tif"
+        tif_exported = None
         try:
             export_stack_from_geom(geom_geojson, str(tif_path))
-            tif_exported = tif_path.name if tif_path.exists() else None
+            if tif_path.exists():
+                tif_exported = tif_path.name
         except Exception as gee_err:
             print("⚠️ GEE export failed:", gee_err)
-            tif_exported = None
 
-        # Create Field + Job
-        field = FieldAOI.objects.create(name=user_name, geom=geom_geojson, area_ha=area_ha)
+        # --- Create Job and store stack_path ---
         job = AnalysisJob.objects.create(field=field, status="queued", message="Created from AOI upload")
-
-        # Always record stack_path if file exists
-        job.result = {**(job.result or {}), "stack_path": str(tif_path) if tif_exported else None}
+        job.result = {**(job.result or {}), "stack_path": (str(tif_path) if tif_exported else None)}
         job.save(update_fields=["result"])
 
-        # Run analysis sync/async
-        if settings.DEBUG:
-            run_waterlogging_analysis(job.id)
-        else:
-            run_waterlogging_analysis.delay(job.id)
-
-        # Export time-series → /media/timeseries/
+        # --- Export time-series (field-scoped filename) ---
         ts_dir = Path(settings.MEDIA_ROOT) / "timeseries"
         ts_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         ts_csv = ts_dir / f"timeseries_field_{field.id}_{stamp}.csv"
+        export_s1_timeseries(geom_geojson=field.geom, out_csv=str(ts_csv), tz="Asia/Phnom_Penh")
 
-        media_url = settings.MEDIA_URL.rstrip("/")
-        csv_rel = f"timeseries/{ts_csv.name}"
-        csv_url = f"{media_url}/{csv_rel}"
+        timeseries_file = (settings.MEDIA_URL.rstrip("/") + f"/timeseries/{ts_csv.name}")
+        timeseries_path = str(ts_csv)
+        job.result = {
+            **(job.result or {}),
+            "timeseries_file": timeseries_file,
+            "timeseries_path": timeseries_path,
+        }
+        job.save(update_fields=["result"])
 
-        timeseries_file = None
-        timeseries_path = None
-        try:
-            export_s1_timeseries(
-                geom_geojson=field.geom,
-                out_csv=str(ts_csv),
-                tz="Asia/Phnom_Penh",
-            )
-            timeseries_file = csv_url
-            timeseries_path = str(ts_csv)
-            job.result = {
-                **(job.result or {}),
-                "timeseries_file": timeseries_file,
-                "timeseries_path": timeseries_path,
-            }
-            job.save(update_fields=["result"])
-        except Exception as e:
-            print("⚠️ Time-series export failed:", e)
-
-        # Optionally re-run analysis after TS write
+        # --- Kick off analysis (sync in DEBUG, async otherwise) ---
         if settings.DEBUG:
             run_waterlogging_analysis(job.id)
         else:
@@ -129,10 +114,11 @@ def aoi_upload(request):
             "field_id": field.id,
             "name": user_name,
             "job_id": job.id,
-            "timeseries_file": timeseries_file,
-            "timeseries_path": timeseries_path,
+            "timeseries_file": timeseries_file,   # <-- defined now
+            "timeseries_path": timeseries_path,   # <-- defined now
             "next_url": f"/fields/{field.id}/risk/",
         })
+
     except Exception as e:
         return HttpResponseBadRequest(f"Invalid payload: {e}")
 
@@ -346,12 +332,23 @@ def dashboard_index(request):
     if last:
         return redirect(f"/dashboard/{last}/")
 
-    # 2) Fallbacks if no cookie yet
-    latest_field = FieldAOI.objects.order_by("-id").first()
-    if latest_field:
-        return redirect(f"/dashboard/{latest_field.id}/")
+    # Fallback 2 (existing): newest risk_field_<field_id>_*.tif
+    if (not risk_tif) or (not os.path.exists(risk_tif)):
+        import glob
+        ov_dir = os.path.join(settings.MEDIA_ROOT, "overlays")
+        matches = sorted(glob.glob(os.path.join(ov_dir, f"risk_field_{field_id}_*.tif")), reverse=True)
+        if matches:
+            risk_tif = matches[0]
 
-    return redirect(reverse("lands"))
+    # NEW: Fallback 3/4: probe/generic names
+    if (not risk_tif) or (not os.path.exists(risk_tif)):
+        import glob
+        ov_dir = os.path.join(settings.MEDIA_ROOT, "overlays")
+        for pat in ("risk_from_probe_*.tif", "risk_*.tif"):
+            matches = sorted(glob.glob(os.path.join(ov_dir, pat)), reverse=True)
+            if matches:
+                risk_tif = matches[0]
+                break
 
 def dashboard(request, field_id: int):
     field = get_object_or_404(FieldAOI, id=field_id)
@@ -457,27 +454,48 @@ def field_insights_api(request, field_id: int):
         })
 
     # --- compute/update scale if missing ---
-    risk_tif = job.result.get("risk_tif_path")  # REMOVE fallback to stack_path
-    with rasterio.open(risk_tif) as ds:
-        rows, cols = ds.height, ds.width
-        left, bottom, right, top = ds.bounds
+    # --- inside field_insights_api, before classify_and_area() ---
+    risk_tif = job.result.get("risk_tif_path")
+
+    # Fallback 1: derive a local path from URL if present
+    if (not risk_tif or not os.path.exists(risk_tif)):
+        url = (job.result.get("risk_tif_url") or "").lstrip("/")
+        if url.startswith("media/"):  # convert /media/... → MEDIA_ROOT/...
+            candidate = os.path.join(settings.MEDIA_ROOT, url.split("media/",1)[-1])
+            if os.path.exists(candidate):
+                risk_tif = candidate
+
+    # Fallback 2: pick newest risk_*.tif under MEDIA_ROOT/overlays
+    if (not risk_tif) or (not os.path.exists(risk_tif)):
+        import glob
+        ov_dir = os.path.join(settings.MEDIA_ROOT, "overlays")
+        matches = sorted(glob.glob(os.path.join(ov_dir, f"risk_field_{field_id}_*.tif")), reverse=True)
+        if matches:
+            risk_tif = matches[0]
+
+    # Proceed only if we now have a valid path
     if risk_tif and os.path.exists(risk_tif):
+        # compute geodesic px area from the GeoTIFF footprint (EPSG:4326 expected)
+        import rasterio
+        from pyproj import Geod
+        with rasterio.open(risk_tif) as ds:
+            rows, cols = ds.height, ds.width
+            left, bottom, right, top = ds.bounds
         g = Geod(ellps="WGS84")
-        poly_lons = [left, right, right, left, left]
-        poly_lats = [bottom, bottom, top, top, bottom]
-        footprint_m2, _ = g.polygon_area_perimeter(poly_lons, poly_lats)[:2]
-        px_area_m2 = abs(footprint_m2) / float(rows * cols)
+        area_m2, _ = g.polygon_area_perimeter([left,right,right,left,left],
+                                            [bottom,bottom,top,top,bottom])[:2]
+        px_area_m2 = abs(area_m2) / float(rows * cols)
 
         abc, tot = classify_and_area(
             risk_tif,
             thresholds=(0.20, 0.40, 0.60),
-            scale_from=None,
-            default_pixel_area_m2=px_area_m2    # ✅ pass real pixel area
+            scale_from=None,                 # risk tif is already 0–1
+            default_pixel_area_m2=px_area_m2
         )
-        job.result = {**(job.result or {}), "area_by_class": abc, "total_ha": tot}
+        job.result = {**(job.result or {}), "area_by_class": abc, "total_ha": tot,
+                    "risk_tif_path": risk_tif}
         job.save(update_fields=["result"])
     else:
-        # don't recompute from stack; keep whatever is there
         abc = job.result.get("area_by_class") or {}
         tot = job.result.get("total_ha") or 0.0
 
@@ -497,10 +515,11 @@ def field_insights_api(request, field_id: int):
         "insights_csv_url": (settings.MEDIA_URL.rstrip("/") + "/insights/" + os.path.basename(insights_csv)).replace("//","/") if insights_csv else None,
         "area_by_class": abc,
         "total_ha": tot,
-        # only include these if they already exist
-        "risk_tif_path": risk_tif_path_existing,
-        "risk_tif_url":  ((settings.MEDIA_URL.rstrip("/") + "/overlays/" + os.path.basename(risk_tif_path_existing)).replace("//","/")
-                      if risk_tif_path_existing else None),
+
+        # WRITE BACK THE RESOLVED risk_tif (if valid), not the old one
+        "risk_tif_path": (risk_tif if risk_tif and os.path.exists(risk_tif) else job.result.get("risk_tif_path")),
+        "risk_tif_url":  ((settings.MEDIA_URL.rstrip("/") + "/overlays/" + os.path.basename(risk_tif)).replace("//","/")
+                        if risk_tif and os.path.exists(risk_tif) else job.result.get("risk_tif_url")),
     }
     job.save(update_fields=["result"])
 

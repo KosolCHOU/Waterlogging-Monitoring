@@ -4,7 +4,7 @@
 # Output: PNG overlay + hotspots GeoJSON + bounds (Leaflet order).
 
 from __future__ import annotations
-import json, uuid
+import json, uuid, re
 from pathlib import Path
 import numpy as np
 import rasterio
@@ -135,6 +135,48 @@ def run_analysis_from_notebook(
         dst_nodata=np.nan, resampling=Resampling.max
     )
 
+    # Build a proper profile for the web grid (EPSG:4326, float32, nodata)
+    profile_web = {
+        "driver": "GTiff",
+        "dtype": "float32",
+        "nodata": -9999.0,
+        "count": 1,
+        "crs": rasterio.crs.CRS.from_epsg(4326),
+        "transform": web_tr,
+        "width": int(risk_web.shape[1]),
+        "height": int(risk_web.shape[0]),
+        "tiled": True,
+        "compress": "deflate",
+        "predictor": 2,
+        "blockxsize": 256,
+        "blockysize": 256,
+    }
+
+    # Optional: embed field id into filename if you have it (else just tag)
+    field_id_for_name = None
+    try:
+        # If your timeseries filename is in the job result and looks like timeseries_field_<id>_*.csv
+        pass  # (leave as None if not easily available here)
+    except Exception:
+        pass
+
+    # Pull field id from stack filename if present: stack_field_<id>_*.tif
+    m = re.search(r"field_(\d+)", str(stack_tif_path))
+    field_id_for_name = m.group(1) if m else None
+
+    risk_tag = uuid.uuid4().hex[:8]
+    risk_name = (f"risk_field_{field_id_for_name}_{risk_tag}.tif"
+                if field_id_for_name else f"risk_{risk_tag}.tif")
+
+    ov_dir = Path("media") / "overlays"
+    ov_dir.mkdir(parents=True, exist_ok=True)
+    risk_tif_abs = ov_dir / risk_name
+
+    with rasterio.open(str(risk_tif_abs), "w", **profile_web) as dst:
+        dst.write(np.nan_to_num(risk_web, nan=-9999.0).astype("float32"), 1)
+
+    risk_tif_url = f"/media/overlays/{risk_name}"
+
     # --- 4) Save one overlay PNG (no legend; clean for Leaflet ImageOverlay)
     tag = uuid.uuid4().hex[:8]
     out_png = OVER_DIR / f"risk_{tag}.png"
@@ -231,4 +273,7 @@ def run_analysis_from_notebook(
         "bounds": _bounds_from_geom(aoi_geojson),
         "probe_bin_url": f"/media/probes/{probe_bin.name}",
         "probe_meta_url": f"/media/probes/{probe_json.name}",
+        "risk_tif_path": str(risk_tif_abs),
+        "risk_tif_url": risk_tif_url,
     }
+

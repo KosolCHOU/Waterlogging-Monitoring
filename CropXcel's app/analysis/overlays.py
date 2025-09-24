@@ -18,6 +18,9 @@ import geopandas as gpd
 from shapely.geometry import Point
 import pandas as pd
 
+import uuid, os
+tag = uuid.uuid4().hex[:8]
+
 # ------- Inputs -------
 MULTIBAND_PATH = tif_path                 # 11-band S1 stack you exported earlier
 TIME_SERIES_CSV = OUTPUT_CSV              # AOI mean time series csv
@@ -195,7 +198,7 @@ def top_reason_label(key: str):
         "sar_variability":"High temporal variability (speckle/patchy water).",
         "water_extent":    "Surface water extent (from MNDWI when available).",
         "veg_signal":      "Low greenness (NDVI/VARI)—possible stress."
-    }.check(key, "Inspect this zone.")
+    }.get(key, "Inspect this zone.")
 
 
 def risk_cmap_redgreen():
@@ -635,13 +638,24 @@ profile_web.update(
     height=risk_web.shape[0],
 )
 
-# Save overlay risk as a 1-band GeoTIFF (absolute path under MEDIA_ROOT)
-import uuid, os
-tag = uuid.uuid4().hex[:8]
-risk_tif_name = f"risk_{tag}.tif"
-risk_tif_abs  = os.path.join(settings.MEDIA_ROOT, "overlays", risk_tif_name)  # NEW
-os.makedirs(os.path.dirname(risk_tif_abs), exist_ok=True)                     # NEW
-save_geotiff(risk_tif_abs, risk_web, profile_web)                             # uses your helper
+import re, os
 
-# Also compute the URL you’ll store in job.result
-risk_tif_url = (settings.MEDIA_URL.rstrip("/") + "/overlays/" + risk_tif_name).replace("//", "/")  # NEW
+# Robustly pull field id from "timeseries_field_<id>_<stamp>.csv"
+field_id_for_name = None
+ts_base = os.path.basename(TIME_SERIES_CSV or "")
+m = re.search(r"timeseries_field_(\d+)_", ts_base)
+if m:
+    field_id_for_name = m.group(1)
+
+# Always include field id when we have it
+risk_tif_name = (
+    f"risk_field_{field_id_for_name}_{tag}.tif" if field_id_for_name
+    else f"risk_{tag}.tif"
+)
+risk_tif_abs = os.path.join(settings.MEDIA_ROOT, "overlays", risk_tif_name)
+os.makedirs(os.path.dirname(risk_tif_abs), exist_ok=True)
+
+# Save the web-projected (0..1) risk raster with correct georeferencing
+save_geotiff(str(risk_tif_abs), risk_web, profile_web)
+
+risk_tif_url = (settings.MEDIA_URL.rstrip("/") + "/overlays/" + risk_tif_name).replace("//","/")

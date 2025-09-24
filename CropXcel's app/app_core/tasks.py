@@ -2,20 +2,21 @@
 from celery import shared_task
 from django.conf import settings
 from pathlib import Path
-import json
 from datetime import datetime
+import json
 
 from .models import AnalysisJob
 from analysis.analysis import run_analysis_from_notebook
 
+# --- NEW: scale/area helpers ---
+import rasterio
+from pyproj import Geod
+from analysis.insights import classify_and_area
 
-# ---------- Helpers ----------
+
+# ----------------------- small path/url helpers -----------------------
 def _media_rel_from_url(path_or_url: str) -> str:
-    """
-    Turn '/media/hotspots/x.geojson', 'media/hotspots/x.geojson',
-    'hotspots/x.geojson', or even '/media/media/hotspots/x.geojson'
-    into 'hotspots/x.geojson'.
-    """
+    """Return a media-relative path (no leading /media/)."""
     if not path_or_url:
         return ""
     rel = str(path_or_url)
@@ -31,28 +32,20 @@ def _media_rel_from_url(path_or_url: str) -> str:
 
 
 def _fs_from_media(path_or_url: str) -> Path:
-    """
-    Convert any media URL/relative path into an absolute filesystem path
-    under MEDIA_ROOT.
-    """
+    """Convert media-relative (or URL) to filesystem path under MEDIA_ROOT."""
     rel = _media_rel_from_url(path_or_url)
     return Path(getattr(settings, "MEDIA_ROOT", "media")) / rel
 
 
 def _media_urlify(path_or_url: str) -> str:
-    """
-    Convert a relative media path or filesystem path into a browser URL
-    under MEDIA_URL (idempotent if a full http(s) URL).
-    """
+    """Return a proper /media/... URL from any path or URL-ish input."""
     if not path_or_url:
         return ""
     s = str(path_or_url)
 
-    # pass-through for http(s)
     if s.startswith(("http://", "https://")):
         return s
 
-    # if it's a filesystem path inside MEDIA_ROOT, make it relative
     try:
         p = Path(s)
         media_root = Path(getattr(settings, "MEDIA_ROOT", "media")).resolve()
@@ -60,7 +53,6 @@ def _media_urlify(path_or_url: str) -> str:
             try:
                 s = str(p.resolve().relative_to(media_root))
             except Exception:
-                # not under MEDIA_ROOT -> leave as-is; caller should only hand us media files
                 pass
     except Exception:
         pass
@@ -69,9 +61,12 @@ def _media_urlify(path_or_url: str) -> str:
     return f"{getattr(settings, 'MEDIA_URL', '/media/')}{rel}"
 
 
-# ---------- Task ----------
+# ----------------------- main task -----------------------
 @shared_task
 def run_waterlogging_analysis(job_id: int):
+    """End-to-end local analysis (no GEE here). Produces overlay, probe, hotspots,
+    risk_tif + area_by_class + total_ha, and links the latest timeseries CSV for the field.
+    """
     job = AnalysisJob.objects.get(id=job_id)
     job.status = "running"
     job.message = "Starting…"
@@ -80,39 +75,67 @@ def run_waterlogging_analysis(job_id: int):
     try:
         field = job.field
 
-        # 1) Resolve stack path (prefer model attribute; else newest in /media/stacks)
+        # ---------- Resolve stack ----------
+        stacks_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "stacks"
+        stacks_dir.mkdir(parents=True, exist_ok=True)
+
+        # Prefer path saved on Field (if you use that), else search by field id
         tif_path = Path(getattr(field, "stack_path", "") or "")
         if not tif_path.is_file():
-            stacks_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "stacks"
-            stacks_dir.mkdir(parents=True, exist_ok=True)
-            cand = sorted(stacks_dir.glob("*.tif"), key=lambda p: p.stat().st_mtime, reverse=True)
-            if cand:
-                tif_path = cand[0]
+            specific = sorted(
+                list(stacks_dir.glob(f"*field_{field.id}_*.tif")) +
+                list(stacks_dir.glob(f"*_{field.id}_*.tif")) +
+                list(stacks_dir.glob(f"*{field.id}*.tif")),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if specific:
+                tif_path = specific[0]
             else:
-                raise FileNotFoundError(
-                    f"No stack found for field {field.id}. "
-                    f"Set FieldAOI.stack_path or put a .tif in {stacks_dir}"
-                )
+                # fall back to newest stack
+                cand = sorted(stacks_dir.glob("*.tif"), key=lambda p: p.stat().st_mtime, reverse=True)
+                if cand:
+                    tif_path = cand[0]
+                else:
+                    raise FileNotFoundError(
+                        f"No stack found for field {field.id}. "
+                        f"Put a TIF in {stacks_dir} containing 'field_{field.id}' in its name."
+                    )
 
-        job.message = f"Using stack: {tif_path}"
+        job.message = f"Using stack: {tif_path.name}"
         job.save(update_fields=["message"])
 
-        # 2) Run the notebook-aligned analysis
-        #    Expected to return URLs *or* filesystem paths. We normalize below.
-        aoi_geojson = field.geom  # GeoJSON-like dict
-        result = run_analysis_from_notebook(aoi_geojson, stack_tif_path=str(tif_path))
+        # ---------- Run notebook-like local analysis ----------
+        aoi_geojson = field.geom
+        result = run_analysis_from_notebook(
+            aoi_geojson,
+            stack_tif_path=str(tif_path),
+        )
 
-        # 3) Normalize everything to MEDIA_URL for the frontend
+        # ---------- Normalize outputs ----------
         overlay_url    = _media_urlify(result.get("overlay_png_url", ""))
         hotspots_url   = _media_urlify(result.get("hotspots_url", ""))
         probe_bin_url  = _media_urlify(result.get("probe_bin_url", ""))
         probe_meta_url = _media_urlify(result.get("probe_meta_url", ""))
 
-        # --- NEW: pass through risk tif ---
-        risk_tif_url   = _media_urlify(result.get("risk_tif_url", ""))
-        risk_tif_path  = result.get("risk_tif_path", "")  # keep filesystem path as-is
+        risk_tif_path = result.get("risk_tif_path", "") or ""
+        risk_tif_url  = _media_urlify(result.get("risk_tif_url", "")) if risk_tif_path else ""
 
-        # 4) (Optional) sanity check: the files actually exist on disk if they’re local
+        # Fallback: discover a risk_*.tif for this field/job
+        ov_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "overlays"
+        if (not risk_tif_path) or (not Path(risk_tif_path).exists()):
+            cand = sorted(ov_dir.glob(f"risk_field_{field.id}_*.tif"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if not cand:
+                cand = sorted(ov_dir.glob(f"risk_job_{job.id}_*.tif"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if not cand:
+                cand = sorted(ov_dir.glob("risk_from_probe_*.tif"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if not cand:
+                cand = sorted(ov_dir.glob("risk_*.tif"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if cand:
+                risk_tif_path = str(cand[0])
+                risk_tif_url  = _media_urlify(risk_tif_path)
+
+        # Sanity: expected files should exist (only check local media files)
         for label, url in [
             ("overlay", overlay_url),
             ("hotspots", hotspots_url),
@@ -120,11 +143,47 @@ def run_waterlogging_analysis(job_id: int):
             ("probe_meta", probe_meta_url),
         ]:
             if url and not url.startswith(("http://", "https://")):
-                if not _fs_from_media(url).exists():
-                    raise FileNotFoundError(f"{label} missing on disk -> {_fs_from_media(url)}")
+                target = _fs_from_media(url)
+                if not target.exists():
+                    raise FileNotFoundError(f"{label} missing on disk -> {target}")
 
-        # --- keep anything saved earlier (e.g., timeseries_file/timeseries_path) ---
+        # ---------- NEW: compute area_by_class & total_ha ----------
+        area_by_class = None
+        total_ha = None
+        if risk_tif_path and Path(risk_tif_path).exists():
+            with rasterio.open(risk_tif_path) as ds:
+                rows, cols = ds.height, ds.width
+                left, bottom, right, top = ds.bounds
+            # geodesic bbox area (EPSG:4326 expected) → pixel area
+            g = Geod(ellps="WGS84")
+            area_m2, _ = g.polygon_area_perimeter(
+                [left, right, right, left, left],
+                [bottom, bottom, top, top, bottom]
+            )
+            px_area_m2 = abs(area_m2) / float(rows * cols)
+
+            # thresholds align with UI (Healthy/Watch/Concern/Alert)
+            area_by_class, total_ha = classify_and_area(
+                risk_tif_path,
+                thresholds=(0.20, 0.40, 0.60),
+                scale_from=None,  # risk tif is already 0..1
+                default_pixel_area_m2=px_area_m2
+            )
+
+        # ---------- Attach latest timeseries CSV if missing ----------
         merged = dict(job.result or {})
+        if not merged.get("timeseries_path"):
+            ts_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "timeseries"
+            if ts_dir.exists():
+                cand = sorted(ts_dir.glob(f"timeseries_field_{field.id}_*.csv"),
+                              key=lambda p: p.stat().st_mtime, reverse=True)
+                if cand:
+                    latest = cand[0]
+                    rel = latest.relative_to(Path(getattr(settings, "MEDIA_ROOT", "media")))
+                    merged["timeseries_path"] = str(latest)
+                    merged["timeseries_file"] = f"{getattr(settings, 'MEDIA_URL', '/media/')}{rel.as_posix()}"
+
+        # ---------- Save job result ----------
         merged.update({
             "bounds": result.get("bounds"),
             "overlay_png_url": overlay_url,
@@ -134,18 +193,10 @@ def run_waterlogging_analysis(job_id: int):
             "risk_tif_path": risk_tif_path,
             "risk_tif_url": risk_tif_url,
         })
-
-        # (optional) If timeseries wasn't set yet, auto-attach the newest CSV for this field
-        if not merged.get("timeseries_path"):
-            ts_dir = Path(getattr(settings, "MEDIA_ROOT", "media")) / "timeseries"
-            if ts_dir.exists():
-                cand = sorted(ts_dir.glob(f"timeseries_field_{field.id}_*.csv"),
-                            key=lambda p: p.stat().st_mtime, reverse=True)
-                if cand:
-                    latest = cand[0]
-                    rel = latest.relative_to(Path(getattr(settings, "MEDIA_ROOT", "media")))
-                    merged["timeseries_path"] = str(latest)
-                    merged["timeseries_file"] = f"{getattr(settings, 'MEDIA_URL', '/media/')}{rel.as_posix()}"
+        if area_by_class is not None:
+            merged["area_by_class"] = area_by_class
+        if total_ha is not None:
+            merged["total_ha"] = total_ha
 
         job.result = merged
         job.status = "done"
