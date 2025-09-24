@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from django.conf import settings
+import matplotlib as mpl
 
 def _default_media_root() -> str:
     try:
@@ -291,24 +292,59 @@ def compute_temporal_engine_s1(
     end_date = primary.index.max()
     start_date = end_date - pd.DateOffset(months=4)
     primary_4m = primary.loc[start_date:end_date]
-    view_df = insights_df[(insights_df["date"] >= start_date) & (insights_df["date"] <= end_date)]
-    COL_ALERT, COL_WATCH, COL_HEALTHY, EDGE = "#FF00FF", "#00FFFF", "#FFFFFF", "black"
+    view_df = insights_df[(insights_df["date"] >= start_date) & (insights_df["date"] <= end_date)].copy()
 
-    def add_risk_bands(ax, series):
-        name = (getattr(series, "name", "") or "").upper()
+    # 👉 Make plot 3-class only (Concern → Watch)
+    if "status" in view_df.columns:
+        view_df["status"] = view_df["status"].replace({"Concern": "Watch"})
+
+    # --- Palette (match dashboard vibes) ---
+    COL_ALERT   = "#e74c3c"  # red
+    COL_WATCH   = "#f1c40f"  # yellow
+    COL_HEALTHY = "#2ecc71"  # green
+    LINE_COLOR  = "#2ca089"  # soft teal
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(primary_4m.index, primary_4m.values, marker="o", markersize=5,
+            linewidth=2.5, color=LINE_COLOR,
+            label="Soil moisture / water level (proxy)")
+
+    def add_gradient_background(ax, series, alpha=0.16):
+        """
+        Draw a vertical gradient background from red (bottom) → yellow → green (top),
+        matching the dashboard vibe.
+        """
         y = series.values.astype(float)
-        if np.all(~np.isfinite(y)): return
+        if np.all(~np.isfinite(y)):
+            return
         ymin, ymax = np.nanpercentile(y, [5, 95])
         pad = 0.08 * (ymax - ymin if ymax > ymin else 1.0)
-        if "LOGRATIO" in name:
-            ax.axhspan(ymin - pad, Z_THRESHOLD,  facecolor="red",    alpha=0.08, label="High risk")
-            ax.axhspan(Z_THRESHOLD, 0,          facecolor="yellow", alpha=0.12, label="Caution")
-            ax.axhspan(0,  ymax + pad,          facecolor="green",  alpha=0.06, label="Safe")
-        else:
-            ax.axhspan(ymin - pad, -18.0,       facecolor="red",    alpha=0.08, label="High risk")
-            ax.axhspan(-18.0, -14.0,            facecolor="yellow", alpha=0.12, label="Caution")
-            ax.axhspan(-14.0, ymax + pad,       facecolor="green",  alpha=0.06, label="Safe")
-        ax.set_ylim(ymin - pad, ymax + pad)
+        y0, y1 = ymin - pad, ymax + pad
+        ax.set_ylim(y0, y1)
+
+        # red → yellow → green, bottom→top (origin='lower')
+        cmap = mpl.colors.LinearSegmentedColormap.from_list(
+            "risk", ["#e74c3c", "#f1c40f", "#2ecc71"]
+        )
+        # vertical gradient
+        gradient = np.linspace(0, 1, 256).reshape(256, 1)
+        ax.imshow(
+            gradient,
+            aspect="auto",
+            cmap=cmap,
+            extent=[ax.get_xlim()[0], ax.get_xlim()[1], y0, y1],
+            origin="lower",
+            alpha=alpha,
+            zorder=0,
+        )
+
+        # optional legend keys for background zones (small, subtle)
+        from matplotlib.patches import Patch
+        ax._risk_patches = [
+            Patch(facecolor="#2ecc71", alpha=alpha, label="Safe"),
+            Patch(facecolor="#f1c40f", alpha=alpha, label="Caution"),
+            Patch(facecolor="#e74c3c", alpha=alpha, label="High risk"),
+        ]
 
     def pick_y(df_points):
         if ("S1_VH_LOGRATIO_DB" in df_points.columns) and df_points["S1_VH_LOGRATIO_DB"].notna().any():
@@ -318,51 +354,58 @@ def compute_temporal_engine_s1(
         return None
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(primary_4m.index, primary_4m.values, marker="o", markersize=6, linewidth=2.5,
-            color="#2ca096", label="Soil moisture / water level (proxy)")
+    ax.plot(primary_4m.index, primary_4m.values, marker="o", markersize=5,
+            linewidth=2.5, color=LINE_COLOR,
+            label="Soil moisture / water level (proxy)")
 
+    # groups (now only 3)
     grp_alert   = view_df[view_df["status"] == "Alert"]
     grp_watch   = view_df[view_df["status"] == "Watch"]
     grp_healthy = view_df[view_df["status"] == "Healthy"]
 
-    def scatter_group(df_points, label, color, marker, size=110, edge="black"):
+    def scatter_group(df_points, label, color, marker, size=130, edge="black"):
         if df_points.empty: return
         ycol = pick_y(df_points)
         yvals = df_points[ycol] if ycol is not None else df_points["date"].map(
             lambda d: primary.loc[d] if d in primary.index else np.nan
         )
         ax.scatter(df_points["date"], yvals, s=size, c=color, marker=marker,
-                   edgecolors=edge, linewidths=1, label=label, zorder=3)
+                   edgecolors=edge, linewidths=1.2, label=label, zorder=3)
 
-    scatter_group(grp_alert,   "Waterlogging Alert",  COL_ALERT,   "o", size=130, edge=EDGE)
-    scatter_group(grp_watch,   "Watch",               COL_WATCH,   "^", size=110, edge=EDGE)
-    scatter_group(grp_healthy, "Healthy",             COL_HEALTHY, "s", size=90,  edge=EDGE)
+    # shapes: o, ^, X (clearly distinct)
+    scatter_group(grp_alert,   "Waterlogging Alert", COL_ALERT,   "X")
+    scatter_group(grp_watch,   "Watch",              COL_WATCH,   "^")
+    scatter_group(grp_healthy, "Healthy",            COL_HEALTHY, "o")
 
-    add_risk_bands(ax, primary_4m)
-    ax.set_title("Sentinel-1 Waterlogging Monitor (last 4 months)", fontsize=16, weight="bold")
-    ax.set_xlabel("Date", fontsize=13)
-    ax.set_ylabel("Moisture / Water Level (proxy)", fontsize=13)
+    # Gradient background (soft, heatmap vibe)
+    add_gradient_background(ax, primary_4m)
+    ax.set_title("Sentinel-1 Waterlogging Monitor (last 4 months)",
+                 fontsize=15, weight="bold")
+    ax.set_xlabel("Date", fontsize=12)
+    ax.set_ylabel("Moisture / Water Level (proxy)", fontsize=12)
     ax.grid(True, linestyle="--", alpha=0.4)
+
     ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=1))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
     fig.autofmt_xdate()
 
     latest_val = float(primary_4m.dropna().iloc[-1])
-    ax.axhline(latest_val, color="brown", linestyle="--", linewidth=1.5,
+    ax.axhline(latest_val, color="brown", linestyle="--", linewidth=1.2,
                alpha=0.7, label=f"Reference ({latest_val:.2f})")
 
-    # de-duplicate legend
+    # legend cleanup (include background keys if present)
     handles, labels = ax.get_legend_handles_labels()
-    seen, uniq = set(), []
-    for h, l in zip(handles, labels):
-        if l not in seen:
-            uniq.append((h, l)); seen.add(l)
-    ax.legend(*zip(*uniq), frameon=True, fontsize=11,
-              loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
+    if hasattr(ax, "_risk_patches"):
+        handles = handles + ax._risk_patches
+        labels  = labels  + [p.get_label() for p in ax._risk_patches]
+
+    uniq = dict(zip(labels, handles))
+    ax.legend(uniq.values(), uniq.keys(), frameon=True, fontsize=10,
+              loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=3)
 
     fig.tight_layout()
     try:
-        plt.savefig(plot_png_path, dpi=180)
+        plt.savefig(plot_png_path, dpi=180, facecolor="white")
     finally:
         plt.close(fig)
 
