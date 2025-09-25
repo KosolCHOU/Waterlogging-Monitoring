@@ -17,4 +17,6 @@ urlpatterns = [
     path("fields/<int:field_id>/insights/", views.field_insights_api, name="field_insights_api"),
     path("api/", include(router.urls)),
     path("about/", views.about, name="about"),
+    path('fields/<int:field_id>/analytics/', views.analytics, name='analytics'),
+    path('fields/<int:field_id>/forecast.json', views.forecast_json, name='forecast_json'),
 ]

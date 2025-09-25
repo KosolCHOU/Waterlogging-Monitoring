@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block title %}Analytics – CropXcel{% endblock %}
+
+{% block head %}
+<style>
+  html, body { margin:0; background:#f1f5f9; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial; }
+  .wrap { padding:12px; display:grid; grid-template-columns:1.2fr 1fr; gap:12px; }
+  @media (max-width:1024px){ .wrap{ grid-template-columns:1fr; } }
+  .card{ background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.08); padding:16px; }
+  .pretty{ font-weight:800; font-size:16px; margin:0 0 10px 0; color:#0f172a; position:relative; padding-left:16px; }
+  .pretty::before{content:"";width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#34d399,#0ea5e9);position:absolute;left:0;top:5px;}
+  .chip{display:inline-flex;gap:6px;align-items:center;padding:4px 10px;border-radius:999px;background:#eef2ff;color:#1f2937;font-weight:700;font-size:12px}
+  .pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#e5e7eb;font-weight:700;font-size:12px}
+  .green{background:#22c55e22;color:#14532d}.amber{background:#f59e0b22;color:#78350f}.red{background:#ef444422;color:#7f1d1d}
+  table.mini{width:100%;border-collapse:collapse;font-size:12px;border-radius:12px;overflow:hidden}
+  table.mini th,table.mini td{padding:8px;border-bottom:1px solid #e5e7eb}
+  table.mini thead th{background:#f8fafc;font-weight:800;position:sticky;top:0;cursor:pointer;user-select:none}
+  tr:hover{background:#fafafa}
+  .hint{color:#64748b;font-size:12px}
+  .spark{display:flex;gap:1px;height:40px;align-items:flex-end}
+  .bar{width:3px;border-radius:2px;background:#cbd5e1}
+  .bar.prob{background:#60a5fa}
+  .bar.rain{background:#34d399}
+  .legend{display:flex;gap:10px;align-items:center;font-size:12px;color:#374151;margin-top:6px}
+  .dot{width:10px;height:10px;border-radius:999px}
+  /* NEW: Weather hero layout */
+  .hero{ display:grid; grid-template-columns: 360px 1fr; gap:16px; align-items:stretch; }
+  @media (max-width: 920px){ .hero{ grid-template-columns: 1fr; } }
+
+  .card.hero { padding:14px; }
+  .today-card{
+    background:#e8fbfa; border-radius:16px; padding:16px;
+    display:flex; flex-direction:column; justify-content:space-between;
+    box-shadow: inset 0 0 0 1px #d1f3f1;
+  }
+  .today-top{ display:flex; align-items:center; justify-content:space-between; }
+  .today-big{ display:flex; align-items:center; gap:18px; margin:6px 0 8px 0; }
+  .today-chips{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* Bigger, denser sparkline area */
+  .spark.big{ height:84px; gap:2px; }
+  .bar{ width:4px; } /* thicker columns for readability */
+  .panel72{
+    background:#ffffff; border-radius:16px; padding:14px;
+    box-shadow: inset 0 0 0 1px #eef2f7;
+    display:flex; flex-direction:column; justify-content:space-between;
+  }
+  .panel72 h4{ margin:0 0 6px 0; font-size:14px; font-weight:800; color:#0f172a; }
+  .kpis{ display:flex; gap:10px; flex-wrap:wrap; font-size:12px; color:#374151; }
+  .kpis .pill{ background:#f3f4f6; }
+  /* --- tidy numeric scale & alignment --- */
+  .num { font-feature-settings: "tnum"; letter-spacing: .2px; }
+
+  /* --- Weather hero: cleaner inner spacing & dividers --- */
+  .hero      { display:grid; grid-template-columns: 380px 1fr; gap:16px; align-items:stretch; }
+  @media (max-width: 920px){ .hero{ grid-template-columns: 1fr; } }
+
+  .today-card{
+    background:#e8fbfa; border-radius:16px; padding:16px 18px;
+    display:flex; flex-direction:column; gap:10px;
+    position:relative; box-shadow: inset 0 0 0 1px #d1f3f1;
+  }
+  .today-top   { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+  .today-big   { display:flex; align-items:baseline; gap:14px; }
+  .today-temp  { font-size:52px; font-weight:800; color:#0f172a; line-height:1; }
+  .today-desc  { font-size:16px; color:#374151; font-weight:600; }
+  .today-icon  { font-size:64px; opacity:.9; }
+  .today-row   { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .divider     { height:1px; background:#d1f3f1; margin:6px 0; border-radius:2px; }
+
+  .chip{ display:inline-flex; gap:6px; align-items:center; padding:5px 10px;
+         border-radius:999px; background:#eef2ff; color:#1f2937; font-weight:700; font-size:12px }
+  .chip i{ opacity:.75 }
+
+  /* --- 72h panel: more room for spark + tighter KPI row --- */
+  .panel72      { background:#fff; border-radius:16px; padding:14px 16px;
+                  box-shadow: inset 0 0 0 1px #eef2f7; display:flex; flex-direction:column; gap:8px; }
+  .panel72 h4   { margin:0; font-size:14px; font-weight:800; color:#0f172a; }
+  .spark.big    { height:92px; gap:2px; }
+  .bar          { width:4px; border-radius:2px; background:#cbd5e1 }
+  .bar.prob     { background:#60a5fa }
+  .bar.rain     { background:#34d399 }
+  .kpis         { display:flex; gap:8px; flex-wrap:wrap; font-size:12px; color:#374151 }
+  .kpis .pill   { background:#f3f4f6; padding:4px 10px; border-radius:999px; font-weight:700 }
+  .hero { display:block; }
+  .hero {display: flex; flex-direction: column; height: 100%;}
+  .wrap {display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; align-items: stretch;}
+  .today-card .panel72 {flex: 1 1 50%;}
+  .wrap { align-items: stretch; }
+  .hero { display: flex; flex-direction: column; height: 100%; gap: 12px; }
+  .today-card, .panel72 { flex: 1 1 50%; min-height: 0; }
+    /* Align weather today as two columns */
+    .today-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    }
+    .today-left {
+    flex: 1;
+    }
+    .today-right {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    }
+
+    /* Align 72h rain signal as two columns */
+    .panel72-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 16px;
+    }
+    .panel72-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    }
+    .panel72-right {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    }
+/* ===== 72h plot: axes + grid ===== */
+.sparkWrap{
+  position: relative;
+  height: 140px;                      /* more room for axes */
+  padding: 8px 8px 24px 42px;         /* left=Y axis, bottom=X axis */
+  border-radius: 12px;
+  background: #fff;
+}
+
+.spark.big{
+  position: absolute;
+  left: 42px; right: 8px; top: 8px; bottom: 24px;
+  display: flex; align-items: flex-end; gap: 2px;
+}
+
+/* Y axis (probability %) */
+.yAxis{ position:absolute; left:0; top:8px; bottom:24px; width:42px;
+        font-size:10px; color:#475569; }
+.yAxis .ytick{ position:absolute; left:0; transform: translateY(50%); }
+.yAxis .ytick span{ position:absolute; right:6px; top:-7px; }
+
+/* horizontal grid lines */
+.gridLayer{ position:absolute; left:42px; right:8px; top:8px; bottom:24px; }
+.gridLayer .g{ position:absolute; left:0; right:0; height:1px; background:#e5e7eb; }
+
+/* X axis (time hh:mm) */
+.xAxis{ position:absolute; left:42px; right:8px; bottom:0; height:18px;
+        display:flex; justify-content:space-between; align-items:flex-end;
+        font-size:10px; color:#475569; }
+.xAxis .xtick{ transform: translateX(-50%); white-space:nowrap; }
+
+/* ===== make the right-side KPI pills bigger/prettier ===== */
+.panel72-right{ display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
+.pill.stat{ background:#eef2ff; padding:10px 14px; font-size:14px; box-shadow:0 1px 0 #e5e7eb inset; }
+.pill.stat b{ font-size:16px; }
+.pill.stat i{ font-style:normal; margin-right:8px; opacity:.9; }
+
+/* and bump the TODAY right chips too */
+.today-right .chip{ padding:8px 12px; font-size:14px; background:#e9f5ff; }
+.today-right .chip i{ font-style:normal; font-size:16px; opacity:.9; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+
+    <!-- Weather HERO (today + 72h combined) -->
+    <div class="card hero">
+    <!-- LEFT: today -->
+    <div class="today-card">
+        <div class="today-top">
+        <div>
+            <div style="font-size:14px;color:#0f172a;font-weight:800">Weather today</div>
+            <div class="hint" id="when"></div>
+            <div class="hint"><span id="where" data-id="{{ field_label }}">{{ field.name }}</span></div>
+        </div>
+        <div id="icon" class="today-icon">☀️</div>
+        </div>
+
+        <div class="today-body">
+            <div class="today-left">
+                <div class="today-big">
+                <div id="temp" class="today-temp num">—</div>
+                <div id="desc" class="today-desc">—</div>
+                </div>
+            </div>
+            <div class="today-right">
+                <span class="chip"><i>☔</i> <span id="chipProb">Prob.max: —</span></span>
+                <span class="chip"><i>🌧️</i> <span id="chipRain">Rain: — mm</span></span>
+                <span class="chip"><i>💨</i> <span id="chipWind">Wind max: — km/h</span></span>
+            </div>
+        </div>
+
+        <div class="hint">Today’s risk signals at a glance.</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 72h panel moved inside -->
+    <div class="panel72">
+        <h4>Next 72h · Rain signal</h4>
+        <div class="panel72-body">
+        <div class="panel72-left">
+
+            <!-- Spark + axes wrapper -->
+            <div class="sparkWrap">
+            <div class="spark big" id="spark72"></div>
+            <div class="yAxis" id="yAxisProb"></div>
+            <div class="xAxis" id="xAxisTime"></div>
+            <div class="gridLayer" id="gridProb"></div>
+            </div>
+
+            <div class="legend" style="margin-top:8px">
+            <span class="dot" style="background:#60a5fa"></span> Probability %
+            <span class="dot" style="background:#34d399;margin-left:10px"></span> Rain (mm)
+            </div>
+        </div>
+
+        <div class="panel72-right">
+            <span class="pill stat"><i>🌧️</i> Total rain 72h: <b class="num" id="kpiRain">— mm</b></span>
+            <span class="pill stat"><i>📈</i> Peak probability: <b class="num" id="kpiPeak">—%</b></span>
+            <span class="pill stat"><i>⏰</i> Peak time: <b class="num" id="kpiTime">--:--</b></span>
+            <span class="pill stat"><i>⚠️</i> Risk: <b id="kpiRisk">—</b></span>
+        </div>
+        </div>
+    </div>
+    </div>
+
+  <!-- 7-day Forecast + Recommendations -->
+  <div class="card">
+    <h3 class="pretty">7-day Forecast</h3>
+    <table class="mini" id="dailyTbl">
+      <thead>
+        <tr>
+          <th data-k="date">Date</th>
+          <th data-k="rain_mm">Rain (mm)</th>
+          <th data-k="prob_max">Prob.max</th>
+          <th data-k="t">Tmin–Tmax</th>
+          <th data-k="wind_max">Wind max</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="hint">Tip: click a column header to sort; hover rows for details.</div>
+
+    <h4 style="margin:14px 0 6px 0; font-weight:800; color:#0f172a">Recommendations</h4>
+    <div id="adviceWrap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px"></div>
+  </div>
+
+</div>
+
+<script>
+(async function(){
+  const fieldId = {{ field.id }};
+  const res = await fetch(`/fields/${fieldId}/forecast.json`, {cache:'no-store'});
+  const data = await res.json();
+  if (!data.ok) return;
+
+  // --- header / place ---
+  const now = new Date();
+  document.getElementById('when').textContent =
+    now.toLocaleString('en-GB', { weekday:'long', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+
+  // --- today card ---
+  const t = data.today || {};
+  const todayRow = data.daily?.[0] || {};
+  document.getElementById('temp').textContent = `${Math.round(todayRow.tmax || 0)}°`;
+  const desc = (t.rain_mm>5) ? "Rainy" : (t.prob_max>50) ? "Cloudy" : "Sunny";
+  document.getElementById('desc').textContent = desc;
+  document.getElementById('icon').textContent = desc==="Rainy"?"🌧️":(desc==="Cloudy"?"☁️":"☀️");
+  document.getElementById('chipProb').textContent = `Prob.max: ${t.prob_max ?? "—"}%`;
+  document.getElementById('chipRain').textContent = `Rain: ${(t.rain_mm ?? 0).toFixed(1)} mm`;
+  document.getElementById('chipWind').textContent = `Wind max: ${Math.round(t.wind_max ?? 0)} km/h`;
+
+  // --- 7-day table (render + sorting) ---
+  const tbody = document.querySelector('#dailyTbl tbody');
+  const rows = (data.daily||[]).map(d => ({
+    date: d.date, rain_mm: d.rain_mm, prob_max: d.prob_max,
+    tmin: d.tmin, tmax: d.tmax, wind_max: d.wind_max
+  }));
+  function paint(){
+    tbody.innerHTML = rows.map(d=>{
+      const feel = d.rain_mm>=10 ? 'class="red"' : d.rain_mm>=3 ? 'class="amber"' : 'class="green"';
+      const tt = `title="Rain: ${d.rain_mm?.toFixed?.(1) ?? d.rain_mm} mm | Prob.max: ${d.prob_max}% | Wind max: ${Math.round(d.wind_max)} km/h"`;
+      return `<tr ${tt}>
+        <td>${d.date}</td>
+        <td><span ${feel} style="padding:2px 6px;border-radius:999px">${(d.rain_mm??0).toFixed(1)}</span></td>
+        <td>${d.prob_max}%</td>
+        <td>${Math.round(d.tmin)}–${Math.round(d.tmax)}°C</td>
+        <td>${Math.round(d.wind_max)}</td>
+      </tr>`;
+    }).join('');
+  }
+  paint();
+  document.querySelectorAll('#dailyTbl thead th').forEach(th=>{
+    th.addEventListener('click',()=>{
+      const k=th.dataset.k; if(!k) return;
+      const asc = !th.classList.toggle('desc');
+      document.querySelectorAll('#dailyTbl thead th').forEach(h=>h!==th&&h.classList.remove('desc'));
+      rows.sort((a,b)=>{
+        if(k==='t') return asc ? (a.tmax-b.tmax) : (b.tmax-a.tmax);
+        if(k==='date') return asc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date);
+        return asc ? (a[k]-b[k]) : (b[k]-a[k]);
+      });
+      paint();
+    });
+  });
+
+  // --- KPIs for 72h ---
+  const mm = data.rain_mm_72h || 0;
+  const peak = data.precip_prob_peak_72h || 0;
+  const peakTime = data.precip_prob_peak_time || '--:--';
+  const riskTxt = (mm>=30 || peak>=70) ? 'High' : (mm>=10 || peak>=40) ? 'Moderate' : 'Low';
+  document.getElementById('kpiRain').textContent = `${mm} mm`;
+  document.getElementById('kpiPeak').textContent = `${peak}%`;
+  document.getElementById('kpiTime').textContent = peakTime;
+  document.getElementById('kpiRisk').textContent = riskTxt;
+
+  // --- 72h series bars ---
+  const sp = document.getElementById('spark72');
+  const series = Array.isArray(data.hourly72) ? data.hourly72 : [];
+  const maxProb = 100;
+  const maxRain = Math.max(1, ...series.map(x=> Number(x.rain)||0));
+  sp.innerHTML = series.map(x=>{
+    const prob = Math.max(0, Math.min(100, Number(x.prob)||0));
+    const rain = Math.max(0, Number(x.rain)||0);
+    // heights scaled to container (will be normalized by CSS height)
+    const hp = Math.round((prob/maxProb) * 90);
+    const hr = Math.round((rain/maxRain) * 90);
+    const h  = x.h || '';
+    return `
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="bar prob" style="height:${hp}px" title="${h} · Prob ${prob}%"></div>
+        <div class="bar rain" style="height:${hr}px" title="${h} · Rain ${rain} mm"></div>
+      </div>`;
+  }).join('');
+
+  // --- Axes + grid (must run AFTER bars exist, with same series) ---
+  const H = sp.clientHeight || 100;
+
+  // Y: 0 / 50 / 100 %
+  const yAxis = document.getElementById('yAxisProb');
+  const grid  = document.getElementById('gridProb');
+  const yVals = [100, 50, 0];
+  yAxis.innerHTML = yVals.map(v=>{
+    const top = (1 - v/100) * H;
+    return `<div class="ytick" style="top:${top}px"><span>${v}%</span></div>`;
+  }).join('');
+  grid.innerHTML = yVals.map(v=>{
+    const top = (1 - v/100) * H;
+    return `<div class="g" style="top:${top}px"></div>`;
+  }).join('');
+
+  // X: label every 6 hours + last
+  const xAxis = document.getElementById('xAxisTime');
+  const times = series.map(r => r.h || '');
+  const labels = [];
+  for (let i=0;i<times.length;i+=6) labels.push(times[i]);
+  if (times.length) labels.push(times[times.length-1]);
+  xAxis.innerHTML = labels.map(t => `<div class="xtick">${t}</div>`).join('');
+})();
+</script>
+</body>
+</html>
+{% endblock %}

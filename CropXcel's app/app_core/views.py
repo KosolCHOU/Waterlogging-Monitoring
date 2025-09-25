@@ -22,11 +22,13 @@ from django.urls import reverse
 from .models import FieldAOI, AnalysisJob
 from analysis.engine import export_stack_from_geom, export_s1_timeseries
 from analysis.insights import compute_temporal_engine_s1, build_insights_html, classify_and_area
+from analysis.weather import get_forecast_for_field
 
 # New: local geodesic area (no GEE)
 from shapely.geometry import shape, mapping
+from shapely.geometry import shape as shp_shape  
 from pyproj import Geod
-import rasterio
+import rasterio 
 
 # app_core/views.py
 @require_http_methods(["POST"])
@@ -64,8 +66,13 @@ def aoi_upload(request):
             indent=2
         ), encoding="utf-8")
 
-        # --- Create Field first (we need field.id in filenames) ---
+        field = FieldAOI# after creating field
         field = FieldAOI.objects.create(name=user_name, geom=geom_geojson, area_ha=area_ha)
+
+        # if user didn't type a name, auto-assign
+        if not user_name:
+            field.name = f"Field #{field.id}"
+            field.save(update_fields=["name"])
 
         # --- Export stack with FIELD ID in name ---
         stacks_dir = Path(settings.MEDIA_ROOT) / "stacks"
@@ -541,3 +548,51 @@ def field_insights_api(request, field_id: int):
 
 def about(request):
     return render(request, "about.html")
+
+def analytics(request, field_id):
+    field = get_object_or_404(FieldAOI, id=field_id)
+
+    # -- robust bounds: handle GeoJSON dicts OR GeoDjango geometries
+    try:
+        # If it's a GeoJSON-like dict
+        if isinstance(field.geom, dict):
+            g = shp_shape(field.geom)
+            minx, miny, maxx, maxy = g.bounds  # (W,S,E,N)
+        else:
+            # If it's a GEOSGeometry or similar
+            ext = field.geom.extent  # (minx, miny, maxx, maxy)
+            minx, miny, maxx, maxy = ext
+        bounds = [[miny, minx], [maxy, maxx]]  # [[S,W],[N,E]] for Leaflet
+    except Exception:
+        # Fallback: very small box around a centroid if available
+        if isinstance(field.geom, dict):
+            g = shp_shape(field.geom)
+            c = g.centroid
+            lat, lon = float(c.y), float(c.x)
+        else:
+            c = field.geom.centroid
+            lat, lon = float(c.y), float(c.x)
+        eps = 1e-3
+        bounds = [[lat - eps, lon - eps], [lat + eps, lon + eps]]
+
+    field_label = (field.name or "").strip() or f"Field #{field.id}"
+    ctx = {
+        "field": field,
+        "field_label": field_label,  # <— add this
+        "bounds": bounds,
+        "job_id": request.GET.get("job_id") or "null",
+    }
+    return render(request, "analytics.html", ctx)
+
+@require_http_methods(["GET"])
+def forecast_json(request, field_id: int):
+    """
+    Return 7-day + 72h summary forecast for a field (Open-Meteo).
+    """
+    field = get_object_or_404(FieldAOI, id=field_id)
+    try:
+        data = get_forecast_for_field(field)
+        # Shape response the way your frontend likes:
+        return JsonResponse({"ok": True, **data}, status=200)
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)

@@ -62,23 +62,23 @@
       .content { margin-left:0; }
       .sidebar { width:80%; }
     }
-    .sidebar-footer {
-      margin-top:auto;
-      padding:14px 16px;
-      border-top:1px solid rgba(255,255,255,.08);
-      font-size:14px;
-    }
-    .sidebar-footer a {
-      display:flex; align-items:center; gap:8px;
-      color:#9ca3af; text-decoration:none;
-      margin-bottom:8px;
-    }
-    .sidebar-footer a:hover {
-      color:#fff;
-    }
-    .sidebar-footer .copy {
-      font-size:12px; color:#6b7280;
-    }
+  .sidebar-footer {
+    margin-top:auto;
+    padding:14px 16px;
+    border-top:1px solid rgba(255,255,255,.08);
+    font-size:14px;
+  }
+  .sidebar-footer a {
+    display:flex; align-items:center; gap:8px;
+    color:#9ca3af; text-decoration:none;
+    margin-bottom:8px;
+  }
+  .sidebar-footer a:hover {
+    color:#fff;
+  }
+  .sidebar-footer .copy {
+    font-size:12px; color:#6b7280;
+  }
   </style>
 </head>
 <body>
@@ -99,6 +99,10 @@
       <a href="{% url 'lands' %}"
         class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}">
         Land
+      </a>
+      <a href="{% if field %}{% url 'analytics' field.id %}{% else %}#{% endif %}"
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+        Analytics
       </a>
     </nav>
 
