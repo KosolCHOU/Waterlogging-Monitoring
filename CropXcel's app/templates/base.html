@@ -1,4 +1,3 @@
-<!-- templates/base.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -7,29 +6,129 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  {% block head %}{% endblock %}   <!-- NEW: lets child templates add Leaflet CSS/inline styles -->
+  {% block head %}{% endblock %}
   <style>
-    body { margin:0; display:flex; font-family:system-ui, sans-serif; }
-    .sidebar { width:220px; background:#111827; color:#fff; min-height:100vh; display:flex; flex-direction:column; }
-    .brand { padding:20px; font-weight:700; font-size:18px; }
-    .menu a { display:block; padding:12px 20px; color:#fff; text-decoration:none; border-radius:6px; margin:4px 8px; }
-    .menu a.active { background:#10b981; }
+    :root { --sbw: 220px; --accent:#10b981; --bg:#f1f7ee; }
+
+    body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); }
+
+    /* --- Sidebar --- */
+    .sidebar {
+      position:fixed; top:0; left:0; bottom:0;
+      width:var(--sbw);
+      background:#111827; color:#fff;
+      display:flex; flex-direction:column;
+      transition: transform .3s ease;
+      z-index:1000;
+    }
+    .sidebar.hidden { transform: translateX(-100%); }
+
+    .brand {
+      display:flex; align-items:center; gap:10px;
+      padding:14px 16px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-weight:700; font-size:18px;
+    }
+    .menu a {
+      display:block;
+      padding:12px 20px;
+      color:#fff; text-decoration:none;
+      border-radius:8px; margin:4px 10px;
+    }
+    .menu a.active { background:var(--accent); }
     .menu a:hover { background:#374151; }
-    .content { flex:1; background:#f1f7ee; min-height:100vh; padding:20px; overflow:auto; }
+
+    /* --- Toggle Button --- */
+    .toggle-btn {
+      position:fixed; top:12px; left:12px;
+      background:var(--accent);
+      border:none; color:#fff;
+      padding:6px 10px; border-radius:6px;
+      cursor:pointer; z-index:1100;
+    }
+
+    /* --- Content --- */
+    .content {
+      margin-left:var(--sbw);
+      transition: margin-left .3s ease;
+      min-height:100vh; padding:20px;
+    }
+    .sidebar.hidden ~ .content {
+      margin-left:0;
+    }
+
+    /* Mobile adjustments */
+    @media (max-width:768px){
+      .content { margin-left:0; }
+      .sidebar { width:80%; }
+    }
+    .sidebar-footer {
+      margin-top:auto;
+      padding:14px 16px;
+      border-top:1px solid rgba(255,255,255,.08);
+      font-size:14px;
+    }
+    .sidebar-footer a {
+      display:flex; align-items:center; gap:8px;
+      color:#9ca3af; text-decoration:none;
+      margin-bottom:8px;
+    }
+    .sidebar-footer a:hover {
+      color:#fff;
+    }
+    .sidebar-footer .copy {
+      font-size:12px; color:#6b7280;
+    }
   </style>
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="brand">🌾 CropXcel</div>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <!-- Toggle button on the left -->
+      <button class="collapse-btn" id="collapseBtn" type="button" aria-label="Toggle sidebar">☰</button>
+      <span class="logo-mark">🌾</span>
+      <span class="logo-text">CropXcel</span>
+    </div>
+
     <nav class="menu">
       <a href="{% url 'dashboard_index' %}"
-         class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}">
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'dashboard' or request.resolver_match and request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}">
         Dashboard
       </a>
-      <a href="{% url 'lands' %}" class="{% if request.resolver_match.url_name == 'lands' %}active{% endif %}">Land</a>
+      <a href="{% url 'lands' %}"
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}">
+        Land
+      </a>
     </nav>
-    <div style="margin-top:auto;padding:12px 20px;opacity:.7">© CropXcel</div>
+
+    <div class="sidebar-footer">
+      <a href="{% url 'about' %}">
+        <span class="info-icon">ℹ️</span> <span class="lbl">About</span>
+      </a>
+      <div class="copy">© CropXcel</div>
+    </div>
   </aside>
+
+  <!-- Toggle button -->
+  <button class="toggle-btn" id="toggleBtn">☰</button>
+
+  <!-- Main -->
   <main class="content">{% block content %}{% endblock %}</main>
+
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const btn = document.getElementById('toggleBtn');
+
+    // restore state
+    if(localStorage.getItem('sb_hidden') === '1'){
+      sidebar.classList.add('hidden');
+    }
+
+    btn.addEventListener('click', ()=>{
+      sidebar.classList.toggle('hidden');
+      localStorage.setItem('sb_hidden', sidebar.classList.contains('hidden') ? '1' : '0');
+    });
+  </script>
 </body>
 </html>

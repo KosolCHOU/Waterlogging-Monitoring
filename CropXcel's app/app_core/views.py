@@ -538,3 +538,6 @@ def field_insights_api(request, field_id: int):
         "total_ha": tot,
         **html
     })
+
+def about(request):
+    return render(request, "about.html")

@@ -16,4 +16,5 @@ urlpatterns = [
     # path("fields/<int:field_id>/timeseries/", views.export_s1_timeseries, name="export_timeseries"),
     path("fields/<int:field_id>/insights/", views.field_insights_api, name="field_insights_api"),
     path("api/", include(router.urls)),
+    path("about/", views.about, name="about"),
 ]
