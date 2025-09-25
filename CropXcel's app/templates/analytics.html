@@ -36,23 +36,68 @@
 
   /* ===== 72h Rain signal (unchanged visuals) ===== */
   .panel72 h4{margin:0 0 10px 0;font-size:14px;font-weight:800;color:var(--ink)}
-  .p72{display:flex;gap:12px;align-items:center}
-  .p72-left{flex:1 1 auto;min-width:0}
-  .p72-right{width:var(--kpiw);margin-left:auto;display:flex;flex-direction:column;gap:8px}
+  /* Next 72h layout */
+  .p72 {
+    display: grid;
+    grid-template-columns: 3fr 0.8fr;  /* left much wider than right */
+    gap: 12px;
+    align-items: stretch;
+  }
+  .p72-left { min-width: 0; overflow: hidden; }   /* prevent flex overflow */
+  .sparkWrap { overflow: hidden; }                /* clip bars inside box */
+  .p72-right {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
   .kpi{background:#eef2ff;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;font-weight:700;font-size:12px;white-space:nowrap}
   .kpi b{font-size:14px}
-  .sparkWrap{position:relative;height:130px;padding:6px 8px 18px 28px;border-radius:12px;background:#fff;box-shadow:inset 0 0 0 1px #eef2f7}
+  .sparkWrap {
+    position: relative;
+    height: 180px;   /* taller for readability */
+    padding: 6px 8px 20px 32px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px #eef2f7;
+  }
   .spark{position:absolute;left:28px;right:8px;top:6px;bottom:18px;display:flex;align-items:flex-end;gap:2px}
   .bar{width:3px;border-radius:2px;background:#cbd5e1}
-  .bar.prob{background:var(--blue)}
-  .bar.rain{background:var(--green)}
+  .bar.prob {
+    background: var(--blue);
+    opacity: .5;
+    width: 2px;
+  }
+  .bar.rain {
+    background: linear-gradient(to top,#34d399,#6ee7b7);
+    width: 4px;
+    margin-top: 2px;
+  }
   .yAxis{position:absolute;left:0;top:6px;bottom:18px;width:28px;font-size:10px;color:#475569}
   .yAxis .ytick{position:absolute;left:0;transform:translateY(50%)}
   .yAxis .ytick span{position:absolute;right:4px;top:-7px}
-  .xAxis{position:absolute;left:28px;right:8px;bottom:0;height:16px;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:#475569}
+  .xAxis{
+    position:absolute; left:28px; right:8px; bottom:0; height:16px;
+    display:flex; justify-content:flex-start; align-items:flex-end;
+    gap:2px;                 /* match bar gap */
+    font-size:10px; color:#475569;
+  }
+  .xAxis .xtick{
+    flex:0 0 auto;
+    width:6px;               /* match a column width (see COL_W below) */
+    text-align:center;
+    line-height:1;
+    white-space:nowrap;
+    overflow:visible;
+  }
   .gridLayer{position:absolute;left:28px;right:8px;top:6px;bottom:18px}
   .gridLayer .g{position:absolute;left:0;right:0;height:1px;background:#e5e7eb}
-  .legend{display:flex;gap:10px;align-items:center;font-size:12px;color:#374151;margin-top:8px}
+  .legend {
+    margin-top: 10px;
+    font-size: 12px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
   .dot{width:10px;height:10px;border-radius:999px}
 
   /* ===== 7-day table ===== */
@@ -130,6 +175,112 @@
 
   .recCard.safe,
   .recCard.default{ background:#f0fdf4; box-shadow:inset 0 0 0 1px #bbf7d0; border-left:4px solid #22c55e; }
+  .bar.prob{background:var(--blue);opacity:.6;width:2px}
+  .bar.rain{background:linear-gradient(to top,#34d399,#6ee7b7);width:5px}
+  .kpiWrap {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .kpi { 
+    background:#eef2ff; border-radius:12px; padding:8px 12px;
+    display:flex; gap:6px; align-items:center; font-weight:700; font-size:12px;
+  }
+
+  /* plot container: a bit taller, plenty of room for bars */
+  .sparkWrap{
+    position:relative; height:160px;
+    padding:6px 8px 18px 28px;
+    border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1px #eef2f7;
+  }
+  .spark{position:absolute;left:28px;right:8px;top:6px;bottom:18px;display:flex;align-items:flex-end;gap:2px}
+
+  /* nicer bars */
+  .bar{border-radius:2px;background:#cbd5e1}
+  .bar.prob{background:var(--blue); opacity:.6; width:2px}
+  .bar.rain{background:linear-gradient(to top,#34d399,#6ee7b7); width:5px}
+
+  .yAxis{position:absolute;left:0;top:6px;bottom:18px;width:28px;font-size:10px;color:#475569}
+  .yAxis .ytick{position:absolute;left:0;transform:translateY(50%)}
+  .yAxis .ytick span{position:absolute;right:4px;top:-7px}
+  .xAxis{position:absolute;left:28px;right:8px;bottom:0;height:16px;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:#475569}
+  .gridLayer{position:absolute;left:28px;right:8px;top:6px;bottom:18px}
+  .gridLayer .g{position:absolute;left:0;right:0;height:1px;background:#e5e7eb}
+
+  /* KPI cards on the right */
+  .kpi{background:#eef2ff;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;font-weight:700;font-size:12px;white-space:nowrap}
+
+  @media (max-width:980px){
+    .p72{grid-template-columns:1fr}
+  }
+
+  /* badges for time horizon */
+  .recHead{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .recBadge{
+    font: 700 11px/1.2 system-ui, sans-serif;
+    padding:4px 8px; border-radius:999px; letter-spacing:.2px;
+    display:inline-block;
+  }
+  .recBadge.h72{ background:#e0f2fe; color:#075985; }   /* Next 72h */
+  .recBadge.d7 { background:#ecfdf5; color:#065f46; }   /* Next 7 days */
+
+  /* subtle variant borders so cards look different at a glance */
+  .recCard.short { border-left-color:#0ea5e9; }  /* 72h = blue-teal */
+  .recCard.mid   { border-left-color:#10b981; }  /* 7d  = green */
+
+  /* === FINAL axis alignment + hover UI === */
+  :root { --col-w:6px; --col-gap:2px; }
+
+  .spark{ gap: var(--col-gap); }
+  .xAxis{
+    position:absolute; left:28px; right:8px; bottom:0; height:16px;
+    display:flex; justify-content:flex-start; align-items:flex-end;
+    gap:var(--col-gap); font-size:10px; color:#475569;
+  }
+  .xAxis .xtick{
+    flex:0 0 auto; width:var(--col-w);
+    text-align:center; line-height:1; white-space:nowrap; overflow:visible;
+  }
+
+  /* Hover helpers */
+  .sparkWrap { position:relative; }
+  .plot-cross{
+    position:absolute; top:6px; bottom:18px; width:1px;
+    background:#94a3b8; opacity:.5; pointer-events:none; display:none;
+  }
+  .plot-tip{
+    position:absolute; pointer-events:none; display:none;
+    background:rgba(15,23,42,.92); color:#fff; padding:6px 8px; border-radius:8px;
+    font-size:11px; transform:translate(-50%, -8px); white-space:nowrap; z-index:5;
+  }
+  .col:hover .bar { filter: brightness(1.08); }
+
+  /* === LOCKED axis (no conflict with .xAxis) === */
+  :root { --col-w:6px; --col-gap:2px; }
+
+  .spark { gap: var(--col-gap); }     /* keep bars and ticks in same rhythm */
+
+  .xAxisTicks{
+    position:absolute; left:28px; right:8px; bottom:0; height:16px;
+    display:flex; justify-content:flex-start; align-items:flex-end;
+    gap:var(--col-gap); font-size:10px; color:#475569;
+  }
+  .xAxisTicks .xtick{
+    flex:0 0 auto; width:var(--col-w);
+    text-align:center; line-height:1; white-space:nowrap; overflow:visible;
+  }
+
+  /* Hover helpers (skip if you already have them) */
+  .plot-cross{
+    position:absolute; top:6px; bottom:18px; width:1px;
+    background:#94a3b8; opacity:.55; pointer-events:none; display:none;
+  }
+  .plot-tip{
+    position:absolute; pointer-events:none; display:none;
+    background:rgba(15,23,42,.92); color:#fff; padding:6px 8px; border-radius:8px;
+    font-size:11px; transform:translate(-50%,-8px); white-space:nowrap; z-index:5;
+  }
 
 </style>
 {% endblock %}
@@ -180,7 +331,8 @@
           <div class="sparkWrap">
             <div class="spark" id="spark72"></div>
             <div class="yAxis" id="yAxisProb"></div>
-            <div class="xAxis" id="xAxisTime"></div>
+            <div class="yAxis" id="yAxisRain" style="right:0; left:auto; text-align:left"></div>
+            <div class="xAxisTicks" id="xAxisTicks"></div>
             <div class="gridLayer" id="gridProb"></div>
           </div>
           <div class="legend"><span class="dot" style="background:var(--blue)"></span> Probability % <span class="dot" style="background:var(--green);margin-left:10px"></span> Rain (mm)</div>
@@ -350,26 +502,111 @@
   document.getElementById('kpiTime').textContent = peakTime;
   document.getElementById('kpiRisk').textContent = kpiRisk;
 
-  // 72h series (unchanged)
+  // === Next 72h · Rain signal (graph) — locked axis + snap hover ===
   const sp = document.getElementById('spark72');
-  const series = Array.isArray(data.hourly72)?data.hourly72:[];
-  const maxProb=100, maxRain=Math.max(1,...series.map(x=>+x.rain||0));
-  sp.innerHTML = series.map(x=>{
-    const p=Math.max(0,Math.min(100,+x.prob||0)), r=Math.max(0,+x.rain||0), h=x.h||'';
-    const hp=Math.round((p/maxProb)*90), hr=Math.round((r/maxRain)*90);
-    return `<div style="display:flex;flex-direction:column;align-items:center">
-      <div class="bar prob" style="height:${hp}px" title="${h} · Prob ${p}%"></div>
-      <div class="bar rain" style="height:${hr}px" title="${h} · Rain ${r} mm"></div>
-    </div>`;
+  const series = Array.isArray(data.hourly72) ? data.hourly72 : [];
+
+  const COL_W = 6;     // must match --col-w
+  const GAP   = 2;     // must match --col-gap
+  const STEP  = COL_W + GAP;
+
+  const maxProb = 100;
+  const maxRain = Math.max(1, ...series.map(x => +x.rain || 0));
+
+  // draw bars: one fixed-width column per hour
+  sp.innerHTML = series.map((x, i) => {
+    const p = Math.max(0, Math.min(100, +x.prob || 0));
+    const r = Math.max(0, +x.rain || 0);
+    const hp = Math.round((p / maxProb) * 100);
+    const hr = Math.round((r / maxRain) * 100);
+    return `<div class="col" data-i="${i}" data-h="${x.h||''}" data-p="${p}" data-r="${r}"
+                style="display:flex;flex-direction:column;align-items:center;width:${COL_W}px">
+              <div class="bar prob" style="height:${hp * 1.2}px"></div>
+              <div class="bar rain" style="height:${hr * 1.2}px"></div>
+            </div>`;
   }).join('');
 
-  // axes/grid (unchanged)
-  const H = sp.clientHeight||100;
-  const yAxis = document.getElementById('yAxisProb');
-  const grid  = document.getElementById('gridProb');
-  const yVals=[100,50,0];
-  yAxis.innerHTML = yVals.map(v=>`<div class="ytick" style="top:${(1-v/100)*H}px"><span>${v}%</span></div>`).join('');
-  grid.innerHTML  = yVals.map(v=>`<div class="g" style="top:${(1-v/100)*H}px"></div>`).join('');
+  // axes + grid (no dependency on flex distribution)
+  const yAxisProb = document.getElementById('yAxisProb');
+  const yAxisRain = document.getElementById('yAxisRain');
+  const grid      = document.getElementById('gridProb');
+  const xAxis     = document.getElementById('xAxisTicks');   // ← new id
+  const wrap      = sp.closest('.sparkWrap');
+
+  function drawAxes(){
+    const H = sp.clientHeight || 100;
+
+    const yVals = [100, 50, 0];
+    yAxisProb.innerHTML = yVals.map(v =>
+      `<div class="ytick" style="top:${(1 - v/100) * H}px"><span>${v}%</span></div>`
+    ).join('');
+
+    const rVals = [maxRain, Math.round(maxRain/2), 0];
+    yAxisRain.innerHTML = rVals.map(v =>
+      `<div class="ytick" style="bottom:${(v/maxRain)*90}%"><span>${v}mm</span></div>`
+    ).join('');
+
+    grid.innerHTML = yVals.map(v =>
+      `<div class="g" style="top:${(1 - v/100) * H}px"></div>`
+    ).join('');
+
+    // one tick per hour, same width as a column
+    xAxis.innerHTML = series.map((x, i) => {
+      const label = (i % 6 === 0) ? (x.h || '') : '';
+      return `<span class="xtick" style="width:${COL_W}px">${label}</span>`;
+    }).join('');
+  }
+  drawAxes();
+
+  // redraw on container resize (sidebar toggle, etc.)
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(drawAxes);
+    if (wrap) ro.observe(wrap);
+  } else {
+    window.addEventListener('resize', drawAxes);
+  }
+
+  // --- robust hover: snap by math (no need to hit the thin column exactly)
+  const tip   = document.createElement('div'); tip.className = 'plot-tip';
+  const cross = document.createElement('div'); cross.className = 'plot-cross';
+  wrap.appendChild(tip); wrap.appendChild(cross);
+
+  function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+  function showIndex(i){
+    const n = series.length; if (!n) return;
+    i = clamp(i, 0, n-1);
+    const col = sp.children[i];
+    const h = col.dataset.h || '';
+    const p = col.dataset.p || '0';
+    const r = col.dataset.r || '0';
+
+    const x = sp.offsetLeft + i*STEP + (COL_W/2);
+    cross.style.left = `${x}px`;
+    cross.style.display = 'block';
+
+    tip.innerHTML = `${h} • ${p}% • ${r} mm`;
+    tip.style.left = `${x}px`;
+    tip.style.top  = `6px`;
+    tip.style.display = 'block';
+  }
+
+  wrap.addEventListener('mouseleave', ()=>{
+    tip.style.display = 'none';
+    cross.style.display = 'none';
+  });
+
+  // Snap to nearest hour under the cursor
+  wrap.addEventListener('mousemove', (e)=>{
+    const rect = sp.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    const i = Math.round((relX - (COL_W/2)) / STEP);
+    showIndex(i);
+  });
+
+  // Also support precise hover when on a bar
+  [...sp.children].forEach((col, i)=>{
+    col.addEventListener('mouseenter', ()=> showIndex(i));
+  });
 
 /* --- Recommendations (harmonized with rain-first risk) --- */
 const adviceWrap = document.getElementById("adviceWrap");
@@ -478,16 +715,26 @@ function harmonizeFlag(flag){
 if(!advs.length){
   adviceWrap.innerHTML = `<div class="recCard safe"><div class="recIcon">🌱</div><div class="recText">No recommendations available.</div></div>`;
 } else {
-  adviceWrap.innerHTML = advs.map((t,i)=>{
-    const raw = flags[i] || inferFlag(t);
-    const {flag:f, downgradedFrom} = harmonizeFlag(raw);
-    const ic  = iconMap[f] || iconMap.default;
-    const txt = beautify(t, f, downgradedFrom);
-    return `<div class="recCard ${f}">
-              <div class="recIcon">${ic}</div>
-              <div class="recText">${txt}</div>
-            </div>`;
-  }).join("");
+adviceWrap.innerHTML = advs.map((t,i)=>{
+  const raw = flags[i] || inferFlag(t);
+  const {flag:f, downgradedFrom} = harmonizeFlag(raw);
+  const ic  = iconMap[f] || iconMap.default;
+  const txt = beautify(t, f, downgradedFrom);
+
+  // decide horizon: first part of list = 72h, later = 7d (adjust if backend sends horizon info)
+  const horizon = (i===0 ? "h72" : "d7");
+  const badge   = horizon==="h72"
+                    ? `<span class="recBadge h72">Next 72h</span>`
+                    : `<span class="recBadge d7">Next 7 days</span>`;
+
+  return `<div class="recCard ${f} ${horizon==='h72'?'short':'mid'}">
+            <div class="recHead">
+              ${badge}
+            </div>
+            <div class="recIcon">${ic}</div>
+            <div class="recText">${txt}</div>
+          </div>`;
+}).join("");
 }
 })();
 </script>
