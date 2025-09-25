@@ -25,10 +25,7 @@ from analysis.insights import compute_temporal_engine_s1, build_insights_html, c
 from analysis.weather import get_forecast_for_field
 
 # New: local geodesic area (no GEE)
-from shapely.geometry import shape, mapping
 from shapely.geometry import shape as shp_shape  
-from pyproj import Geod
-import rasterio 
 
 # app_core/views.py
 @require_http_methods(["POST"])

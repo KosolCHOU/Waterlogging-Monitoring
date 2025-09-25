@@ -3,237 +3,199 @@
 
 {% block head %}
 <style>
-  html, body { margin:0; background:#f1f5f9; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial; }
-  .wrap { padding:12px; display:grid; grid-template-columns:1.2fr 1fr; gap:12px; }
-  @media (max-width:1024px){ .wrap{ grid-template-columns:1fr; } }
-  .card{ background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.08); padding:16px; }
-  .pretty{ font-weight:800; font-size:16px; margin:0 0 10px 0; color:#0f172a; position:relative; padding-left:16px; }
-  .pretty::before{content:"";width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#34d399,#0ea5e9);position:absolute;left:0;top:5px;}
-  .chip{display:inline-flex;gap:6px;align-items:center;padding:4px 10px;border-radius:999px;background:#eef2ff;color:#1f2937;font-weight:700;font-size:12px}
-  .pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#e5e7eb;font-weight:700;font-size:12px}
-  .green{background:#22c55e22;color:#14532d}.amber{background:#f59e0b22;color:#78350f}.red{background:#ef444422;color:#7f1d1d}
+  :root{
+    --bg:#f1f5f9; --ink:#0f172a; --muted:#64748b;
+    --soft:#e8fbfa; --soft-border:#d1f3f1;
+    --kpiw:240px; --card:#fff; --shadow:0 10px 30px rgba(0,0,0,.08);
+    --blue:#60a5fa; --green:#34d399;
+  }
+  html,body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
+  .wrap{padding:12px;display:grid;grid-template-columns:1.2fr 1fr;gap:12px}
+  @media (max-width:1024px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px}
+
+  /* ===== Weather today (unchanged) ===== */
+  .today{background:var(--soft);border-radius:16px;box-shadow:inset 0 0 0 1px var(--soft-border);padding:18px}
+  .todayHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .todayHead .title{font-weight:800;color:var(--ink);font-size:14px}
+  .todayMeta{color:var(--muted);font-size:12px}
+  .todayBody{display:flex;gap:18px;align-items:center}
+  .todayLeft{display:flex;align-items:center;gap:16px}
+  .todayLeft .icon{font-size:56px}
+  .todayLeft .temp{font-size:56px;font-weight:800;color:var(--ink);line-height:1}
+  .todayLeft .desc{color:#374151;font-weight:600;margin-top:4px}
+  .vbar{width:1px;height:54px;background:var(--soft-border);border-radius:2px}
+  .aside{margin-left:auto;width:var(--kpiw);display:flex;flex-direction:column;gap:8px}
+  .rightInfo{display:flex;gap:8px;align-items:center;justify-content:flex-start;
+             padding:10px 12px;border-radius:12px;background:#eef2ff;font-weight:600}
+  .rightInfo i{font-style:normal;opacity:.9}
+  .todayFoot{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .miniStat{background:#f6faf7;border-radius:12px;padding:10px 12px;box-shadow:inset 0 0 0 1px #e8efe8}
+  .miniStat .lbl{color:var(--muted);font-size:12px}
+  .miniStat .val{font-weight:800;color:var(--ink);font-size:18px;margin-top:2px}
+
+  /* ===== 72h Rain signal (unchanged visuals) ===== */
+  .panel72 h4{margin:0 0 10px 0;font-size:14px;font-weight:800;color:var(--ink)}
+  .p72{display:flex;gap:12px;align-items:center}
+  .p72-left{flex:1 1 auto;min-width:0}
+  .p72-right{width:var(--kpiw);margin-left:auto;display:flex;flex-direction:column;gap:8px}
+  .kpi{background:#eef2ff;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;font-weight:700;font-size:12px;white-space:nowrap}
+  .kpi b{font-size:14px}
+  .sparkWrap{position:relative;height:130px;padding:6px 8px 18px 28px;border-radius:12px;background:#fff;box-shadow:inset 0 0 0 1px #eef2f7}
+  .spark{position:absolute;left:28px;right:8px;top:6px;bottom:18px;display:flex;align-items:flex-end;gap:2px}
+  .bar{width:3px;border-radius:2px;background:#cbd5e1}
+  .bar.prob{background:var(--blue)}
+  .bar.rain{background:var(--green)}
+  .yAxis{position:absolute;left:0;top:6px;bottom:18px;width:28px;font-size:10px;color:#475569}
+  .yAxis .ytick{position:absolute;left:0;transform:translateY(50%)}
+  .yAxis .ytick span{position:absolute;right:4px;top:-7px}
+  .xAxis{position:absolute;left:28px;right:8px;bottom:0;height:16px;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:#475569}
+  .gridLayer{position:absolute;left:28px;right:8px;top:6px;bottom:18px}
+  .gridLayer .g{position:absolute;left:0;right:0;height:1px;background:#e5e7eb}
+  .legend{display:flex;gap:10px;align-items:center;font-size:12px;color:#374151;margin-top:8px}
+  .dot{width:10px;height:10px;border-radius:999px}
+
+  /* ===== 7-day table ===== */
+  .pretty{font-weight:800;font-size:16px;margin:0 0 10px 0;color:var(--ink);position:relative;padding-left:16px}
+  .pretty::before{content:"";width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#34d399,#0ea5e9);position:absolute;left:0;top:5px}
   table.mini{width:100%;border-collapse:collapse;font-size:12px;border-radius:12px;overflow:hidden}
   table.mini th,table.mini td{padding:8px;border-bottom:1px solid #e5e7eb}
   table.mini thead th{background:#f8fafc;font-weight:800;position:sticky;top:0;cursor:pointer;user-select:none}
   tr:hover{background:#fafafa}
-  .hint{color:#64748b;font-size:12px}
-  .spark{display:flex;gap:1px;height:40px;align-items:flex-end}
-  .bar{width:3px;border-radius:2px;background:#cbd5e1}
-  .bar.prob{background:#60a5fa}
-  .bar.rain{background:#34d399}
-  .legend{display:flex;gap:10px;align-items:center;font-size:12px;color:#374151;margin-top:6px}
-  .dot{width:10px;height:10px;border-radius:999px}
-  /* NEW: Weather hero layout */
-  .hero{ display:grid; grid-template-columns: 360px 1fr; gap:16px; align-items:stretch; }
-  @media (max-width: 920px){ .hero{ grid-template-columns: 1fr; } }
 
-  .card.hero { padding:14px; }
-  .today-card{
-    background:#e8fbfa; border-radius:16px; padding:16px;
-    display:flex; flex-direction:column; justify-content:space-between;
-    box-shadow: inset 0 0 0 1px #d1f3f1;
+  /* Rain bg (kept) */
+  table.mini td.rain-low  { background:#ecfdf5; color:#065f46; font-weight:600; }
+  table.mini td.rain-mod  { background:#fef3c7; color:#92400e; font-weight:600; }
+  table.mini td.rain-high { background:#fee2e2; color:#991b1b; font-weight:700; }
+
+  /* NEW: Probability bg */
+  table.mini td.prob-low-bg  { background:#ecfeff; color:#075985; font-weight:600; }
+  table.mini td.prob-med-bg  { background:#dbeafe; color:#1e40af; font-weight:600; }
+  table.mini td.prob-high-bg { background:#bfdbfe; color:#1e3a8a; font-weight:700; }
+
+  /* NEW: Temperature bg */
+  table.mini td.temp-cool-bg { background:#e0f2fe; color:#075985; font-weight:600; }
+  table.mini td.temp-warm-bg { background:#fff7ed; color:#9a3412; font-weight:600; }
+  table.mini td.temp-hot-bg  { background:#fee2e2; color:#991b1b; font-weight:700; }
+
+  /* NEW: Wind bg */
+  table.mini td.wind-med-bg  { background:#fef3c7; color:#92400e; font-weight:600; }
+  table.mini td.wind-high-bg { background:#fee2e2; color:#991b1b; font-weight:700; }
+
+  /* Risk pill (kept) */
+  .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800}
+  .pill.low{background:#ecfdf5;color:#065f46}
+  .pill.mod{background:#fef9c3;color:#854d0e}
+  .pill.high{background:#fee2e2;color:#991b1b}
+
+  /* Date chip */
+  table.mini td.date { font-weight:600; color:#374151; background:#f8fafc; }
+
+  @media (max-width:980px){
+    .p72{flex-direction:column;align-items:stretch}
+    .p72-right{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .aside{width:100%}
   }
-  .today-top{ display:flex; align-items:center; justify-content:space-between; }
-  .today-big{ display:flex; align-items:center; gap:18px; margin:6px 0 8px 0; }
-  .today-chips{ display:flex; gap:8px; flex-wrap:wrap; }
-
-  /* Bigger, denser sparkline area */
-  .spark.big{ height:84px; gap:2px; }
-  .bar{ width:4px; } /* thicker columns for readability */
-  .panel72{
-    background:#ffffff; border-radius:16px; padding:14px;
-    box-shadow: inset 0 0 0 1px #eef2f7;
-    display:flex; flex-direction:column; justify-content:space-between;
+  /* --- Recommendations --- */
+  /* #adviceWrap{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
   }
-  .panel72 h4{ margin:0 0 6px 0; font-size:14px; font-weight:800; color:#0f172a; }
-  .kpis{ display:flex; gap:10px; flex-wrap:wrap; font-size:12px; color:#374151; }
-  .kpis .pill{ background:#f3f4f6; }
-  /* --- tidy numeric scale & alignment --- */
-  .num { font-feature-settings: "tnum"; letter-spacing: .2px; }
+  .recCard{
+    width:100%;
+  } */
 
-  /* --- Weather hero: cleaner inner spacing & dividers --- */
-  .hero      { display:grid; grid-template-columns: 380px 1fr; gap:16px; align-items:stretch; }
-  @media (max-width: 920px){ .hero{ grid-template-columns: 1fr; } }
-
-  .today-card{
-    background:#e8fbfa; border-radius:16px; padding:16px 18px;
-    display:flex; flex-direction:column; gap:10px;
-    position:relative; box-shadow: inset 0 0 0 1px #d1f3f1;
+  .recCard{
+    display:flex; gap:10px; align-items:flex-start;
+    padding:12px; border-radius:12px; background:#f8fafc;
+    box-shadow:0 6px 18px rgba(0,0,0,.06), inset 0 0 0 1px #e5e7eb;
   }
-  .today-top   { display:flex; gap:8px; align-items:center; justify-content:space-between; }
-  .today-big   { display:flex; align-items:baseline; gap:14px; }
-  .today-temp  { font-size:52px; font-weight:800; color:#0f172a; line-height:1; }
-  .today-desc  { font-size:16px; color:#374151; font-weight:600; }
-  .today-icon  { font-size:64px; opacity:.9; }
-  .today-row   { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .divider     { height:1px; background:#d1f3f1; margin:6px 0; border-radius:2px; }
+  .recIcon{font-size:20px; line-height:1; margin-top:2px}
+  .recText{font-size:13px; color:#0f172a; font-weight:600}
 
-  .chip{ display:inline-flex; gap:6px; align-items:center; padding:5px 10px;
-         border-radius:999px; background:#eef2ff; color:#1f2937; font-weight:700; font-size:12px }
-  .chip i{ opacity:.75 }
+  /* Color variants by flag */
+  .recCard.heavy_rain_soon,
+  .recCard.wet_spell{ background:#eff6ff; box-shadow:inset 0 0 0 1px #dbeafe; border-left:4px solid #3b82f6; }
 
-  /* --- 72h panel: more room for spark + tighter KPI row --- */
-  .panel72      { background:#fff; border-radius:16px; padding:14px 16px;
-                  box-shadow: inset 0 0 0 1px #eef2f7; display:flex; flex-direction:column; gap:8px; }
-  .panel72 h4   { margin:0; font-size:14px; font-weight:800; color:#0f172a; }
-  .spark.big    { height:92px; gap:2px; }
-  .bar          { width:4px; border-radius:2px; background:#cbd5e1 }
-  .bar.prob     { background:#60a5fa }
-  .bar.rain     { background:#34d399 }
-  .kpis         { display:flex; gap:8px; flex-wrap:wrap; font-size:12px; color:#374151 }
-  .kpis .pill   { background:#f3f4f6; padding:4px 10px; border-radius:999px; font-weight:700 }
-  .hero { display:block; }
-  .hero {display: flex; flex-direction: column; height: 100%;}
-  .wrap {display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; align-items: stretch;}
-  .today-card .panel72 {flex: 1 1 50%;}
-  .wrap { align-items: stretch; }
-  .hero { display: flex; flex-direction: column; height: 100%; gap: 12px; }
-  .today-card, .panel72 { flex: 1 1 50%; min-height: 0; }
-    /* Align weather today as two columns */
-    .today-body {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    }
-    .today-left {
-    flex: 1;
-    }
-    .today-right {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: flex-start;
-    }
+  .recCard.flooding{ background:#e0f2fe; box-shadow:inset 0 0 0 1px #bae6fd; border-left:4px solid #0284c7; }
 
-    /* Align 72h rain signal as two columns */
-    .panel72-body {
-    display: flex;
-    justify-content: space-between;
-    align-items: stretch;
-    gap: 16px;
-    }
-    .panel72-left {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    }
-    .panel72-right {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: flex-start;
-    }
-/* ===== 72h plot: axes + grid ===== */
-.sparkWrap{
-  position: relative;
-  height: 140px;                      /* more room for axes */
-  padding: 8px 8px 24px 42px;         /* left=Y axis, bottom=X axis */
-  border-radius: 12px;
-  background: #fff;
-}
+  .recCard.wind_risk{ background:#fff7ed; box-shadow:inset 0 0 0 1px #fde68a; border-left:4px solid #f59e0b; }
 
-.spark.big{
-  position: absolute;
-  left: 42px; right: 8px; top: 8px; bottom: 24px;
-  display: flex; align-items: flex-end; gap: 2px;
-}
+  .recCard.heat_wave{ background:#fef2f2; box-shadow:inset 0 0 0 1px #fecaca; border-left:4px solid #ef4444; }
 
-/* Y axis (probability %) */
-.yAxis{ position:absolute; left:0; top:8px; bottom:24px; width:42px;
-        font-size:10px; color:#475569; }
-.yAxis .ytick{ position:absolute; left:0; transform: translateY(50%); }
-.yAxis .ytick span{ position:absolute; right:6px; top:-7px; }
+  .recCard.cool_spell{ background:#ecfeff; box-shadow:inset 0 0 0 1px #bae6fd; border-left:4px solid #06b6d4; }
 
-/* horizontal grid lines */
-.gridLayer{ position:absolute; left:42px; right:8px; top:8px; bottom:24px; }
-.gridLayer .g{ position:absolute; left:0; right:0; height:1px; background:#e5e7eb; }
+  .recCard.dry_spell{ background:#fffbeb; box-shadow:inset 0 0 0 1px #fde68a; border-left:4px solid #ca8a04; }
 
-/* X axis (time hh:mm) */
-.xAxis{ position:absolute; left:42px; right:8px; bottom:0; height:18px;
-        display:flex; justify-content:space-between; align-items:flex-end;
-        font-size:10px; color:#475569; }
-.xAxis .xtick{ transform: translateX(-50%); white-space:nowrap; }
+  .recCard.safe,
+  .recCard.default{ background:#f0fdf4; box-shadow:inset 0 0 0 1px #bbf7d0; border-left:4px solid #22c55e; }
 
-/* ===== make the right-side KPI pills bigger/prettier ===== */
-.panel72-right{ display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
-.pill.stat{ background:#eef2ff; padding:10px 14px; font-size:14px; box-shadow:0 1px 0 #e5e7eb inset; }
-.pill.stat b{ font-size:16px; }
-.pill.stat i{ font-style:normal; margin-right:8px; opacity:.9; }
-
-/* and bump the TODAY right chips too */
-.today-right .chip{ padding:8px 12px; font-size:14px; background:#e9f5ff; }
-.today-right .chip i{ font-style:normal; font-size:16px; opacity:.9; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="wrap">
 
-    <!-- Weather HERO (today + 72h combined) -->
-    <div class="card hero">
-    <!-- LEFT: today -->
-    <div class="today-card">
-        <div class="today-top">
+  <!-- ===== LEFT: Weather today + 72h (unchanged HTML) ===== -->
+  <div class="card">
+    <!-- Weather today -->
+    <div class="today">
+      <div class="todayHead">
         <div>
-            <div style="font-size:14px;color:#0f172a;font-weight:800">Weather today</div>
-            <div class="hint" id="when"></div>
-            <div class="hint"><span id="where" data-id="{{ field_label }}">{{ field.name }}</span></div>
+          <div class="title">Weather today</div>
+          <div class="todayMeta" id="when"></div>
+          <div class="todayMeta"><span id="where" data-id="{{ field_label }}">{{ field.name }}</span></div>
         </div>
-        <div id="icon" class="today-icon">☀️</div>
-        </div>
+        <div class="icon" id="icon">☀️</div>
+      </div>
 
-        <div class="today-body">
-            <div class="today-left">
-                <div class="today-big">
-                <div id="temp" class="today-temp num">—</div>
-                <div id="desc" class="today-desc">—</div>
-                </div>
-            </div>
-            <div class="today-right">
-                <span class="chip"><i>☔</i> <span id="chipProb">Prob.max: —</span></span>
-                <span class="chip"><i>🌧️</i> <span id="chipRain">Rain: — mm</span></span>
-                <span class="chip"><i>💨</i> <span id="chipWind">Wind max: — km/h</span></span>
-            </div>
+      <div class="todayBody">
+        <div class="todayLeft">
+          <div class="icon" id="iconBig" style="font-size:64px">☀️</div>
+          <div>
+            <div class="temp" id="temp">—</div>
+            <div class="desc" id="desc">—</div>
+          </div>
         </div>
+        <div class="vbar"></div>
+        <div class="aside">
+          <div class="rightInfo"><i>☁️</i> <span id="rightCloud">Mostly Cloudy</span></div>
+          <div class="rightInfo"><i>🌧️</i> <span id="rightRain">Rain – 0%</span></div>
+        </div>
+      </div>
 
-        <div class="hint">Today’s risk signals at a glance.</div>
+      <div class="todayFoot">
+        <div class="miniStat"><div class="lbl">Prob. max</div><div class="val" id="chipProb">—%</div></div>
+        <div class="miniStat"><div class="lbl">Wind max</div><div class="val" id="chipWind">— km/h</div></div>
+        <div class="miniStat"><div class="lbl">Rain today</div><div class="val" id="chipRain">— mm</div></div>
+      </div>
     </div>
 
-    <div class="divider"></div>
-
-    <!-- 72h panel moved inside -->
-    <div class="panel72">
-        <h4>Next 72h · Rain signal</h4>
-        <div class="panel72-body">
-        <div class="panel72-left">
-
-            <!-- Spark + axes wrapper -->
-            <div class="sparkWrap">
-            <div class="spark big" id="spark72"></div>
+    <!-- 72h Rain signal -->
+    <div class="panel72" style="margin-top:12px">
+      <h4>Next 72h · Rain signal</h4>
+      <div class="p72">
+        <div class="p72-left">
+          <div class="sparkWrap">
+            <div class="spark" id="spark72"></div>
             <div class="yAxis" id="yAxisProb"></div>
             <div class="xAxis" id="xAxisTime"></div>
             <div class="gridLayer" id="gridProb"></div>
-            </div>
-
-            <div class="legend" style="margin-top:8px">
-            <span class="dot" style="background:#60a5fa"></span> Probability %
-            <span class="dot" style="background:#34d399;margin-left:10px"></span> Rain (mm)
-            </div>
+          </div>
+          <div class="legend"><span class="dot" style="background:var(--blue)"></span> Probability % <span class="dot" style="background:var(--green);margin-left:10px"></span> Rain (mm)</div>
         </div>
-
-        <div class="panel72-right">
-            <span class="pill stat"><i>🌧️</i> Total rain 72h: <b class="num" id="kpiRain">— mm</b></span>
-            <span class="pill stat"><i>📈</i> Peak probability: <b class="num" id="kpiPeak">—%</b></span>
-            <span class="pill stat"><i>⏰</i> Peak time: <b class="num" id="kpiTime">--:--</b></span>
-            <span class="pill stat"><i>⚠️</i> Risk: <b id="kpiRisk">—</b></span>
+        <div class="p72-right">
+          <div class="kpi"><span>🌧️</span> Total rain 72h:&nbsp;<b id="kpiRain">— mm</b></div>
+          <div class="kpi"><span>📈</span> Peak probability:&nbsp;<b id="kpiPeak">—%</b></div>
+          <div class="kpi"><span>⏰</span> Peak time:&nbsp;<b id="kpiTime">--:--</b></div>
+          <div class="kpi"><span>⚠️</span> Risk:&nbsp;<b id="kpiRisk">—</b></div>
         </div>
-        </div>
+      </div>
     </div>
-    </div>
+  </div>
 
-  <!-- 7-day Forecast + Recommendations -->
+  <!-- ===== RIGHT: 7-day + Recommendations ===== -->
   <div class="card">
     <h3 class="pretty">7-day Forecast</h3>
     <table class="mini" id="dailyTbl">
@@ -244,16 +206,16 @@
           <th data-k="prob_max">Prob.max</th>
           <th data-k="t">Tmin–Tmax</th>
           <th data-k="wind_max">Wind max</th>
+          <th>Risk</th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
-    <div class="hint">Tip: click a column header to sort; hover rows for details.</div>
+    <div class="todayMeta" style="margin-top:6px">Tip: tap a column header to sort; hover a row for details.</div>
 
-    <h4 style="margin:14px 0 6px 0; font-weight:800; color:#0f172a">Recommendations</h4>
-    <div id="adviceWrap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px"></div>
+    <h4 style="margin:14px 0 6px 0;font-weight:800;color:var(--ink)">Recommendations</h4>
+    <div id="adviceWrap" style="display:grid;grid-template-columns:1fr;gap:10px"></div>
   </div>
-
 </div>
 
 <script>
@@ -261,112 +223,272 @@
   const fieldId = {{ field.id }};
   const res = await fetch(`/fields/${fieldId}/forecast.json`, {cache:'no-store'});
   const data = await res.json();
-  if (!data.ok) return;
+  if(!data.ok) return;
 
-  // --- header / place ---
+  // when/where
   const now = new Date();
   document.getElementById('when').textContent =
-    now.toLocaleString('en-GB', { weekday:'long', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+    now.toLocaleString('en-GB',{weekday:'long',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
 
-  // --- today card ---
+  // today
   const t = data.today || {};
   const todayRow = data.daily?.[0] || {};
+  const hour = now.getHours();
+  let desc;
+  if (t.rain_mm > 5) desc = "Rainy";
+  else if (t.prob_max > 50) desc = (hour>=18||hour<6) ? "Cloudy Night" : "Mostly Cloudy";
+  else desc = (hour>=18||hour<6) ? "Clear Night" : "Sunny";
+  const icon = desc.includes("Rain") ? "🌧️" :
+               desc.includes("Cloudy") ? (hour>=18||hour<6 ? "🌙☁️" : "☁️") :
+               (hour>=18||hour<6 ? "🌙" : "☀️");
   document.getElementById('temp').textContent = `${Math.round(todayRow.tmax || 0)}°`;
-  const desc = (t.rain_mm>5) ? "Rainy" : (t.prob_max>50) ? "Cloudy" : "Sunny";
   document.getElementById('desc').textContent = desc;
-  document.getElementById('icon').textContent = desc==="Rainy"?"🌧️":(desc==="Cloudy"?"☁️":"☀️");
-  document.getElementById('chipProb').textContent = `Prob.max: ${t.prob_max ?? "—"}%`;
-  document.getElementById('chipRain').textContent = `Rain: ${(t.rain_mm ?? 0).toFixed(1)} mm`;
-  document.getElementById('chipWind').textContent = `Wind max: ${Math.round(t.wind_max ?? 0)} km/h`;
+  document.getElementById('icon').textContent = icon;
+  document.getElementById('iconBig').textContent = icon;
+  document.getElementById('rightCloud').textContent = desc.includes("Cloudy") ? desc : (desc.includes("Rain") ? "Rainy" : desc);
+  document.getElementById('rightRain').textContent = `Rain – ${(t.prob_max ?? 0)}%`;
+  document.getElementById('chipProb').textContent = `${t.prob_max ?? "—"}%`;
+  document.getElementById('chipRain').textContent = `${(t.rain_mm ?? 0).toFixed(1)} mm`;
+  document.getElementById('chipWind').textContent = `${Math.round(t.wind_max ?? 0)} km/h`;
 
-  // --- 7-day table (render + sorting) ---
+  // 7-day table
   const tbody = document.querySelector('#dailyTbl tbody');
-  const rows = (data.daily||[]).map(d => ({
-    date: d.date, rain_mm: d.rain_mm, prob_max: d.prob_max,
-    tmin: d.tmin, tmax: d.tmax, wind_max: d.wind_max
-  }));
+  const rows = (data.daily||[]).map(d=>({date:d.date,rain_mm:d.rain_mm,prob_max:d.prob_max,tmin:d.tmin,tmax:d.tmax,wind_max:d.wind_max}));
+
+  // NEW: rain-first risk (less exaggerated when no rain)
+  function classifyRisk(rain, prob){
+    // Hard guard: tiny rain => Low risk regardless of probability
+    if (rain < 3) return {label:'Low', cls:'low'};
+
+    // Weighted score: rain × prob^0.9 (keeps probability meaningful but not dominating)
+    const p = Math.max(0, Math.min(100, prob||0))/100;
+    const score = rain * Math.pow(p, 0.9); // e.g., 20mm at 50% => ~10
+
+    if ( (rain >= 25 && prob >= 60) || score >= 25 ) return {label:'High', cls:'high'};
+    if ( (rain >= 8  && prob >= 40) || score >= 10 ) return {label:'Moderate', cls:'mod'};
+    return {label:'Low', cls:'low'};
+  }
+
   function paint(){
     tbody.innerHTML = rows.map(d=>{
-      const feel = d.rain_mm>=10 ? 'class="red"' : d.rain_mm>=3 ? 'class="amber"' : 'class="green"';
-      const tt = `title="Rain: ${d.rain_mm?.toFixed?.(1) ?? d.rain_mm} mm | Prob.max: ${d.prob_max}% | Wind max: ${Math.round(d.wind_max)} km/h"`;
-      return `<tr ${tt}>
-        <td>${d.date}</td>
-        <td><span ${feel} style="padding:2px 6px;border-radius:999px">${(d.rain_mm??0).toFixed(1)}</span></td>
-        <td>${d.prob_max}%</td>
-        <td>${Math.round(d.tmin)}–${Math.round(d.tmax)}°C</td>
-        <td>${Math.round(d.wind_max)}</td>
-      </tr>`;
+      const rain = +(d.rain_mm ?? 0);
+      const prob = Math.round(d.prob_max ?? 0);
+      const wind = Math.round(d.wind_max ?? 0);
+      const tmin = Math.round(d.tmin ?? 0), tmax = Math.round(d.tmax ?? 0);
+
+      // Date + richer icon (unchanged from last version)
+      const dt = new Date(d.date);
+      const day = dt.toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'});
+      let iconDay = "☀️";
+      if (rain >= 30 && prob >= 60)      iconDay = "⛈️";
+      else if (rain >= 10)               iconDay = "🌧️";
+      else if (wind >= 25 && rain < 3)   iconDay = "🌬️";
+      else if (tmax >= 35)               iconDay = "🔥";
+      else if (tmax <= 25)               iconDay = "❄️";
+      else if (prob >= 50)               iconDay = "☁️";
+
+      // Rain bg + icon (already variable)
+      let rainCls = 'rain-low', rainIcon='🌱';
+      if (rain >= 30){ rainCls='rain-high'; rainIcon='🌧️'; }
+      else if (rain >= 10){ rainCls='rain-mod';  rainIcon='☔'; }
+
+      // Probability bg + NEW variable icon
+      let probBg='prob-low-bg', probIcon='📉';   // low
+      if (prob >= 70){ probBg='prob-high-bg'; probIcon='⚡'; }   // very likely
+      else if (prob >= 40){ probBg='prob-med-bg'; probIcon='☁️'; } // moderate chance
+
+      // Temperature bg + NEW variable icon
+      let tempBg='temp-warm-bg', tempIcon='🌡️';
+      if (tmax >= 35){ tempBg='temp-hot-bg';  tempIcon='🔥'; }   // hot
+      else if (tmax <= 25){ tempBg='temp-cool-bg'; tempIcon='❄️'; } // cool
+
+      // Wind bg + NEW variable icon
+      let windBg='', windIcon='🍃'; // light breeze
+      if (wind >= 35){ windBg='wind-high-bg'; windIcon='💨'; }   // strong
+      else if (wind >= 20){ windBg='wind-med-bg'; windIcon='🌬️'; } // breezy
+
+      // Rain-first risk (kept)
+      const risk = classifyRisk(rain, prob);
+
+      return `
+        <tr title="Rain: ${rain.toFixed(1)} mm | Prob.max: ${prob}% | Wind: ${wind} km/h | Temp: ${tmin}–${tmax}°C">
+          <td class="date">${iconDay} ${day}</td>
+          <td class="${rainCls}">${rainIcon} ${rain.toFixed(1)}</td>
+          <td class="${probBg}">${probIcon} ${prob}%</td>
+          <td class="${tempBg}">${tempIcon} ${tmin}–${tmax}°C</td>
+          <td class="${windBg}">${windIcon} ${wind} km/h</td>
+          <td><span class="pill ${risk.cls}">${risk.label}</span></td>
+        </tr>`;
     }).join('');
   }
+
   paint();
+
+  // Sorting (unchanged)
   document.querySelectorAll('#dailyTbl thead th').forEach(th=>{
     th.addEventListener('click',()=>{
-      const k=th.dataset.k; if(!k) return;
+      const k = th.dataset.k; // Risk column not sortable
+      if(!k) return;
       const asc = !th.classList.toggle('desc');
       document.querySelectorAll('#dailyTbl thead th').forEach(h=>h!==th&&h.classList.remove('desc'));
       rows.sort((a,b)=>{
         if(k==='t') return asc ? (a.tmax-b.tmax) : (b.tmax-a.tmax);
         if(k==='date') return asc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date);
-        return asc ? (a[k]-b[k]) : (b[k]-a[k]);
+        return asc ? ((a[k]??0)-(b[k]??0)) : ((b[k]??0)-(a[k]??0));
       });
       paint();
     });
   });
 
-  // --- KPIs for 72h ---
+  // KPIs (unchanged thresholds but now align with rain-first thinking)
   const mm = data.rain_mm_72h || 0;
   const peak = data.precip_prob_peak_72h || 0;
   const peakTime = data.precip_prob_peak_time || '--:--';
-  const riskTxt = (mm>=30 || peak>=70) ? 'High' : (mm>=10 || peak>=40) ? 'Moderate' : 'Low';
+  const kpiRisk = classifyRisk(mm, peak).label;
   document.getElementById('kpiRain').textContent = `${mm} mm`;
   document.getElementById('kpiPeak').textContent = `${peak}%`;
   document.getElementById('kpiTime').textContent = peakTime;
-  document.getElementById('kpiRisk').textContent = riskTxt;
+  document.getElementById('kpiRisk').textContent = kpiRisk;
 
-  // --- 72h series bars ---
+  // 72h series (unchanged)
   const sp = document.getElementById('spark72');
-  const series = Array.isArray(data.hourly72) ? data.hourly72 : [];
-  const maxProb = 100;
-  const maxRain = Math.max(1, ...series.map(x=> Number(x.rain)||0));
+  const series = Array.isArray(data.hourly72)?data.hourly72:[];
+  const maxProb=100, maxRain=Math.max(1,...series.map(x=>+x.rain||0));
   sp.innerHTML = series.map(x=>{
-    const prob = Math.max(0, Math.min(100, Number(x.prob)||0));
-    const rain = Math.max(0, Number(x.rain)||0);
-    // heights scaled to container (will be normalized by CSS height)
-    const hp = Math.round((prob/maxProb) * 90);
-    const hr = Math.round((rain/maxRain) * 90);
-    const h  = x.h || '';
-    return `
-      <div style="display:flex;flex-direction:column;align-items:center">
-        <div class="bar prob" style="height:${hp}px" title="${h} · Prob ${prob}%"></div>
-        <div class="bar rain" style="height:${hr}px" title="${h} · Rain ${rain} mm"></div>
-      </div>`;
+    const p=Math.max(0,Math.min(100,+x.prob||0)), r=Math.max(0,+x.rain||0), h=x.h||'';
+    const hp=Math.round((p/maxProb)*90), hr=Math.round((r/maxRain)*90);
+    return `<div style="display:flex;flex-direction:column;align-items:center">
+      <div class="bar prob" style="height:${hp}px" title="${h} · Prob ${p}%"></div>
+      <div class="bar rain" style="height:${hr}px" title="${h} · Rain ${r} mm"></div>
+    </div>`;
   }).join('');
 
-  // --- Axes + grid (must run AFTER bars exist, with same series) ---
-  const H = sp.clientHeight || 100;
-
-  // Y: 0 / 50 / 100 %
+  // axes/grid (unchanged)
+  const H = sp.clientHeight||100;
   const yAxis = document.getElementById('yAxisProb');
   const grid  = document.getElementById('gridProb');
-  const yVals = [100, 50, 0];
-  yAxis.innerHTML = yVals.map(v=>{
-    const top = (1 - v/100) * H;
-    return `<div class="ytick" style="top:${top}px"><span>${v}%</span></div>`;
-  }).join('');
-  grid.innerHTML = yVals.map(v=>{
-    const top = (1 - v/100) * H;
-    return `<div class="g" style="top:${top}px"></div>`;
-  }).join('');
+  const yVals=[100,50,0];
+  yAxis.innerHTML = yVals.map(v=>`<div class="ytick" style="top:${(1-v/100)*H}px"><span>${v}%</span></div>`).join('');
+  grid.innerHTML  = yVals.map(v=>`<div class="g" style="top:${(1-v/100)*H}px"></div>`).join('');
 
-  // X: label every 6 hours + last
-  const xAxis = document.getElementById('xAxisTime');
-  const times = series.map(r => r.h || '');
-  const labels = [];
-  for (let i=0;i<times.length;i+=6) labels.push(times[i]);
-  if (times.length) labels.push(times[times.length-1]);
-  xAxis.innerHTML = labels.map(t => `<div class="xtick">${t}</div>`).join('');
+/* --- Recommendations (harmonized with rain-first risk) --- */
+const adviceWrap = document.getElementById("adviceWrap");
+const advs  = Array.isArray(data.advisories) ? data.advisories : [];
+const flags = Array.isArray(data.flags)       ? data.flags       : [];
+
+const iconMap = {
+  heavy_rain_soon:"🌧️", wet_spell:"☔", flooding:"🌊",
+  wind_risk:"💨", heat_wave:"🔥", cool_spell:"❄️",
+  dry_spell:"🌵", default:"🌱"
+};
+
+// Infer a flag from raw text if backend didn't send one
+function inferFlag(text){
+  const t=(text||"").toLowerCase();
+  if(/flood|waterlogging|inundat/.test(t)) return "flooding";
+  if(/heavy rain|downpour|thunder/.test(t)) return "heavy_rain_soon";
+  if(/wet spell|many days rain|prolonged rain/.test(t)) return "wet_spell";
+  if(/wind|gust|gale/.test(t)) return "wind_risk";
+  if(/heat|hot|heatwave/.test(t)) return "heat_wave";
+  if(/cold|cool|chill/.test(t)) return "cool_spell";
+  if(/dry|drought/.test(t)) return "dry_spell";
+  return "default";
+}
+
+// Short, farmer-friendly text
+function beautify(text, flag, downgradedFrom=null){
+  if (flag === "default" && downgradedFrom) {
+    if (downgradedFrom === "heavy_rain_soon")
+      return "<b>Action:</b> Continue normal farm work.<br><b>Why:</b> No heavy rain expected in the next 72h.";
+    if (downgradedFrom === "wet_spell")
+      return "<b>Action:</b> Manage irrigation as usual.<br><b>Why:</b> No prolonged wet spell in the next 7 days.";
+    if (downgradedFrom === "flooding")
+      return "<b>Action:</b> No flood-specific action required.<br><b>Why:</b> No day has flood-level rain forecast.";
+    return "<b>Action:</b> No special action needed.<br><b>Why:</b> Risks remain low.";
+  }
+
+  switch(flag){
+    case "flooding":
+      return "<b>Action:</b> Clear field drains, check bunds.<br><b>Why:</b> High rainfall (≥30 mm) may cause localized flooding.";
+    case "heavy_rain_soon":
+      return "<b>Action:</b> Delay fertilizer and field work.<br><b>Why:</b> Heavy rain likely within 72h, risk of wash-off.";
+    case "wet_spell":
+      return "<b>Action:</b> Avoid fertilizer application; reduce irrigation.<br><b>Why:</b> Continuous rain ≥3 days increases waterlogging risk.";
+    case "wind_risk":
+      return "<b>Action:</b> Secure seedlings and structures.<br><b>Why:</b> Strong winds expected may damage young crops.";
+    case "heat_wave":
+      return "<b>Action:</b> Irrigate in mornings/evenings; apply mulch.<br><b>Why:</b> Very high temps increase evapotranspiration.";
+    case "cool_spell":
+      return "<b>Action:</b> Sow during warmer hours; monitor stress.<br><b>Why:</b> Cool spell may slow germination.";
+    case "dry_spell":
+      return "<b>Action:</b> Plan irrigation schedule.<br><b>Why:</b> Several dry days ahead will lower soil moisture.";
+    default:
+      return "<b>Action:</b> No special action needed.<br><b>Why:</b> Weather risk is low.";
+  }
+}
+
+/* ---------- CONSISTENCY GATES ---------- */
+// Use same classifier as table
+function riskLevelNum(label){ return label==="High"?2 : label==="Moderate"?1 : 0; }
+
+// 72h gates
+const mm72  = +((data.rain_mm_72h||0));
+const peakP = +((data.precip_prob_peak_72h||0));
+const gate72 = riskLevelNum(classifyRisk(mm72, peakP).label);  // 0 low, 1 mod, 2 high
+
+// Next 3 days (what farmers care about most)
+const next3 = (rows||[]).slice(0,3);
+const maxRisk3 = Math.max(...next3.map(d=>riskLevelNum(classifyRisk(+d.rain_mm||0, +d.prob_max||0).label)), 0);
+const rainSum3 = next3.reduce((s,d)=>s+(+d.rain_mm||0),0);
+
+// 7-day wet-spell heuristic: 3 consecutive days with ≥5 mm
+let wetSpell = false, streak = 0;
+(rows||[]).slice(0,7).forEach(d=>{
+  if ((+d.rain_mm||0) >= 5) { streak++; if (streak>=3) wetSpell=true; }
+  else streak=0;
+});
+
+// Harmonize a flag with the gates above
+function harmonizeFlag(flag){
+  // Never show heavy rain / wet spell if table risk says all Low
+  if (gate72===0 && maxRisk3===0){
+    if (flag==="heavy_rain_soon") return {flag:"default", downgradedFrom:"heavy_rain_soon"};
+    if (flag==="wet_spell")       return {flag:"default", downgradedFrom:"wet_spell"};
+  }
+
+  // Wet spell only if heuristic found >=3 consecutive ≥5 mm days
+  if (flag==="wet_spell" && !wetSpell) {
+    return {flag:"default", downgradedFrom:"wet_spell"};
+  }
+
+  // Heavy rain only if meaningful rain sum
+  if (flag==="heavy_rain_soon" && rainSum3 < 8) {
+    return {flag:"default", downgradedFrom:"heavy_rain_soon"};
+  }
+
+  // Flooding only if any day >=30 mm
+  if (flag==="flooding" && !rows.some(d=>(+d.rain_mm||0) >= 30)){
+    return {flag:"default", downgradedFrom:"flooding"};
+  }
+
+  return {flag, downgradedFrom:null};
+}
+
+/* ---------- Render ---------- */
+if(!advs.length){
+  adviceWrap.innerHTML = `<div class="recCard safe"><div class="recIcon">🌱</div><div class="recText">No recommendations available.</div></div>`;
+} else {
+  adviceWrap.innerHTML = advs.map((t,i)=>{
+    const raw = flags[i] || inferFlag(t);
+    const {flag:f, downgradedFrom} = harmonizeFlag(raw);
+    const ic  = iconMap[f] || iconMap.default;
+    const txt = beautify(t, f, downgradedFrom);
+    return `<div class="recCard ${f}">
+              <div class="recIcon">${ic}</div>
+              <div class="recText">${txt}</div>
+            </div>`;
+  }).join("");
+}
 })();
 </script>
-</body>
-</html>
 {% endblock %}
