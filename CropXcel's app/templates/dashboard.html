@@ -237,58 +237,40 @@
     }
     .hint:hover{ background:#cbd5e1; }
 
-    /* Bubble (wider + wraps nicely) */
-    .hint::after{
-      content: attr(data-tip);
-      position:absolute; top:130%; left:50%; transform:translateX(-50%);
-      background:#0f172a; color:#fff; padding:10px 12px; border-radius:8px;
-      font-size:12px; line-height:1.45; text-align:left; white-space:normal;
-      min-width:220px; max-width:420px; width:max-content; word-wrap: break-word; /* 𝗪𝗜𝗗𝗘𝗥 */
-      box-shadow:0 8px 24px rgba(0,0,0,.18); z-index:1000;
-      opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease;
-    }
-    .hint:hover::after{ opacity:1; transform:translateX(-50%) translateY(2px); }
-
-    /* Optional: force bubble to align left of icon if needed */
-    .hint[data-side="left"]::after{
-      left:auto; right:0; transform:none;
-    }
-    .hint[data-side="left"]:hover::after{
-      transform:translateY(2px);
-    }
-    .card{ background:#fff; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.12);
-          padding:12px; overflow:hidden; flex:0 0 auto; }
-    .hint[data-side="center"]::after{
-      left:50%; transform:translateX(-50%);
-      text-align:center;
-    }
-
+    /* Default: dock to the right of the icon */
     .hint::after {
       content: attr(data-tip);
-      position: fixed;              /* relative to viewport */
-      top: 50%;                     /* middle vertically */
-      right: 20px;                  /* offset from right edge */
-      transform: translateY(-50%);  /* perfectly center vertically */
-      background:#0f172a;
-      color:#fff;
-      padding:12px 14px;
-      border-radius:8px;
-      font-size:13px;
-      line-height:1.5;
-      text-align:left;
-      white-space:normal;
-      min-width:240px;
-      max-width:400px;
-      word-wrap: break-word;
-      box-shadow:0 8px 24px rgba(0,0,0,.18);
-      z-index:9999;
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .2s ease, transform .2s ease;
+      position: absolute;
+      top: 50%;
+      left: 105%;
+      transform: translateY(-50%);
+      background: #0f172a;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.45;
+      min-width: 220px;
+      max-width: 320px;
+      max-height: 60vh;
+      overflow-y: auto;
+      white-space: normal;
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
     }
+
     .hint:hover::after {
-      opacity:1;
-      transform: translateY(-50%) translateX(-4px); /* small slide in */
+      opacity: 1;
+      transform: translateY(-50%) translateX(6px);
+    }
+
+    /* Special tweak: Per-pass Insights bubble → push down */
+    #insTitle .hint::after {
+      top: 80%;               /* instead of 50%, moves bubble lower */
+      transform: translateY(0) translateX(6px);
     }
 
     /* Ensure cards don’t clip the tooltip */
@@ -430,37 +412,30 @@
 
         const hotspotLayer = L.geoJSON(gj, {
           pointToLayer: (f, latlng) => {
-            // ---- data from GeoJSON ----
-            const riskRaw = f.properties?.risk ?? f.properties?.risk_pct ?? 0; // 0..1 or 0..100
+            const riskRaw = f.properties?.risk ?? f.properties?.risk_pct ?? 0;
             const riskPercent = clamp(
               (riskRaw <= 1 ? Math.round(riskRaw * 100) : Math.round(riskRaw)),
               0, 100
             );
-            const level  = f.properties?.level || (riskPercent >= 70 ? 'Alert' : (riskPercent >= 40 ? 'Watch' : 'Healthy'));
-            const areaHa = f.properties?.area_ha;
-            const reason = f.properties?.reason || '—';
-            const action = f.properties?.action || '';
-            const color  = colorFromPercent(riskPercent); // use your existing helper
-            const chartB64 = f.properties?.chart_b64;     // ✅ backend-provided PNG of "Why risky?"
+            const level   = f.properties?.level || (riskPercent >= 70 ? 'Alert' : (riskPercent >= 40 ? 'Watch' : 'Healthy'));
+            const areaHa  = f.properties?.area_ha;
+            const reason  = f.properties?.reason || '—';
+            const action  = f.properties?.action || '';
+            const color   = colorFromPercent(riskPercent);
+            const chartB64 = f.properties?.chart_b64;
 
-            // thresholds (fixed)
-            const T1 = 40, T2 = 70;
+            // ids
+            // ...inside pointToLayer:
+            const uidInfo  = 'info_'  + Math.random().toString(36).slice(2, 8);
+            const uidChart = 'chart_' + Math.random().toString(36).slice(2, 8);
+            const uidBar   = 'bar_'   + Math.random().toString(36).slice(2, 8);
+            const uidRiskRow = 'risk_' + Math.random().toString(36).slice(2, 8);
+            const uidBtn   = 'btn_'   + Math.random().toString(36).slice(2, 8);
 
-            // marker
-            const m = L.circleMarker(latlng, {
-              radius: 6,
-              color: '#0f172a',
-              weight: 1,
-              fillColor: color,
-              fillOpacity: 0.9
-            });
-
-            // ---- Popup HTML ----
             const html = `
-              <div style="
-                min-width:320px;max-width:400px;background:#fff;border-radius:16px;
-                box-shadow:0 10px 30px rgba(2,6,23,.20);padding:18px 20px;
-                font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;line-height:1.55">
+              <div style="min-width:320px;max-width:400px;background:#fff;border-radius:16px;
+                          box-shadow:0 10px 30px rgba(2,6,23,.20);padding:18px 20px;
+                          font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;line-height:1.55">
 
                 <!-- Header -->
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -469,48 +444,86 @@
                   <div style="font-weight:800;font-size:15px">Hotspot detected</div>
                 </div>
 
-                <!-- Risk row -->
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <!-- Water Risk row (will be hidden in 'why risky' mode) -->
+                <div id="${uidRiskRow}" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                   <div style="font-size:14px"><strong>Water Risk</strong></div>
                   <div style="font-size:14px"><strong>${riskPercent}% · ${level}</strong></div>
                 </div>
 
-                <!-- Fixed-threshold color bar -->
-                <div style="position:relative;height:12px;border-radius:999px;overflow:visible;margin-bottom:6px">
-                  <div style="position:absolute;inset:0;background:#e5e7eb;border-radius:999px"></div>
-                  <div style="position:absolute;inset:0;border-radius:999px;
-                      background:linear-gradient(90deg,
-                        #22c55e 0%, #22c55e ${T1}%,
-                        #f59e0b ${T1}%, #f59e0b ${T2}%,
-                        #ef4444 ${T2}%, #ef4444 100%)"></div>
-                  <!-- center the thumb exactly at value -->
-                  <div style="
-                        position:absolute;top:50%;left:${riskPercent}%;
-                        transform:translate(-50%,-50%);
-                        width:10px;height:20px;border-radius:4px;background:#0f172a;
-                        box-shadow:0 1px 6px rgba(0,0,0,.25)"></div>
-                </div>
-                <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:12px">
-                  <span>0%</span><span>${T1}%</span><span>${T2}%</span><span>100%</span>
+                <!-- Solid color bar (already hidden in 'why risky' mode) -->
+                <div id="${uidBar}" style="position:relative;height:12px;border-radius:999px;overflow:hidden;margin-bottom:14px;background:#e5e7eb">
+                  <div style="position:absolute;left:0;top:0;bottom:0;width:${riskPercent}%;background:${color};border-radius:999px"></div>
                 </div>
 
-                <!-- Details -->
-                ${areaHa!=null ? `<div style="margin-bottom:6px"><strong>Size:</strong> ${Number(areaHa).toFixed(2)} ha</div>` : ``}
-                <div style="margin-bottom:6px"><strong>Why risky:</strong> ${reason}</div>
-                ${action ? `<div style="margin-bottom:6px"><strong>What you should do:</strong><br>${action}</div>` : ``}
-
-                <!-- "Why risky?" chart: use backend PNG if present -->
-                ${chartB64 ? `
-                  <div style="margin-top:10px;border-radius:12px;background:#f8fafc;padding:10px">
-                    <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#0f172a">Why risky?</div>
-                    <img
-                      src="data:image/png;base64,${chartB64}"
-                      alt="Why risky contributions"
-                      style="display:block;width:100%;height:auto;border-radius:8px;image-rendering:-webkit-optimize-contrast" />
+                <!-- INFO block -->
+                <div id="${uidInfo}">
+                  ${areaHa!=null ? `
+                  <div style="margin-bottom:12px">
+                    <div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#64748b;font-weight:700">Size</div>
+                    <div style="font-size:13px;color:#0f172a;margin-top:2px">${Number(areaHa).toFixed(2)} ha</div>
                   </div>` : ``}
+
+                  <div style="margin-bottom:12px">
+                    <div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#64748b;font-weight:700">Why risky</div>
+                    <div style="font-size:13px;color:#0f172a;margin-top:2px">${reason}</div>
+                  </div>
+
+                  ${action ? `
+                  <div style="margin-bottom:2px">
+                    <div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#64748b;font-weight:700">What you should do</div>
+                    <div style="font-size:13px;color:#0f172a;margin-top:2px">${action}</div>
+                  </div>` : ``}
+                </div>
+
+                <!-- CHART block -->
+                ${chartB64 ? `
+                <div id="${uidChart}" style="display:none">
+                  <div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:8px">Why risky</div>
+                  <img src="data:image/png;base64,${chartB64}" alt="Why risky contributions"
+                      style="display:block;width:100%;height:auto;border-radius:8px;image-rendering:-webkit-optimize-contrast" />
+                </div>` : ``}
+
+                <!-- Blue pill toggle -->
+                ${chartB64 ? `
+                <button id="${uidBtn}" aria-pressed="false"
+                  onclick="(function(btn){
+                    const info  = document.getElementById('${uidInfo}');
+                    const chart = document.getElementById('${uidChart}');
+                    const bar   = document.getElementById('${uidBar}');
+                    const risk  = document.getElementById('${uidRiskRow}');
+                    const showingChart = chart.style.display !== 'none';
+                    if (showingChart){
+                      chart.style.display='none';
+                      info.style.display='block';
+                      if(bar)  bar.style.display='block';
+                      if(risk) risk.style.display='flex';      // ✅ show the 'Water Risk 68% · Caution' line again
+                      btn.textContent='Show why risky';
+                      btn.setAttribute('aria-pressed','false');
+                    } else {
+                      info.style.display='none';
+                      chart.style.display='block';
+                      if(bar)  bar.style.display='none';
+                      if(risk) risk.style.display='none';      // ✅ hide the 'Water Risk 68% · Caution' line
+                      btn.textContent='Back to info';
+                      btn.setAttribute('aria-pressed','true');
+                    }
+                  })(this)"
+                  style="display:block;width:100%;padding:10px 0;border:none;border-radius:999px;
+                        background:#3b82f6;color:#fff;font-size:13px;font-weight:700;
+                        box-shadow:0 1px 0 rgba(255,255,255,.4) inset, 0 2px 10px rgba(59,130,246,.35);
+                        cursor:pointer;margin-top:12px;transition:transform .06s ease, background .2s ease;">
+                  Show why risky
+                </button>` : ``}
               </div>`;
 
-            // single popup (no extra tooltip)
+            const m = L.circleMarker(latlng, {
+              radius: 6,
+              color: '#0f172a',
+              weight: 1,
+              fillColor: color,
+              fillOpacity: 0.9
+            });
+
             m.bindPopup(html, { maxWidth: 440, className: 'hotspot-popup' });
             return m;
           }
