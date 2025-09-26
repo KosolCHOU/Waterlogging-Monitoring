@@ -3,80 +3,154 @@
 
 {% block head %}
 <style>
-  html, body { background:#eef7f2; }
-  .profile-grid{display:grid;grid-template-columns:280px 1fr;gap:16px;max-width:1100px;margin:16px auto;padding:0 12px}
-  @media (max-width:1024px){.profile-grid{grid-template-columns:1fr}}
-  .card{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);border:1px solid rgba(17,24,39,.06)}
-  .pad{padding:20px}
-  .avatar, .avatar-img{
-    width:120px;height:120px;border-radius:50%;display:grid;place-items:center;
-    font-weight:800;font-size:40px;margin:4px auto 12px;box-shadow:0 10px 24px rgba(16,185,129,.25);
+  :root{
+    --bg:#eef7f2;
+    --card:#ffffff;
+    --ink:#111827;
+    --muted:#6b7280;
+    --line:rgba(17,24,39,.08);
+    --ring:#10b981;
+    --ring-2:#6ee7b7;
   }
-  .avatar{background:linear-gradient(180deg,#6ee7b7,#10b981); color:#0b1220;}
+
+  html, body { background:var(--bg); }
+
+  /* Page frame */
+  .profile-wrap{
+    max-width:860px;
+    margin:20px auto;
+    padding:0 12px;
+  }
+
+  /* Decorative cover band */
+  .cover{
+    height:140px;
+    border-radius:20px;
+    background:
+      radial-gradient(1200px 200px at 50% -20%, rgba(16,185,129,.25), transparent 60%),
+      linear-gradient(135deg, #e9fbf3 0%, #ffffff 60%);
+    position:relative;
+    box-shadow:0 8px 30px rgba(0,0,0,.06) inset;
+  }
+
+  /* Card */
+  .card{
+    background:var(--card);
+    border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.08);
+    border:1px solid rgba(17,24,39,.06);
+  }
+  .pad{ padding:20px; }
+
+  /* Avatar block – floats above card */
+  .avatar-wrap{
+    display:grid; place-items:center;
+    transform:translateY(-64px);
+    margin-bottom:-48px; /* pull card up under avatar */
+  }
+  .avatar, .avatar-img{
+    width:132px; height:132px; border-radius:50%;
+    display:grid; place-items:center;
+    font-weight:800; font-size:40px;
+    position:relative;
+  }
+  .avatar::after, .avatar-img::after{
+    content:"";
+    position:absolute; inset:-6px;
+    border-radius:50%;
+    background:conic-gradient(from 210deg, var(--ring), var(--ring-2), var(--ring));
+    filter:blur(.5px);
+    z-index:-1;
+  }
+  .avatar{
+    background:linear-gradient(180deg,var(--ring-2),var(--ring));
+    color:#0b1220;
+    box-shadow:0 14px 28px rgba(16,185,129,.28);
+  }
   .avatar-img{overflow:hidden;background:#f1f5f9}
   .avatar-img img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-  .muted{color:#6b7280}
-  .row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px dashed rgba(17,24,39,.08)}
-  .row:last-child{border-bottom:none}
-  .k{color:#6b7280}
-  .v{font-weight:600}
-  .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(17,24,39,.12);padding:10px 14px;border-radius:12px;background:#fff;text-decoration:none;color:#111827;cursor:pointer}
-  .btn:hover{background:#f9fafb}
-  .uploader{display:flex;flex-direction:column;gap:10px;align-items:center;}
-  .file-input{display:none}
-  .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-  .danger{border-color:#fecaca;background:#fee2e2}
-  .danger:hover{background:#fecaca}
-  .hint{font-size:12px;color:#6b7280}
 
-  /* progress UI */
-  .progress {height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;display:none;margin-top:8px;width:100%}
-  .bar {height:100%;width:0%;background:#10b981;transition:width .15s}
-  .status {font-size:12px;color:#6b7280;margin-top:6px;display:none;text-align:center}
+  /* Identity */
+  .name{ font-weight:800; font-size:20px; text-align:center; }
+  .muted{ color:var(--muted); text-align:center; margin-top:2px; }
+
+  /* Info rows */
+  .rows{ margin-top:14px; border-top:1px dashed var(--line); }
+  .row{ display:flex; justify-content:space-between; gap:16px; padding:11px 2px; border-bottom:1px dashed var(--line); }
+  .row:last-child{ border-bottom:none; }
+  .k{ color:var(--muted); }
+  .v{ font-weight:600; color:var(--ink); }
+
+  /* Buttons */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    border:1px solid rgba(17,24,39,.12);
+    padding:12px 16px; border-radius:12px; background:#fff;
+    text-decoration:none; color:var(--ink); cursor:pointer; font-weight:700;
+  }
+  .btn:hover{ background:#f9fafb }
+  .btn-primary{
+    width:100%;
+    background:linear-gradient(180deg,#16c982,#10b981);
+    color:#0b1220; border:none;
+    box-shadow:0 10px 24px rgba(16,185,129,.22);
+  }
+  .btn-primary:hover{ filter:brightness(.98); }
+
+  /* Upload UI */
+  .file-input{ display:none }
+  .progress { height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;display:none;margin-top:8px;width:100% }
+  .bar { height:100%; width:0%; background:#10b981; transition:width .15s }
+  .status { font-size:12px; color:var(--muted); margin-top:6px; display:none; text-align:center }
+
+  /* Layout spacing helpers */
+  .sp8{height:8px} .sp12{height:12px} .sp16{height:16px}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="profile-grid">
-  <!-- LEFT -->
-  <div class="card pad">
-    <form id="avatarForm" action="{% url 'profile' %}" method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    <label for="avatarFile" style="cursor:pointer; display:block;">
-        {% if profile_obj and profile_obj.avatar %}
-        <div class="avatar-img"><img id="avatarImg" src="{{ profile_obj.avatar.url }}?v={{ now|date:'U' }}" alt="Profile picture"></div>
-        {% else %}
-        <div class="avatar" id="avatarFallback">{{ initials }}</div>
-        <div class="avatar-img" style="display:none"><img id="avatarImg" src="" alt="Profile picture"></div>
-        {% endif %}
-    </label>
-    <input id="avatarFile" class="file-input" type="file" name="avatar" accept="image/*" required>
-    <div class="progress" id="prog"><div class="bar" id="bar"></div></div>
-    <div class="status" id="stat">Uploading…</div>
-    </form>
+<div class="profile-wrap">
+  <div class="cover"></div>
 
-    <div style="height:12px"></div>
-    <div style="text-align:center">
-      <div style="font-weight:800;font-size:18px">{{ user_obj.get_full_name|default:user_obj.username }}</div>
-      <div class="muted">{{ user_obj.email }}</div>
+  <div class="card pad">
+    <!-- Avatar area -->
+    <div class="avatar-wrap">
+      <form id="avatarForm" action="{% url 'profile' %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label for="avatarFile" style="cursor:pointer; display:block;">
+          {% if profile_obj and profile_obj.avatar %}
+            <div class="avatar-img"><img id="avatarImg" src="{{ profile_obj.avatar.url }}?v={{ now|date:'U' }}" alt="Profile picture"></div>
+          {% else %}
+            <div class="avatar" id="avatarFallback">{{ initials }}</div>
+            <div class="avatar-img" style="display:none"><img id="avatarImg" src="" alt="Profile picture"></div>
+          {% endif %}
+        </label>
+        <input id="avatarFile" class="file-input" type="file" name="avatar" accept="image/*" required>
+
+        <!-- progress -->
+        <div class="progress" id="prog"><div class="bar" id="bar"></div></div>
+        <div class="status" id="stat">Uploading…</div>
+      </form>
     </div>
-    <div style="height:12px"></div>
-    <div class="row"><div class="k">Member since</div><div class="v">{{ member_since|date:"M d, Y" }}</div></div>
-    <div class="row"><div class="k">Last login</div><div class="v">{{ last_login|date:"M d, Y H:i" }}</div></div>
-    <form action="{% url 'logout' %}" method="post" style="display:inline"><!-- POST is correct -->
-      {% csrf_token %}
-      <button class="btn" type="submit">🚪 Sign out</button>
-    </form>
-  </div>
 
-  <!-- RIGHT -->
-  <div class="card pad">
-    <h2 style="margin:0 0 8px;font-size:20px">Account details</h2>
-    <p class="muted" style="margin-top:0">Update your profile photo on the left. We’ll add editing for name/email later.</p>
-    <div class="row"><div class="k">Full name</div><div class="v">{{ user_obj.get_full_name|default:"—" }}</div></div>
-    <div class="row"><div class="k">Email</div><div class="v">{{ user_obj.email|default:"—" }}</div></div>
-    <div class="row"><div class="k">Date joined</div><div class="v">{{ member_since|date:"M d, Y H:i" }}</div></div>
-    <div class="row"><div class="k">Timezone</div><div class="v">{{ now|date:"T" }}</div></div>
+    <!-- Identity -->
+    <div class="name">{{ user_obj.get_full_name|default:user_obj.username }}</div>
+    <div class="muted">{{ user_obj.email }}</div>
+    <div class="sp12"></div>
+
+    <!-- Rows (no duplicate data beyond essentials) -->
+    <div class="rows">
+      <div class="row"><div class="k">Member since</div><div class="v">{{ member_since|date:"M d, Y" }}</div></div>
+      <div class="row"><div class="k">Last login</div><div class="v">{{ last_login|date:"M d, Y H:i" }}</div></div>
+    </div>
+
+    <div class="sp16"></div>
+
+    <!-- Primary action -->
+    <form action="{% url 'logout' %}" method="post">
+      {% csrf_token %}
+      <button class="btn btn-primary" type="submit">🚪 Sign out</button>
+    </form>
   </div>
 </div>
 
@@ -103,12 +177,15 @@ file.addEventListener('change', () => {
   const imgWrap = img.closest('.avatar-img');
   if (imgWrap) imgWrap.style.display = 'grid';
   img.src = url;
+
+  // auto-submit after pick
+  form.dispatchEvent(new Event('submit', { cancelable: true }));
 });
 
 // AJAX upload with progress
 form.addEventListener('submit', (e) => {
   const isRemove = e.submitter && e.submitter.name === 'remove_avatar';
-  if (isRemove) return; // normal POST for remove (works fine)
+  if (isRemove) return; // allow normal POST if you later add remove button
 
   e.preventDefault();
   const data = new FormData(form);
@@ -137,7 +214,7 @@ form.addEventListener('submit', (e) => {
     try {
       const res = JSON.parse(xhr.responseText || '{}');
       if (res.ok && res.avatar_url) {
-        img.src = res.avatar_url; // cache-busted final URL
+        img.src = res.avatar_url; // server should return a cache-busted URL
         stat.textContent = 'Done!';
       } else {
         stat.textContent = res.error || 'Upload failed.';
@@ -155,13 +232,5 @@ form.addEventListener('submit', (e) => {
 
   xhr.send(data);
 });
-
-// Auto-submit immediately after picking a file
-file.addEventListener('change', () => {
-  if (file.files && file.files[0]) {
-    form.dispatchEvent(new Event('submit', { cancelable: true }));
-  }
-});
-
 </script>
 {% endblock %}
