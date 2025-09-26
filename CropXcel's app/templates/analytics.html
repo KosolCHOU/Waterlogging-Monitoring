@@ -8,6 +8,10 @@
     --soft:#e8fbfa; --soft-border:#d1f3f1;
     --kpiw:240px; --card:#fff; --shadow:0 10px 30px rgba(0,0,0,.08);
     --blue:#60a5fa; --green:#34d399;
+
+    /* NEW: bar/axis rhythm */
+    --col-w: 6px;
+    --col-gap: 2px;
   }
   html,body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
   .wrap{padding:12px;display:grid;grid-template-columns:1.2fr 1fr;gap:12px}
@@ -52,53 +56,8 @@
   }
   .kpi{background:#eef2ff;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;font-weight:700;font-size:12px;white-space:nowrap}
   .kpi b{font-size:14px}
-  .sparkWrap {
-    position: relative;
-    height: 180px;   /* taller for readability */
-    padding: 6px 8px 20px 32px;
-    border-radius: 12px;
-    background: #fff;
-    box-shadow: inset 0 0 0 1px #eef2f7;
-  }
-  .spark{position:absolute;left:28px;right:8px;top:6px;bottom:18px;display:flex;align-items:flex-end;gap:2px}
-  .bar{width:3px;border-radius:2px;background:#cbd5e1}
-  .bar.prob {
-    background: var(--blue);
-    opacity: .5;
-    width: 2px;
-  }
-  .bar.rain {
-    background: linear-gradient(to top,#34d399,#6ee7b7);
-    width: 4px;
-    margin-top: 2px;
-  }
-  .yAxis{position:absolute;left:0;top:6px;bottom:18px;width:28px;font-size:10px;color:#475569}
-  .yAxis .ytick{position:absolute;left:0;transform:translateY(50%)}
-  .yAxis .ytick span{position:absolute;right:4px;top:-7px}
-  .xAxis{
-    position:absolute; left:28px; right:8px; bottom:0; height:16px;
-    display:flex; justify-content:flex-start; align-items:flex-end;
-    gap:2px;                 /* match bar gap */
-    font-size:10px; color:#475569;
-  }
-  .xAxis .xtick{
-    flex:0 0 auto;
-    width:6px;               /* match a column width (see COL_W below) */
-    text-align:center;
-    line-height:1;
-    white-space:nowrap;
-    overflow:visible;
-  }
-  .gridLayer{position:absolute;left:28px;right:8px;top:6px;bottom:18px}
-  .gridLayer .g{position:absolute;left:0;right:0;height:1px;background:#e5e7eb}
-  .legend {
-    margin-top: 10px;
-    font-size: 12px;
-    display: flex;
-    gap: 16px;
-    align-items: center;
-  }
-  .dot{width:10px;height:10px;border-radius:999px}
+
+
 
   /* ===== 7-day table ===== */
   .pretty{font-weight:800;font-size:16px;margin:0 0 10px 0;color:var(--ink);position:relative;padding-left:16px}
@@ -245,10 +204,6 @@
 
   /* Hover helpers */
   .sparkWrap { position:relative; }
-  .plot-cross{
-    position:absolute; top:6px; bottom:18px; width:1px;
-    background:#94a3b8; opacity:.5; pointer-events:none; display:none;
-  }
   .plot-tip{
     position:absolute; pointer-events:none; display:none;
     background:rgba(15,23,42,.92); color:#fff; padding:6px 8px; border-radius:8px;
@@ -272,14 +227,71 @@
   }
 
   /* Hover helpers (skip if you already have them) */
-  .plot-cross{
-    position:absolute; top:6px; bottom:18px; width:1px;
-    background:#94a3b8; opacity:.55; pointer-events:none; display:none;
-  }
   .plot-tip{
     position:absolute; pointer-events:none; display:none;
     background:rgba(15,23,42,.92); color:#fff; padding:6px 8px; border-radius:8px;
     font-size:11px; transform:translate(-50%,-8px); white-space:nowrap; z-index:5;
+  }
+
+  /* === 72h SVG plot === */
+  .plot72{ position:relative; height:180px; background:#fff; border-radius:12px;
+          box-shadow:inset 0 0 0 1px #eef2f7; }
+  .plot72 svg{ width:100%; height:100%; display:block; }
+
+  .axis text{ font:10px system-ui, sans-serif; fill:#475569; }
+  .grid line{ stroke:#e5e7eb; stroke-width:1; }
+
+  .barProb{ fill:#60a5fa; opacity:.65; transition:opacity .15s ease; }
+  .barRain{ fill:url(#rainGrad72); transition:opacity .15s ease; }
+
+  /* keep hover elements obvious and non-blocking */
+  .cross{
+    stroke:#111827;        /* darker so it's visible on any bars */
+    stroke-width:1.5;
+    vector-effect:non-scaling-stroke;
+    display:none;
+    pointer-events:none;
+  }
+  .hoverBand{
+    fill:#94a3b8;
+    opacity:.12;
+    display:none;
+    pointer-events:none;
+  }
+
+  /* Legend pills */
+  .legend72{ display:flex; gap:10px; align-items:center; margin-top:10px; }
+  .legend72 .chip{
+    display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px;
+    background:#f1f5f9; color:#0f172a; font:12px/1 system-ui, sans-serif; cursor:pointer;
+    box-shadow:inset 0 0 0 1px #e5e7eb; user-select:none;
+  }
+  .legend72 .swatch{ width:14px; height:14px; border-radius:4px; }
+  .legend72 .off{ opacity:.35; }
+  .legend72 .chip:focus-visible{ outline:2px solid #60a5fa; outline-offset:2px; }
+
+  /* Add this if you KEEP class="tip72" */
+  #tip72 {
+    position: absolute;
+    pointer-events: none;
+    display: none;
+    background: rgba(15,23,42,.92);
+    color: #fff;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    transform: translate(-50%, -8px);
+    white-space: nowrap;
+    z-index: 5; /* above bars/axes */
+  }
+
+  .cross {
+    stroke:#111827;       /* dark */
+    stroke-width:2;       /* thicker so visible */
+    shape-rendering:crispEdges;
+    vector-effect:non-scaling-stroke;
+    display:none;
+    pointer-events:none;
   }
 
 </style>
@@ -328,14 +340,19 @@
       <h4>Next 72h · Rain signal</h4>
       <div class="p72">
         <div class="p72-left">
-          <div class="sparkWrap">
-            <div class="spark" id="spark72"></div>
-            <div class="yAxis" id="yAxisProb"></div>
-            <div class="yAxis" id="yAxisRain" style="right:0; left:auto; text-align:left"></div>
-            <div class="xAxisTicks" id="xAxisTicks"></div>
-            <div class="gridLayer" id="gridProb"></div>
+          <div class="plot72" id="plot72">
+            <svg id="svg72" preserveAspectRatio="none"></svg>
+            <div class="plot-tip" id="tip72"></div>
           </div>
-          <div class="legend"><span class="dot" style="background:var(--blue)"></span> Probability % <span class="dot" style="background:var(--green);margin-left:10px"></span> Rain (mm)</div>
+          <div class="legend72" id="legend72">
+            <button class="chip" data-series="prob" aria-pressed="true">
+              <span class="swatch" style="background:#60a5fa"></span> Probability %
+            </button>
+            <button class="chip" data-series="rain" aria-pressed="true">
+              <span class="swatch" style="background:#34d399"></span> Rain (mm)
+            </button>
+            <span style="font-size:12px;color:#64748b">Tip: click to show/hide series.</span>
+          </div>
         </div>
         <div class="p72-right">
           <div class="kpi"><span>🌧️</span> Total rain 72h:&nbsp;<b id="kpiRain">— mm</b></div>
@@ -476,6 +493,261 @@
 
   paint();
 
+  function niceTicks(maxVal, count=5){
+    // returns ~count nice ticks from 0..maxVal
+    const nice = (x)=>{ const exp=Math.pow(10, Math.floor(Math.log10(x||1)));
+                        const f=x/exp; const nf=(f<1.5?1:(f<3?2:(f<7?5:10))); return nf*exp; };
+    const top = nice(maxVal);
+    const step = nice(top/(count-1));
+    const ticks = [];
+    for(let v=0; v<=top+1e-9; v+=step){ ticks.push(Math.round(v*10)/10); }
+    if (ticks[ticks.length-1] !== Math.round(top*10)/10) ticks.push(Math.round(top*10)/10);
+    return ticks;
+  }
+
+  let showProb = true, showRain = true;
+
+  function render72(series){
+    const svg  = document.getElementById('svg72');
+    const wrap = document.getElementById('plot72');
+    const tip  = document.getElementById('tip72');
+
+    if (!tip.classList.contains('plot-tip')) tip.className = 'plot-tip';
+
+    if (!Array.isArray(series) || !series.length) {
+      svg.innerHTML = '';
+      tip.style.display = 'none';
+      return;
+    }
+
+    svg.innerHTML = '';
+
+    const m = { top: 10, right: 44, bottom: 20, left: 44 };
+    const W = Math.max(200, wrap.clientWidth  || 600);
+    const H = Math.max(140, wrap.clientHeight || 180);
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    const iw = Math.max(10, W - m.left - m.right);
+    const ih = Math.max(10, H - m.top  - m.bottom);
+
+    const n = series.length;
+    const step = iw / Math.max(1, n);
+    const bwP  = step * 0.35;
+    const bwR  = step * 0.65;
+
+    const x = i => m.left + i * step + step/2;
+
+    function niceTicks(maxVal, count=5){
+      const nice = (x)=>{ const exp=Math.pow(10, Math.floor(Math.log10(x||1)));
+                          const f=x/exp; const nf=(f<1.5?1:(f<3?2:(f<7?5:10))); return nf*exp; };
+      const top = nice(maxVal);
+      const step = nice(top/(count-1));
+      const ticks = [];
+      for(let v=0; v<=top+1e-9; v+=step){ ticks.push(Math.round(v*10)/10); }
+      if (ticks[ticks.length-1] !== Math.round(top*10)/10) ticks.push(Math.round(top*10)/10);
+      return ticks;
+    }
+
+    const maxRainData = Math.max(1, ...series.map(d => +d.rain || 0));
+    const rainTicks = niceTicks(maxRainData, 5);
+    const maxRain   = rainTicks[rainTicks.length - 1];
+
+    const yProb = p => m.top + (1 - (Math.max(0, Math.min(100, +p || 0)) / 100)) * ih;
+    const yRain = r => m.top + (1 - ((+r || 0) / maxRain)) * ih;
+
+    // defs
+    const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+    defs.innerHTML = `
+      <linearGradient id="rainGrad72" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%"  stop-color="#6ee7b7"/>
+        <stop offset="100%" stop-color="#34d399"/>
+      </linearGradient>`;
+    svg.appendChild(defs);
+
+    // grid
+    const gGrid = document.createElementNS('http://www.w3.org/2000/svg','g');
+    gGrid.setAttribute('class','grid');
+    [0,25,50,75,100].forEach(v=>{
+      const y = yProb(v);
+      const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
+      ln.setAttribute('x1', m.left); ln.setAttribute('x2', W - m.right);
+      ln.setAttribute('y1', y);      ln.setAttribute('y2', y);
+      gGrid.appendChild(ln);
+    });
+    svg.appendChild(gGrid);
+
+    // bars
+    const gBars = document.createElementNS('http://www.w3.org/2000/svg','g');
+    series.forEach((d,i)=>{
+      const cx = x(i);
+
+      // rain (back, wider)
+      const rVal = +d.rain || 0;
+      const rY   = yRain(rVal);
+      const rH   = Math.max(0, ih - (rY - m.top));
+      const r    = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      r.setAttribute('class', 'barRain');
+      r.style.opacity = showRain ? 1 : 0.12;
+      r.setAttribute('x',      cx - bwR/2);
+      r.setAttribute('y',      rY);
+      r.setAttribute('width',  Math.max(1, bwR - 1));
+      r.setAttribute('height', rH);
+      gBars.appendChild(r);
+
+      // prob (front, thin)
+      const pVal = +d.prob || 0;
+      const pY   = yProb(pVal);
+      const pH   = Math.max(0, ih - (pY - m.top));
+      const p    = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      p.setAttribute('class', 'barProb');
+      p.style.opacity = showProb ? .65 : 0.12;
+      p.setAttribute('x',      cx - bwP/2);
+      p.setAttribute('y',      pY);
+      p.setAttribute('width',  Math.max(1, bwP));
+      p.setAttribute('height', pH);
+      gBars.appendChild(p);
+    });
+    svg.appendChild(gBars);
+
+    // axes
+    const gAxis = document.createElementNS('http://www.w3.org/2000/svg','g');
+    gAxis.setAttribute('class','axis');
+    [0,25,50,75,100].forEach(v=>{
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x', m.left - 6);
+      t.setAttribute('y', yProb(v) + 3);
+      t.setAttribute('text-anchor','end');
+      t.textContent = v + '%';
+      gAxis.appendChild(t);
+    });
+    rainTicks.forEach(v=>{
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x', W - m.right + 6);
+      t.setAttribute('y', yRain(v) + 3);
+      t.setAttribute('text-anchor','start');
+      t.textContent = v + 'mm';
+      gAxis.appendChild(t);
+    });
+    series.forEach((d,i)=>{
+      if (i % 6 !== 0) return;
+      const tx = document.createElementNS('http://www.w3.org/2000/svg','text');
+      tx.setAttribute('x', x(i));
+      tx.setAttribute('y', H - 4);
+      tx.setAttribute('text-anchor','middle');
+      tx.textContent = d.h || '';
+      gAxis.appendChild(tx);
+    });
+    svg.appendChild(gAxis);
+
+    // HOVER LAYER (always last -> on top)
+    const gHover = document.createElementNS('http://www.w3.org/2000/svg','g');
+    svg.appendChild(gHover);
+
+    // band first (below line)
+    const band = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    band.setAttribute('class','hoverBand');
+    band.setAttribute('y', m.top);
+    band.setAttribute('height', ih);
+    band.setAttribute('width', Math.max(6, step));
+    band.style.display = 'none';
+    band.style.pointerEvents = 'none';
+    gHover.appendChild(band);
+
+    // two-line cursor: halo + dark
+    const crossHalo = document.createElementNS('http://www.w3.org/2000/svg','line');
+    crossHalo.setAttribute('y1', m.top);
+    crossHalo.setAttribute('y2', H - m.bottom);
+    crossHalo.setAttribute('stroke', '#ffffff');
+    crossHalo.setAttribute('stroke-opacity', '0.9');
+    crossHalo.setAttribute('stroke-width', '4');
+    crossHalo.setAttribute('vector-effect', 'non-scaling-stroke');
+    crossHalo.style.display = 'none';
+    crossHalo.style.pointerEvents = 'none';
+    gHover.appendChild(crossHalo);
+
+    const cross = document.createElementNS('http://www.w3.org/2000/svg','line');
+    cross.setAttribute('class','cross');
+    cross.setAttribute('y1', m.top);
+    cross.setAttribute('y2', H - m.bottom);
+    cross.setAttribute('stroke', '#111827');
+    cross.setAttribute('stroke-width', '2');
+    cross.setAttribute('vector-effect', 'non-scaling-stroke');
+    cross.style.display = 'none';
+    cross.style.pointerEvents = 'none';
+    gHover.appendChild(cross);
+
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+    function showAtIndex(i){
+      if (Number.isNaN(i)) return;
+      i = clamp(i, 0, n - 1);
+      const cx = x(i);
+
+      band.setAttribute('x', cx - (Math.max(6, step)/2));
+      band.style.display = 'block';
+
+      crossHalo.setAttribute('x1', cx);
+      crossHalo.setAttribute('x2', cx);
+      crossHalo.style.display = 'block';
+
+      cross.setAttribute('x1', cx);
+      cross.setAttribute('x2', cx);
+      cross.style.display = 'block';
+
+      const d = series[i];
+      tip.textContent = `${d.h || ''} • ${Math.round(+d.prob||0)}% • ${(+d.rain||0)} mm`;
+      tip.style.display = 'block';
+
+      // clamp tooltip inside inner plot
+      tip.style.left = `${cx}px`;
+      tip.style.top  = `${m.top + 6}px`;
+      const tipW = tip.offsetWidth || 0;
+      let left = cx, half = tipW/2;
+      if (left - half < m.left)      left = m.left + half + 2;
+      if (left + half > W - m.right) left = W - m.right - half - 2;
+      tip.style.left = `${left}px`;
+    }
+
+    function onMove(evt){
+      const rect = svg.getBoundingClientRect();
+      const relX = evt.clientX - rect.left - m.left;
+      const i    = Math.round(relX / step - 0.5);
+      showAtIndex(i);
+    }
+
+    svg.onmousemove  = onMove;
+    svg.onmouseleave = ()=>{
+      tip.style.display = 'none';
+      cross.style.display = 'none';
+      crossHalo.style.display = 'none';
+      band.style.display = 'none';
+    };
+
+    // responsive: redraw on resize
+    if (window._ro72) window._ro72.disconnect();
+    if (window.ResizeObserver){
+      let rafId = null;
+      window._ro72 = new ResizeObserver(()=>{
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(()=> render72(series));
+      });
+      window._ro72.observe(wrap);
+    }
+  }
+
+  // Boot + legend toggles
+  const series72 = Array.isArray(data.hourly72) ? data.hourly72 : [];
+  render72(series72);
+
+  document.getElementById('legend72').addEventListener('click', (e)=>{
+    const chip = e.target.closest('.chip'); if(!chip) return;
+    const key = chip.dataset.series;
+    if (key === 'prob') showProb = !showProb;
+    if (key === 'rain') showRain = !showRain;
+    chip.classList.toggle('off'); chip.setAttribute('aria-pressed', chip.classList.contains('off') ? 'false' : 'true');
+    render72(series72);
+  });
+
   // Sorting (unchanged)
   document.querySelectorAll('#dailyTbl thead th').forEach(th=>{
     th.addEventListener('click',()=>{
@@ -501,112 +773,6 @@
   document.getElementById('kpiPeak').textContent = `${peak}%`;
   document.getElementById('kpiTime').textContent = peakTime;
   document.getElementById('kpiRisk').textContent = kpiRisk;
-
-  // === Next 72h · Rain signal (graph) — locked axis + snap hover ===
-  const sp = document.getElementById('spark72');
-  const series = Array.isArray(data.hourly72) ? data.hourly72 : [];
-
-  const COL_W = 6;     // must match --col-w
-  const GAP   = 2;     // must match --col-gap
-  const STEP  = COL_W + GAP;
-
-  const maxProb = 100;
-  const maxRain = Math.max(1, ...series.map(x => +x.rain || 0));
-
-  // draw bars: one fixed-width column per hour
-  sp.innerHTML = series.map((x, i) => {
-    const p = Math.max(0, Math.min(100, +x.prob || 0));
-    const r = Math.max(0, +x.rain || 0);
-    const hp = Math.round((p / maxProb) * 100);
-    const hr = Math.round((r / maxRain) * 100);
-    return `<div class="col" data-i="${i}" data-h="${x.h||''}" data-p="${p}" data-r="${r}"
-                style="display:flex;flex-direction:column;align-items:center;width:${COL_W}px">
-              <div class="bar prob" style="height:${hp * 1.2}px"></div>
-              <div class="bar rain" style="height:${hr * 1.2}px"></div>
-            </div>`;
-  }).join('');
-
-  // axes + grid (no dependency on flex distribution)
-  const yAxisProb = document.getElementById('yAxisProb');
-  const yAxisRain = document.getElementById('yAxisRain');
-  const grid      = document.getElementById('gridProb');
-  const xAxis     = document.getElementById('xAxisTicks');   // ← new id
-  const wrap      = sp.closest('.sparkWrap');
-
-  function drawAxes(){
-    const H = sp.clientHeight || 100;
-
-    const yVals = [100, 50, 0];
-    yAxisProb.innerHTML = yVals.map(v =>
-      `<div class="ytick" style="top:${(1 - v/100) * H}px"><span>${v}%</span></div>`
-    ).join('');
-
-    const rVals = [maxRain, Math.round(maxRain/2), 0];
-    yAxisRain.innerHTML = rVals.map(v =>
-      `<div class="ytick" style="bottom:${(v/maxRain)*90}%"><span>${v}mm</span></div>`
-    ).join('');
-
-    grid.innerHTML = yVals.map(v =>
-      `<div class="g" style="top:${(1 - v/100) * H}px"></div>`
-    ).join('');
-
-    // one tick per hour, same width as a column
-    xAxis.innerHTML = series.map((x, i) => {
-      const label = (i % 6 === 0) ? (x.h || '') : '';
-      return `<span class="xtick" style="width:${COL_W}px">${label}</span>`;
-    }).join('');
-  }
-  drawAxes();
-
-  // redraw on container resize (sidebar toggle, etc.)
-  if (window.ResizeObserver) {
-    const ro = new ResizeObserver(drawAxes);
-    if (wrap) ro.observe(wrap);
-  } else {
-    window.addEventListener('resize', drawAxes);
-  }
-
-  // --- robust hover: snap by math (no need to hit the thin column exactly)
-  const tip   = document.createElement('div'); tip.className = 'plot-tip';
-  const cross = document.createElement('div'); cross.className = 'plot-cross';
-  wrap.appendChild(tip); wrap.appendChild(cross);
-
-  function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
-  function showIndex(i){
-    const n = series.length; if (!n) return;
-    i = clamp(i, 0, n-1);
-    const col = sp.children[i];
-    const h = col.dataset.h || '';
-    const p = col.dataset.p || '0';
-    const r = col.dataset.r || '0';
-
-    const x = sp.offsetLeft + i*STEP + (COL_W/2);
-    cross.style.left = `${x}px`;
-    cross.style.display = 'block';
-
-    tip.innerHTML = `${h} • ${p}% • ${r} mm`;
-    tip.style.left = `${x}px`;
-    tip.style.top  = `6px`;
-    tip.style.display = 'block';
-  }
-
-  wrap.addEventListener('mouseleave', ()=>{
-    tip.style.display = 'none';
-    cross.style.display = 'none';
-  });
-
-  // Snap to nearest hour under the cursor
-  wrap.addEventListener('mousemove', (e)=>{
-    const rect = sp.getBoundingClientRect();
-    const relX = e.clientX - rect.left;
-    const i = Math.round((relX - (COL_W/2)) / STEP);
-    showIndex(i);
-  });
-
-  // Also support precise hover when on a bar
-  [...sp.children].forEach((col, i)=>{
-    col.addEventListener('mouseenter', ()=> showIndex(i));
-  });
 
 /* --- Recommendations (harmonized with rain-first risk) --- */
 const adviceWrap = document.getElementById("adviceWrap");
