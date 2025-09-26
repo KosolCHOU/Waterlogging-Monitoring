@@ -390,6 +390,7 @@
 <script>
 (async function(){
   const fieldId = {{ field.id }};
+  try { document.cookie = `last_field=${fieldId}; Max-Age=2592000; Path=/; SameSite=Lax`; } catch(e) {}
   const res = await fetch(`/fields/${fieldId}/forecast.json`, {cache:'no-store'});
   const data = await res.json();
   if(!data.ok) return;

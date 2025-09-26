@@ -546,40 +546,65 @@ def field_insights_api(request, field_id: int):
 def about(request):
     return render(request, "about.html")
 
-def analytics(request, field_id):
+def analytics(request, field_id: int | None = None):
+    """
+    Supports:
+      /fields/<id>/analytics/          (with id)
+      /analytics/                      (no id -> use cookie and redirect)
+    """
+    # 1) No field id? Try the remembered cookie.
+    if field_id is None:
+        last = request.COOKIES.get("last_field")
+        if last:
+            try:
+                FieldAOI.objects.get(pk=int(last))
+                return redirect("analytics", field_id=int(last))
+            except (ValueError, FieldAOI.DoesNotExist):
+                pass
+
+        # ⬇️ CHANGE THIS BLOCK
+        # Fallback: pick the most recent field instead of always /lands
+        latest_field = FieldAOI.objects.order_by("-id").first()
+        if latest_field:
+            return redirect("analytics", field_id=latest_field.id)
+        else:
+            return redirect("lands")   # only if no fields exist at all
+
+    # 2) Normal analytics rendering (unchanged logic you already have)
     field = get_object_or_404(FieldAOI, id=field_id)
 
-    # -- robust bounds: handle GeoJSON dicts OR GeoDjango geometries
+    # robust bounds (your existing version)
     try:
-        # If it's a GeoJSON-like dict
         if isinstance(field.geom, dict):
             g = shp_shape(field.geom)
-            minx, miny, maxx, maxy = g.bounds  # (W,S,E,N)
+            minx, miny, maxx, maxy = g.bounds
         else:
-            # If it's a GEOSGeometry or similar
-            ext = field.geom.extent  # (minx, miny, maxx, maxy)
-            minx, miny, maxx, maxy = ext
-        bounds = [[miny, minx], [maxy, maxx]]  # [[S,W],[N,E]] for Leaflet
+            minx, miny, maxx, maxy = field.geom.extent
+        bounds = [[miny, minx], [maxy, maxx]]
     except Exception:
-        # Fallback: very small box around a centroid if available
         if isinstance(field.geom, dict):
-            g = shp_shape(field.geom)
-            c = g.centroid
+            g = shp_shape(field.geom); c = g.centroid
             lat, lon = float(c.y), float(c.x)
         else:
-            c = field.geom.centroid
-            lat, lon = float(c.y), float(c.x)
+            c = field.geom.centroid; lat, lon = float(c.y), float(c.x)
         eps = 1e-3
         bounds = [[lat - eps, lon - eps], [lat + eps, lon + eps]]
 
     field_label = (field.name or "").strip() or f"Field #{field.id}"
     ctx = {
         "field": field,
-        "field_label": field_label,  # <— add this
+        "field_label": field_label,
         "bounds": bounds,
         "job_id": request.GET.get("job_id") or "null",
     }
-    return render(request, "analytics.html", ctx)
+
+    resp = render(request, "analytics.html", ctx)
+
+    # 3) ✅ Remember this field (same cookie name used by Dashboard)
+    #    Your dashboard() already sets: resp.set_cookie("last_field", ...)
+    resp.set_cookie("last_field", str(field_id), max_age=60*60*24*30, path="/", samesite="Lax")
+
+    return resp
 
 @require_http_methods(["GET"])
 def forecast_json(request, field_id: int):

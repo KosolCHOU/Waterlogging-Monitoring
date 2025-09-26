@@ -100,10 +100,10 @@
         class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}">
         Land
       </a>
-      <a href="{% if field %}{% url 'analytics' field.id %}{% else %}#{% endif %}"
-        class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+      <a href="{% url 'analytics_no_field' %}"
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' or request.resolver_match and request.resolver_match.url_name == 'analytics_no_field' %}active{% endif %}">
         Analytics
-      </a>
+      </a>      
     </nav>
 
     <div class="sidebar-footer">

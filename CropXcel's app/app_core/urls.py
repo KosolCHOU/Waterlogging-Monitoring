@@ -18,5 +18,6 @@ urlpatterns = [
     path("api/", include(router.urls)),
     path("about/", views.about, name="about"),
     path('fields/<int:field_id>/analytics/', views.analytics, name='analytics'),
+    path('analytics/', views.analytics, name='analytics_no_field'),
     path('fields/<int:field_id>/forecast.json', views.forecast_json, name='forecast_json'),
 ]
