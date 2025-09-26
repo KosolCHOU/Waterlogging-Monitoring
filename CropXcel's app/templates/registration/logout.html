@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Signed out – CropXcel{% endblock %}
+
+{% block content %}
+<div style="padding:24px;display:grid;place-items:center">
+  <div class="card" style="max-width:480px;text-align:center">
+    <h2>You’ve signed out</h2>
+    <p>See you again soon 👋</p>
+    <a class="btn" href="{% url 'login' %}">Sign in again</a>
+  </div>
+</div>
+{% endblock %}

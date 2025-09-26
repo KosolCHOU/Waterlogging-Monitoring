@@ -2,6 +2,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from app_core.views import LogoutViewAllowGet
 
 router = DefaultRouter()
 router.register(r'fields', views.FieldViewSet, basename='fields')
@@ -20,4 +21,6 @@ urlpatterns = [
     path('fields/<int:field_id>/analytics/', views.analytics, name='analytics'),
     path('analytics/', views.analytics, name='analytics_no_field'),
     path('fields/<int:field_id>/forecast.json', views.forecast_json, name='forecast_json'),
+    path("profile/", views.profile, name="profile"),
+    path("accounts/logout/", LogoutViewAllowGet.as_view(next_page="login"), name="logout"),
 ]

@@ -217,24 +217,29 @@
 
     <nav class="menu">
       <a href="{% url 'dashboard_index' %}"
-         class="{% if request.resolver_match and request.resolver_match.url_name == 'dashboard' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}">
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'dashboard' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}">
         <span>🏠</span><span>Dashboard</span>
       </a>
 
       <a href="{% url 'lands' %}"
-         class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}">
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}">
         <span>🗺️</span><span>Land</span>
       </a>
 
       <a href="{% url 'analytics_no_field' %}"
-         class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'analytics_no_field' %}active{% endif %}">
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'analytics_no_field' %}active{% endif %}">
         <span>📈</span><span>Analytics</span>
+      </a>
+
+      <a href="{% url 'profile' %}"
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'profile' %}active{% endif %}">
+        <span>👤</span><span>Profile</span>
       </a>
     </nav>
 
     <div class="sidebar-footer">
       <a href="{% url 'about' %}">
-        <span class="info-icon">ℹ️</span><span class="lbl">About</span>
+        <span class="info-icon"></span><span class="lbl">About</span>
       </a>
       <div class="copy">© CropXcel</div>
     </div>

@@ -16,8 +16,11 @@ from django.conf import settings
 from django.http import JsonResponse, HttpResponseBadRequest, Http404, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LogoutView
 from django.db.models import Prefetch
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import FieldAOI, AnalysisJob
 from analysis.engine import export_stack_from_geom, export_s1_timeseries
@@ -618,3 +621,20 @@ def forecast_json(request, field_id: int):
         return JsonResponse({"ok": True, **data}, status=200)
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+@login_required
+def profile(request):
+    user = request.user
+    display_name = (user.get_full_name() or user.get_username() or "").strip()
+    initials = "".join([p[0] for p in display_name.split() if p][:2]).upper() or (user.username[:2].upper() if user.username else "U")
+    context = {
+        "user_obj": user,
+        "initials": initials,
+        "member_since": user.date_joined,
+        "last_login": user.last_login,             # can be None on first login
+        "now": timezone.now(),                     # <-- requires the import above
+    }
+    return render(request, "profile.html", context)
+
+class LogoutViewAllowGet(LogoutView):
+    http_method_names = ['get', 'post', 'head', 'options']

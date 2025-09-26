@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Sign in – CropXcel{% endblock %}
+
+{% block head %}
+<style>
+  .auth-wrap{min-height:calc(100vh - 80px);display:grid;place-items:center;padding:24px}
+  .card{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);border:1px solid rgba(17,24,39,.06);max-width:420px;width:100%;padding:22px}
+  .h{font-weight:800;font-size:20px;margin:0 0 6px}
+  .muted{color:#6b7280;margin:0 0 16px}
+  .field{display:grid;gap:6px;margin:10px 0}
+  .input{padding:10px 12px;border:1px solid #d1d5db;border-radius:10px}
+  .btn{margin-top:10px;width:100%;padding:10px 14px;border-radius:12px;border:0;background:#10b981;color:#0b1220;font-weight:700}
+  .btn:hover{filter:brightness(.95)}
+  .help{margin-top:12px;text-align:center}
+  .error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:8px 10px;border-radius:8px;margin-bottom:8px}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <form method="post" class="card">
+    {% csrf_token %}
+    <div class="h">Welcome back</div>
+    <p class="muted">Sign in to view your profile and analytics.</p>
+
+    {% if form.non_field_errors %}<div class="error">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="field">
+      <label for="id_username">Username</label>
+      {{ form.username }}
+    </div>
+    <div class="field">
+      <label for="id_password">Password</label>
+      {{ form.password }}
+    </div>
+
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <button class="btn" type="submit">Sign in</button>
+
+    <div class="help">
+      <a href="{% url 'password_reset' %}">Forgot password?</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
