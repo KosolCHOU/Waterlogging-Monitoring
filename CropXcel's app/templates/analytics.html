@@ -30,13 +30,34 @@
   .todayLeft .desc{color:#374151;font-weight:600;margin-top:4px}
   .vbar{width:1px;height:54px;background:var(--soft-border);border-radius:2px}
   .aside{margin-left:auto;width:var(--kpiw);display:flex;flex-direction:column;gap:8px}
-  .rightInfo{display:flex;gap:8px;align-items:center;justify-content:flex-start;
+  .rightInfo{display:flex;gap:8px;align-items:center;justify-content:center;
              padding:10px 12px;border-radius:12px;background:#eef2ff;font-weight:600}
   .rightInfo i{font-style:normal;opacity:.9}
   .todayFoot{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
   .miniStat{background:#f6faf7;border-radius:12px;padding:10px 12px;box-shadow:inset 0 0 0 1px #e8efe8}
   .miniStat .lbl{color:var(--muted);font-size:12px}
-  .miniStat .val{font-weight:800;color:var(--ink);font-size:18px;margin-top:2px}
+  .miniStat {
+    background:#f6faf7;
+    border-radius:12px;
+    padding:10px 12px;
+    box-shadow:inset 0 0 0 1px #e8efe8;
+    text-align:center;        /* ⬅ center both lbl and val */
+  }
+
+  .miniStat .lbl {
+    color:var(--muted);
+    font-size:12px;
+    display:block;
+  }
+
+  .miniStat .val {
+    font-weight:800;
+    color:var(--ink);
+    font-size:18px;
+    margin-top:2px;
+    display:block;            /* so it respects text-align */
+  }
+
 
   /* ===== 72h Rain signal (unchanged visuals) ===== */
   .panel72 h4{margin:0 0 10px 0;font-size:14px;font-weight:800;color:var(--ink)}
@@ -54,7 +75,7 @@
     flex-direction: column;
     gap: 8px;
   }
-  .kpi{background:#eef2ff;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;font-weight:700;font-size:12px;white-space:nowrap}
+  .kpi{background:#eef2ff;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;justify-content:right;font-weight:700;font-size:12px;white-space:nowrap}
   .kpi b{font-size:14px}
 
 
@@ -166,9 +187,6 @@
   .xAxis{position:absolute;left:28px;right:8px;bottom:0;height:16px;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:#475569}
   .gridLayer{position:absolute;left:28px;right:8px;top:6px;bottom:18px}
   .gridLayer .g{position:absolute;left:0;right:0;height:1px;background:#e5e7eb}
-
-  /* KPI cards on the right */
-  .kpi{background:#eef2ff;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;font-weight:700;font-size:12px;white-space:nowrap}
 
   @media (max-width:980px){
     .p72{grid-template-columns:1fr}
