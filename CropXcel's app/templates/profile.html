@@ -105,6 +105,21 @@
 
   /* Layout spacing helpers */
   .sp8{height:8px} .sp12{height:12px} .sp16{height:16px}
+
+  .btn-danger {
+    background:#fff;
+    color:#b91c1c; /* red text */
+    border:1px solid #fca5a5;
+    font-weight:600;
+    padding:8px 14px;
+    border-radius:8px;
+    font-size:14px;
+    width:auto;
+  }
+  .btn-danger:hover {
+    background:#fee2e2;
+  }
+
 </style>
 {% endblock %}
 
@@ -146,11 +161,19 @@
 
     <div class="sp16"></div>
 
-    <!-- Primary action -->
-    <form action="{% url 'logout' %}" method="post">
+    <!-- Safer logout -->
+    <form id="logoutForm" action="{% url 'logout' %}" method="post" style="text-align:center; margin-top:20px">
       {% csrf_token %}
-      <button class="btn btn-primary" type="submit">🚪 Sign out</button>
+      <button class="btn btn-danger" type="submit">🚪 Sign out</button>
     </form>
+
+    <script>
+    document.getElementById("logoutForm").addEventListener("submit", function(e){
+      if(!confirm("Are you sure you want to sign out?")){
+        e.preventDefault();
+      }
+    });
+    </script>
   </div>
 </div>
 
