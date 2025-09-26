@@ -376,29 +376,68 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  // --- context from Django ---
-  const JOB_ID     = {{ job_id|safe }};
-  const BOUNDS     = {{ bounds|safe }};               // [[S,W],[N,E]]
-  const OVERLAY_URL= "{{ overlay_png|default:'' }}";
-  const HOTSPOTS   = "{{ hotspots_url|default:'' }}";
-  const PROBE_BIN  = "{{ probe_bin|default:'' }}";
-  const PROBE_META = "{{ probe_meta|default:'' }}";
-  const FIELD_ID   = {{ field.id }};
+// --- context from Django ---
+const JOB_ID     = {{ job_id|safe }};
+const BOUNDS     = {{ bounds|safe }};               // [[S,W],[N,E]]
+const OVERLAY_URL= "{{ overlay_png|default:'' }}";
+const HOTSPOTS   = "{{ hotspots_url|default:'' }}";
+const PROBE_BIN  = "{{ probe_bin|default:'' }}";
+const PROBE_META = "{{ probe_meta|default:'' }}";
+const FIELD_ID   = {{ field.id }};
 
-  /* ================= MAP ================= */
-  const map = L.map('map');
-  L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { attribution: 'Tiles © Esri' }
-  ).addTo(map);
-  map.fitBounds(BOUNDS);
+/* ================= MAP ================= */
+const map = L.map('map');
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  { attribution: 'Tiles © Esri' }
+).addTo(map);
+map.fitBounds(BOUNDS);
 
-  map.createPane('overlayPane');
-  map.getPane('overlayPane').style.zIndex = 450;
+map.createPane('overlayPane');
+map.getPane('overlayPane').style.zIndex = 450;
 
-  if (OVERLAY_URL && OVERLAY_URL.endsWith('.png')) {
-    L.imageOverlay(OVERLAY_URL, BOUNDS, { opacity:0.75, pane:'overlayPane' }).addTo(map);
+// ✅ Keep a reference so we can show/hide it later
+let overlayLayer = null;
+let overlayVisible = true;
+
+if (OVERLAY_URL && OVERLAY_URL.endsWith('.png')) {
+  overlayLayer = L.imageOverlay(OVERLAY_URL, BOUNDS, { opacity:0.75, pane:'overlayPane' }).addTo(map);
+}
+
+  function setOverlayVisible(on){
+    overlayVisible = !!on;
+    if (!overlayLayer) return;
+    // Using opacity keeps it in the layer stack but invisible (no flicker)
+    overlayLayer.setOpacity(overlayVisible ? 0.75 : 0.0);
+    showToast(`Overlay: ${overlayVisible ? 'ON' : 'OFF'}`);
   }
+
+  // Right-click anywhere on map → toggle overlay
+  map.on('contextmenu', (e)=>{
+    if (!overlayLayer) return;
+    setOverlayVisible(!overlayVisible);
+  });
+
+  // Press-and-hold Shift → temporarily hide overlay; release → restore
+  let shiftHeld = false;
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Shift' && !shiftHeld){
+      shiftHeld = true;
+      if (overlayLayer && overlayVisible){
+        overlayLayer.setOpacity(0.0);
+        showToast('Overlay: OFF (Shift)');
+      }
+    }
+  });
+  document.addEventListener('keyup', (e)=>{
+    if (e.key === 'Shift'){
+      shiftHeld = false;
+      if (overlayLayer && overlayVisible){
+        overlayLayer.setOpacity(0.75);
+        showToast('Overlay: ON');
+      }
+    }
+  });
 
   // Hotspots (points/centroids)
   function levelToColor(level){
@@ -546,6 +585,17 @@
 
   /* ===== helpers (keep if you already have them) ===== */
   const pill = document.getElementById("hoverpill");
+  // Small toast message near top-left
+  let toastTimer = null;
+  function showToast(msg){
+    const el = pill;           // reuse hoverpill bubble
+    el.style.display='block';
+    el.style.left='12px';
+    el.style.top='12px';
+    el.innerHTML = `<b>${msg}</b>`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ el.style.display='none'; }, 900);
+  }
   function clamp01(x){ return Math.max(0, Math.min(1, x)); }
   function pct(x){ return Math.round(clamp01(x)*100); }
   function levelFrom(v){ return v>=0.7 ? "High" : v>=0.4 ? "Caution" : "Low"; }
