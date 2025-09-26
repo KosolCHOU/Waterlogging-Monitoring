@@ -294,6 +294,49 @@
     pointer-events:none;
   }
 
+  /* === Reusable hover tooltip icon (match Dashboard) === */
+  .hint{
+    display:inline-block; width:18px; height:18px; margin-left:6px;
+    border-radius:999px; background:#e2e8f0; position:relative; vertical-align:middle;
+  }
+  .hint::before{
+    content:"i"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font:700 12px/18px system-ui; color:#0f172a;
+  }
+  .hint:hover{ background:#cbd5e1; }
+
+  /* Default: dock to the right of the icon */
+  .hint::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: 50%;
+    left: 105%;
+    transform: translateY(-50%);
+    background: #0f172a;
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    min-width: 220px;
+    max-width: 320px;
+    max-height: 60vh;
+    overflow-y: auto;
+    white-space: normal;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  .hint:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(6px);
+  }
+
+  /* Ensure cards don’t clip these bubbles */
+  .card { overflow: visible !important; }
+
 </style>
 {% endblock %}
 
@@ -306,7 +349,10 @@
     <div class="today">
       <div class="todayHead">
         <div>
-          <div class="title">Weather today</div>
+          <div class="title">
+            Weather today
+            <span class="hint" data-tip="See today’s weather at your field. Use it to decide if it’s safe to spray, fertilize, or harvest. If rain is high, wait until it clears."></span>
+          </div>
           <div class="todayMeta" id="when"></div>
           <div class="todayMeta"><span id="where" data-id="{{ field_label }}">{{ field.name }}</span></div>
         </div>
@@ -337,7 +383,10 @@
 
     <!-- 72h Rain signal -->
     <div class="panel72" style="margin-top:12px">
-      <h4>Next 72h · Rain signal</h4>
+      <h4>
+        Next 72h · Rain signal
+        <span class="hint" data-tip="Shows rain and chance of rain in the next 3 days. Use this to plan: if heavy rain is coming, delay fertilizer or keep drains open. If low rain, continue normal work."></span>
+      </h4>
       <div class="p72">
         <div class="p72-left">
           <div class="plot72" id="plot72">
@@ -366,7 +415,10 @@
 
   <!-- ===== RIGHT: 7-day + Recommendations ===== -->
   <div class="card">
-    <h3 class="pretty">7-day Forecast</h3>
+    <h3 class="pretty">
+      7-day Forecast
+      <span class="hint" data-tip="See 1-week weather ahead. Spot days with heavy rain, strong wind, or heat. Helps plan irrigation, hire labor, or protect crops early. Tap column names to sort."></span>
+    </h3>
     <table class="mini" id="dailyTbl">
       <thead>
         <tr>
@@ -382,7 +434,10 @@
     </table>
     <div class="todayMeta" style="margin-top:6px">Tip: tap a column header to sort; hover a row for details.</div>
 
-    <h4 style="margin:14px 0 6px 0;font-weight:800;color:var(--ink)">Recommendations</h4>
+    <h4 style="margin:14px 0 6px 0;font-weight:800;color:var(--ink)">
+      Recommendations
+      <span class="hint" data-tip="Practical advice for your field. Example: delay fertilizer if rain is coming, open drains if water may stay, or water crops if dry days ahead. Simple steps to protect yield."></span>
+    </h4>
     <div id="adviceWrap" style="display:grid;grid-template-columns:1fr;gap:10px"></div>
   </div>
 </div>
