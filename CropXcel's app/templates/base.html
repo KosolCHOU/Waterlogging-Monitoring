@@ -5,134 +5,310 @@
   <title>{% block title %}CropXcel{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <!-- Poppins ExtraBold for premium wordmark -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap" rel="stylesheet">
   {% block head %}{% endblock %}
   <style>
-    :root { --sbw: 220px; --accent:#10b981; --bg:#f1f7ee; }
+    /* ===== Design tokens (easy to tweak) ===== */
+    :root{
+      --sbw: 240px;                 /* sidebar width (desktop) */
+      --radius: 16px;               /* global rounding */
+      --pad: 20px;                  /* global padding */
+      --gap: 16px;                  /* gaps */
+      --bg: #eef6f1;                /* app background */
+      --surface: #0f172a;           /* sidebar surface */
+      --surface-2: #111827;         /* deeper tone for header */
+      --border: rgba(255,255,255,.08);
+      --card: #ffffff;
+      --text-muted: #9ca3af;
+      --accent: #10b981;            /* emerald */
+      --accent-2:#2dd4bf;           /* teal */
+      --shadow-lg: 0 18px 50px rgba(0,0,0,.12);
+      --shadow-md: 0 10px 30px rgba(0,0,0,.10);
+      --shadow-sm: 0 6px 14px rgba(0,0,0,.08);
 
-    body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); }
+      /* keep logo vertically consistent in both states */
+      --logo-offset: 8px;           /* top padding inside sidebar + top when floating */
+      --logo-left: 14px;            /* left when floating */
+    }
 
-    /* --- Sidebar --- */
-    .sidebar {
-      position:fixed; top:0; left:0; bottom:0;
+    /* ===== Base ===== */
+    html, body { height:100%; }
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 800px at 10% -10%, rgba(45,212,191,.10), transparent 60%),
+        radial-gradient(1200px 800px at 110% 10%, rgba(16,185,129,.10), transparent 60%),
+        var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      color:#111827;
+    }
+
+    /* ===== Sidebar ===== */
+    .sidebar{
+      position:fixed; inset:0 auto 0 0;
       width:var(--sbw);
-      background:#111827; color:#fff;
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      color:#fff;
       display:flex; flex-direction:column;
+      border-right:1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      transform: translateX(0);
       transition: transform .3s ease;
       z-index:1000;
     }
-    .sidebar.hidden { transform: translateX(-100%); }
+    .sidebar.hidden{ transform: translateX(-100%); }
 
-    .brand {
+    /* Sidebar brand SLOT (empty container; logo will be moved here when open) */
+    .brand{
+      display:flex; align-items:center; gap:12px;
+      padding: var(--logo-offset) 16px; /* vertical offset controlled via --logo-offset */
+      border-bottom:1px solid var(--border);
+      font-weight:800; letter-spacing:.2px; font-size:18px;
+      min-height: 44px; /* keeps row height stable */
+    }
+
+    .menu{ padding:8px; }
+    .menu a{
       display:flex; align-items:center; gap:10px;
-      padding:14px 16px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      font-weight:700; font-size:18px;
+      padding:12px 14px;
+      color:#e5e7eb; text-decoration:none;
+      border-radius:12px;
+      margin:6px 6px;
+      line-height:1;
+      border:1px solid transparent;
+      transition: background .2s ease, border-color .2s ease, transform .05s ease;
     }
-    .menu a {
-      display:block;
-      padding:12px 20px;
-      color:#fff; text-decoration:none;
-      border-radius:8px; margin:4px 10px;
+    .menu a:hover{
+      background: rgba(255,255,255,.06);
+      border-color: rgba(255,255,255,.10);
     }
-    .menu a.active { background:var(--accent); }
-    .menu a:hover { background:#374151; }
+    .menu a:active{ transform: translateY(1px); }
+    .menu a.active{
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color:#0b1220;
+      font-weight:700;
+      border-color: transparent;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+    }
 
-    /* --- Toggle Button --- */
-    .toggle-btn {
-      position:fixed; top:12px; left:12px;
-      background:var(--accent);
-      border:none; color:#fff;
-      padding:6px 10px; border-radius:6px;
-      cursor:pointer; z-index:1100;
+    .sidebar-footer{
+      margin-top:auto; padding:14px 16px;
+      border-top:1px solid var(--border);
+      font-size:14px;
     }
+    .sidebar-footer a{
+      display:flex; align-items:center; gap:8px;
+      color:#9ca3af; text-decoration:none; margin-bottom:8px;
+    }
+    .sidebar-footer a:hover{ color:#fff; }
+    .sidebar-footer .copy{ font-size:12px; color:#6b7280; }
 
-    /* --- Content --- */
-    .content {
+    /* ===== Main content ===== */
+    .content{
+      min-height:100vh;
       margin-left:var(--sbw);
       transition: margin-left .3s ease;
-      min-height:100vh; padding:20px;
+      padding:24px clamp(12px, 2.2vw, 28px);
+      display:block;
     }
-    .sidebar.hidden ~ .content {
-      margin-left:0;
+    .sidebar.hidden ~ .content{ margin-left:0; }
+
+    /* “Premium” content container */
+    .container{
+      max-width: 1360px;
+      margin: 0 auto;
     }
 
-    /* Mobile adjustments */
-    @media (max-width:768px){
-      .content { margin-left:0; }
-      .sidebar { width:80%; }
+    /* Optional: card baseline */
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(17,24,39,.06);
     }
-  .sidebar-footer {
-    margin-top:auto;
-    padding:14px 16px;
-    border-top:1px solid rgba(255,255,255,.08);
-    font-size:14px;
-  }
-  .sidebar-footer a {
-    display:flex; align-items:center; gap:8px;
-    color:#9ca3af; text-decoration:none;
-    margin-bottom:8px;
-  }
-  .sidebar-footer a:hover {
-    color:#fff;
-  }
-  .sidebar-footer .copy {
-    font-size:12px; color:#6b7280;
-  }
+
+    /* ===== Mobile ===== */
+    @media (max-width: 1024px){
+      :root{ --sbw: 86vw; }
+    }
+
+    /* Nice thin scrollbar for desktop */
+    @media (pointer: fine){
+      *{ scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+      *::-webkit-scrollbar{ height:10px; width:10px; }
+      *::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:999px; }
+      *::-webkit-scrollbar-track{ background:transparent; }
+    }
+
+    /* ===== Movable Logo ===== */
+    /* Floating state (sidebar hidden) */
+    .brand-float{
+      position:fixed;
+      top: var(--logo-offset);
+      left: var(--logo-left);
+      display:flex; align-items:center; gap:8px;
+      /* remove pill background & shadow per request */
+      padding:0;
+      background:transparent;
+      color:inherit;
+      box-shadow:none;
+      border-radius:0;
+      cursor:pointer; user-select:none;
+      z-index:1200;
+    }
+    /* Inside-sidebar state (sidebar open) */
+    .brand-in{
+      position:static;                  /* lives inside .brand slot */
+      display:flex; align-items:center; gap:12px;
+      padding:0; background:transparent;
+      box-shadow:none; border-radius:0;
+      color:#fff; cursor:pointer;
+    }
+
+    /* Logo sizes */
+    .brand-float .logo-mark{ display:none; } /* emoji removed */
+    .brand-in   .logo-mark{ display:none; }
+
+    /* ===== Wordmark styles ===== */
+    .logo-text{
+      font-family:'Poppins',sans-serif;
+      font-weight:800;
+      font-size:20px;
+      letter-spacing:.2px;
+      display:inline-flex;
+      align-items:center;
+      gap:0;
+      line-height:1;
+    }
+    .logo-text .word{
+      display:inline-block;
+      background-clip:text;
+      -webkit-background-clip:text;
+      color:transparent;
+      -webkit-text-fill-color:transparent;
+    }
+
+    /* White "silk" gradient (great on dark sidebar) */
+    .logo-text .white{
+      background-image: linear-gradient(180deg, #ffffff 0%, #f3f4f6 55%, #e5e7eb 100%);
+      /* keep visible when sidebar is hidden (white on light bg): add subtle text-outline */
+      text-shadow: 0 1px 2px rgba(0,0,0,.35);
+    }
+
+    /* Emerald "X" highlight (top-light to rich base) */
+    .logo-text .green{
+      background-image: linear-gradient(180deg, #6ee7b7 0%, #34d399 45%, #10b981 100%);
+      text-shadow: 0 1px 2px rgba(0,0,0,.30);
+      margin:0 1px; /* micro breathing room */
+    }
+
+    /* Optional: hide text on very tiny screens when floating */
+    @media (max-width:560px){
+      .brand-float .logo-text{ font-size:18px; }
+    }
   </style>
 </head>
 <body>
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
-    <div class="brand">
-      <!-- Toggle button on the left -->
-      <button class="collapse-btn" id="collapseBtn" type="button" aria-label="Toggle sidebar">☰</button>
-      <span class="logo-mark">🌾</span>
-      <span class="logo-text">CropXcel</span>
-    </div>
+    <!-- EMPTY SLOT for the logo when sidebar is open -->
+    <div class="brand" id="brandSlot"></div>
 
     <nav class="menu">
       <a href="{% url 'dashboard_index' %}"
-        class="{% if request.resolver_match and request.resolver_match.url_name == 'dashboard' or request.resolver_match and request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}">
-        Dashboard
+         class="{% if request.resolver_match and request.resolver_match.url_name == 'dashboard' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}">
+        <span>🏠</span><span>Dashboard</span>
       </a>
+
       <a href="{% url 'lands' %}"
-        class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}">
-        Land
+         class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}">
+        <span>🗺️</span><span>Land</span>
       </a>
+
       <a href="{% url 'analytics_no_field' %}"
-        class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' or request.resolver_match and request.resolver_match.url_name == 'analytics_no_field' %}active{% endif %}">
-        Analytics
-      </a>      
+         class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'analytics_no_field' %}active{% endif %}">
+        <span>📈</span><span>Analytics</span>
+      </a>
     </nav>
 
     <div class="sidebar-footer">
       <a href="{% url 'about' %}">
-        <span class="info-icon">ℹ️</span> <span class="lbl">About</span>
+        <span class="info-icon">ℹ️</span><span class="lbl">About</span>
       </a>
       <div class="copy">© CropXcel</div>
     </div>
   </aside>
 
-  <!-- Toggle button -->
-  <button class="toggle-btn" id="toggleBtn">☰</button>
+  <!-- The only logo element; we move it between body and #brandSlot -->
+  <div id="brandToggle" class="brand-float" aria-label="Toggle sidebar" role="button">
+    <span class="logo-text">
+      <span class="word white">Crop</span>
+      <span class="word green">X</span>
+      <span class="word white">cel</span>
+    </span>
+  </div>
 
   <!-- Main -->
-  <main class="content">{% block content %}{% endblock %}</main>
+  <main class="content">
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
 
   <script>
-    const sidebar = document.getElementById('sidebar');
-    const btn = document.getElementById('toggleBtn');
+    const sidebar     = document.getElementById('sidebar');
+    const content     = document.querySelector('.content');
+    const brandSlot   = document.getElementById('brandSlot');   // header slot inside sidebar
+    const brandToggle = document.getElementById('brandToggle'); // the only logo element
 
-    // restore state
-    if(localStorage.getItem('sb_hidden') === '1'){
-      sidebar.classList.add('hidden');
+    // Helpers: move logo in/out of sidebar and update class
+    function mountLogoInside(){
+      if (brandToggle.classList.contains('brand-in')) return;
+      brandSlot.innerHTML = '';                // ensure slot empty
+      brandSlot.appendChild(brandToggle);      // move node INTO sidebar header
+      brandToggle.classList.remove('brand-float');
+      brandToggle.classList.add('brand-in');
+    }
+    function mountLogoFloat(){
+      if (brandToggle.classList.contains('brand-float')) return;
+      document.body.appendChild(brandToggle);  // move node OUT to body
+      brandToggle.classList.remove('brand-in');
+      brandToggle.classList.add('brand-float');
     }
 
-    btn.addEventListener('click', ()=>{
-      sidebar.classList.toggle('hidden');
-      localStorage.setItem('sb_hidden', sidebar.classList.contains('hidden') ? '1' : '0');
-    });
+    // Restore UI state from localStorage
+    const hidden = localStorage.getItem('sb_hidden') === '1';
+    if (hidden){
+      sidebar.classList.add('hidden');
+      content.style.marginLeft = '0';
+      mountLogoFloat();
+    }else{
+      sidebar.classList.remove('hidden');
+      content.style.marginLeft = getComputedStyle(document.documentElement)
+        .getPropertyValue('--sbw');
+      mountLogoInside();
+    }
+
+    // Toggle behavior when clicking the logo itself
+    function toggleSidebar(){
+      const willHide = !sidebar.classList.contains('hidden');
+      sidebar.classList.toggle('hidden', willHide);
+      localStorage.setItem('sb_hidden', willHide ? '1' : '0');
+
+      requestAnimationFrame(() => {
+        content.style.marginLeft = willHide ? '0'
+          : getComputedStyle(document.documentElement).getPropertyValue('--sbw');
+      });
+
+      // Move the logo to the right place
+      if (willHide) {
+        mountLogoFloat();
+      } else {
+        mountLogoInside();
+      }
+    }
+    brandToggle.addEventListener('click', toggleSidebar);
   </script>
 </body>
 </html>
