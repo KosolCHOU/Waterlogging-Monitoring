@@ -20,10 +20,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .forms import ProfileImageForm
-from django.contrib.auth.views import LogoutView
+from django.contrib.auth import logout
 from django.db.models import Prefetch
 from django.urls import reverse
 from django.utils import timezone
+from django.views import View
 
 from .models import FieldAOI, AnalysisJob
 from analysis.engine import export_stack_from_geom, export_s1_timeseries
@@ -676,5 +677,17 @@ def profile(request):
     }
     return render(request, "profile.html", ctx)
 
-class LogoutViewAllowGet(LogoutView):
-    http_method_names = ['get', 'post', 'head', 'options']
+class LogoutViewAllowGet(View):
+    template_name = "registration/logout.html"  # you said logout.html is inside registration/
+
+    # Handle both GET and POST (and HEAD just in case)
+    def get(self, request, *args, **kwargs):
+        return self._do_logout(request)
+
+    def post(self, request, *args, **kwargs):
+        return self._do_logout(request)
+
+    def _do_logout(self, request):
+        logout(request)
+        # If you ever want to support ?next=... later, you could redirect here instead.
+        return render(request, self.template_name)

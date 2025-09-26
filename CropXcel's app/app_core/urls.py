@@ -17,10 +17,11 @@ urlpatterns = [
     path("probe/<int:job_id>/", login_required_with_message(views.probe), name="probe"),
     path("fields/<int:field_id>/insights/", login_required_with_message(views.field_insights_api), name="field_insights_api"),
     path("api/", include(router.urls)),
-    path("about/", login_required_with_message(views.about), name="about"),
+    path("about/", views.about, name="about"),
     path('fields/<int:field_id>/analytics/', login_required_with_message(views.analytics), name='analytics'),
     path('analytics/', login_required_with_message(views.analytics), name='analytics_no_field'),
     path('fields/<int:field_id>/forecast.json', login_required_with_message(views.forecast_json), name='forecast_json'),
     path("profile/", login_required_with_message(views.profile), name="profile"),
-    path("accounts/logout/", LogoutViewAllowGet.as_view(next_page="login"), name="logout"),
+    path("accounts/logout/", LogoutViewAllowGet.as_view(), name="logout"),
+
 ]

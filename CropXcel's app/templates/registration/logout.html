@@ -1,12 +1,125 @@
 {% extends "base.html" %}
-{% block title %}Signed out – CropXcel{% endblock %}
+{% block title %}You’re signed out – CropXcel{% endblock %}
+
+{% block head %}
+<style>
+  /* Page shell */
+  .logout-wrap{
+    min-height:calc(100vh - 80px);
+    display:grid;place-items:center;
+    padding:24px;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #e6f6ff 0%, transparent 60%),
+      radial-gradient(1200px 600px at 110% 10%, #e8ffe9 0%, transparent 60%),
+      linear-gradient(180deg, #f7fbff 0%, #f4f7fb 100%);
+  }
+
+  /* Card */
+  .logout-card{
+    width:min(560px, 92vw);
+    background:#fff;
+    border-radius:20px;
+    box-shadow:0 20px 50px rgba(0,0,0,.10);
+    padding:28px 24px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+
+  /* Soft ribbon */
+  .ribbon{
+    position:absolute; inset:auto -20%  auto -20%;
+    top:-140px; height:220px;
+    background:linear-gradient(90deg, #22c55e 0%, #16a34a 50%, #0ea5e9 100%);
+    filter:blur(40px); opacity:.12; transform:rotate(-6deg);
+    pointer-events:none;
+  }
+
+  /* Icon */
+  .sprout{
+    width:72px;height:72px;margin:8px auto 12px;
+    display:block;
+    animation: float 3.8s ease-in-out infinite;
+  }
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+  /* Text */
+  .title{font-weight:800; font-size:1.5rem; letter-spacing:.2px; color:#0f172a; margin:8px 0 6px}
+  .subtitle{color:#334155; margin:0 0 14px; line-height:1.45}
+  .note{font-size:.95rem;color:#475569; background:#f1f5f9; border-radius:12px; padding:10px 12px; display:inline-block}
+
+  /* CTA Row */
+  .cta-row{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:18px}
+  .btn{
+    appearance:none; border:0; outline:0; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center;
+    gap:8px; padding:10px 16px; border-radius:12px; font-weight:700;
+    text-decoration:none; transition:transform .05s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{color:#fff; background:linear-gradient(180deg,#0ea5e9,#0284c7); box-shadow:0 8px 20px rgba(2,132,199,.35)}
+  .btn-primary:hover{box-shadow:0 10px 26px rgba(2,132,199,.45)}
+  .btn-quiet{background:#f1f5f9; color:#0f172a}
+  .btn-quiet:hover{background:#e2e8f0}
+
+  /* Footer help */
+  .help{
+    margin-top:16px; font-size:.95rem; color:#475569;
+  }
+  .help a{color:#0284c7; text-decoration:none; font-weight:700}
+  .help a:hover{text-decoration:underline}
+
+  /* Small print */
+  .small{margin-top:10px; font-size:.82rem; color:#64748b}
+
+  /* Dark mode soft support (if your base toggles) */
+  @media (prefers-color-scheme: dark){
+    .logout-wrap{background:linear-gradient(180deg, #0b1220 0%, #0b1020 100%)}
+    .logout-card{background:#0f172a; box-shadow:0 20px 50px rgba(0,0,0,.5)}
+    .title{color:#e2e8f0} .subtitle{color:#cbd5e1} .note{background:#0b1220;color:#cbd5e1}
+    .btn-quiet{background:#0b1220; color:#e2e8f0} .btn-quiet:hover{background:#111827}
+    .help{color:#cbd5e1} .small{color:#94a3b8}
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div style="padding:24px;display:grid;place-items:center">
-  <div class="card" style="max-width:480px;text-align:center">
-    <h2>You’ve signed out</h2>
-    <p>See you again soon 👋</p>
-    <a class="btn" href="{% url 'login' %}">Sign in again</a>
+<div class="logout-wrap">
+  <div class="logout-card" role="status" aria-live="polite">
+    <div class="ribbon" aria-hidden="true"></div>
+
+    <!-- Friendly agri icon (inline SVG, no external files) -->
+    <svg class="sprout" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path d="M33 46v-9" stroke="#16a34a" stroke-width="3" stroke-linecap="round"/>
+      <path d="M33 37c0-8 5-15 15-16 0 9-7 16-15 16Z" fill="#22c55e" opacity=".95"/>
+      <path d="M31 39c-7 0-13-6-14-13 7 1 13 7 14 13Z" fill="#86efac" opacity=".95"/>
+      <circle cx="32" cy="46" r="3" fill="#0ea5e9" />
+      <path d="M10 52c7-5 15-5 22 0 7-5 15-5 22 0" stroke="#94a3b8" stroke-width="2" opacity=".5" stroke-linecap="round"/>
+    </svg>
+
+    <h1 class="title">You’re signed out</h1>
+    <p class="subtitle">
+      Thanks for spending time with CropXcel today. We’ll be here when you’re ready to continue
+      monitoring your fields and protecting your rice from waterlogging. 🌾
+    </p>
+
+    <div class="note">Tip: you can sign in again to see your saved fields, alerts, and advice.</div>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="{% url 'login' %}" aria-label="Sign in again">
+        🔐 Sign in again
+      </a>
+      <a class="btn btn-quiet" href="{% url 'about' %}" aria-label="Learn about CropXcel">
+        ℹ️ About CropXcel
+      </a>
+    </div>
+
+    <div class="help">
+      Need help? <a href="mailto:support@cropxcel.example">Contact support</a>
+      or read our quick tips in the About page.
+    </div>
+
+    <div class="small">Security note: always sign out on shared devices.</div>
   </div>
 </div>
 {% endblock %}
