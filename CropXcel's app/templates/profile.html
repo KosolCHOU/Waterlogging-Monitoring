@@ -3,35 +3,59 @@
 
 {% block head %}
 <style>
-  .profile-grid{display:grid;grid-template-columns:260px 1fr;gap:16px}
+  html, body { background:#eef7f2; }
+  .profile-grid{display:grid;grid-template-columns:280px 1fr;gap:16px;max-width:1100px;margin:16px auto;padding:0 12px}
   @media (max-width:1024px){.profile-grid{grid-template-columns:1fr}}
-  .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid rgba(17,24,39,.06)}
+  .card{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);border:1px solid rgba(17,24,39,.06)}
   .pad{padding:20px}
-  .avatar{
+  .avatar, .avatar-img{
     width:120px;height:120px;border-radius:50%;display:grid;place-items:center;
-    font-weight:800;font-size:40px;letter-spacing:.5px;
-    background:linear-gradient(180deg,#6ee7b7,#10b981); color:#0b1220;
-    box-shadow:0 10px 24px rgba(16,185,129,.25);
-    margin:4px auto 12px;
+    font-weight:800;font-size:40px;margin:4px auto 12px;box-shadow:0 10px 24px rgba(16,185,129,.25);
   }
-  .muted{color:var(--text-muted)}
+  .avatar{background:linear-gradient(180deg,#6ee7b7,#10b981); color:#0b1220;}
+  .avatar-img{overflow:hidden;background:#f1f5f9}
+  .avatar-img img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+  .muted{color:#6b7280}
   .row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px dashed rgba(17,24,39,.08)}
   .row:last-child{border-bottom:none}
   .k{color:#6b7280}
   .v{font-weight:600}
-  .btn{
-    display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(17,24,39,.12);
-    padding:10px 14px;border-radius:12px;background:#fff;text-decoration:none;color:#111827;
-  }
+  .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(17,24,39,.12);padding:10px 14px;border-radius:12px;background:#fff;text-decoration:none;color:#111827;cursor:pointer}
   .btn:hover{background:#f9fafb}
+  .uploader{display:flex;flex-direction:column;gap:10px;align-items:center;}
+  .file-input{display:none}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .danger{border-color:#fecaca;background:#fee2e2}
+  .danger:hover{background:#fecaca}
+  .hint{font-size:12px;color:#6b7280}
+
+  /* progress UI */
+  .progress {height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;display:none;margin-top:8px;width:100%}
+  .bar {height:100%;width:0%;background:#10b981;transition:width .15s}
+  .status {font-size:12px;color:#6b7280;margin-top:6px;display:none;text-align:center}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="profile-grid">
-  <!-- Left: summary card -->
+  <!-- LEFT -->
   <div class="card pad">
-    <div class="avatar">{{ initials }}</div>
+    <form id="avatarForm" action="{% url 'profile' %}" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label for="avatarFile" style="cursor:pointer; display:block;">
+        {% if profile_obj and profile_obj.avatar %}
+        <div class="avatar-img"><img id="avatarImg" src="{{ profile_obj.avatar.url }}?v={{ now|date:'U' }}" alt="Profile picture"></div>
+        {% else %}
+        <div class="avatar" id="avatarFallback">{{ initials }}</div>
+        <div class="avatar-img" style="display:none"><img id="avatarImg" src="" alt="Profile picture"></div>
+        {% endif %}
+    </label>
+    <input id="avatarFile" class="file-input" type="file" name="avatar" accept="image/*" required>
+    <div class="progress" id="prog"><div class="bar" id="bar"></div></div>
+    <div class="status" id="stat">Uploading…</div>
+    </form>
+
+    <div style="height:12px"></div>
     <div style="text-align:center">
       <div style="font-weight:800;font-size:18px">{{ user_obj.get_full_name|default:user_obj.username }}</div>
       <div class="muted">{{ user_obj.email }}</div>
@@ -39,24 +63,105 @@
     <div style="height:12px"></div>
     <div class="row"><div class="k">Member since</div><div class="v">{{ member_since|date:"M d, Y" }}</div></div>
     <div class="row"><div class="k">Last login</div><div class="v">{{ last_login|date:"M d, Y H:i" }}</div></div>
-    <div class="row"><div class="k">Username</div><div class="v">{{ user_obj.username }}</div></div>
-    <div class="row"><div class="k">Is staff</div><div class="v">{{ user_obj.is_staff|yesno:"Yes,No" }}</div></div>
-    <div class="row"><div class="k">Is active</div><div class="v">{{ user_obj.is_active|yesno:"Yes,No" }}</div></div>
-    <div style="height:14px"></div>
-    <form action="{% url 'logout' %}" method="post" style="display:inline">
-    {% csrf_token %}
-    <button class="btn" type="submit">🚪 Sign out</button>
+    <form action="{% url 'logout' %}" method="post" style="display:inline"><!-- POST is correct -->
+      {% csrf_token %}
+      <button class="btn" type="submit">🚪 Sign out</button>
     </form>
   </div>
 
-  <!-- Right: details -->
+  <!-- RIGHT -->
   <div class="card pad">
     <h2 style="margin:0 0 8px;font-size:20px">Account details</h2>
-    <p class="muted" style="margin-top:0">This page shows your current account information. Editing is coming next.</p>
+    <p class="muted" style="margin-top:0">Update your profile photo on the left. We’ll add editing for name/email later.</p>
     <div class="row"><div class="k">Full name</div><div class="v">{{ user_obj.get_full_name|default:"—" }}</div></div>
     <div class="row"><div class="k">Email</div><div class="v">{{ user_obj.email|default:"—" }}</div></div>
     <div class="row"><div class="k">Date joined</div><div class="v">{{ member_since|date:"M d, Y H:i" }}</div></div>
-    <div class="row"><div class="k">Timezone (server)</div><div class="v">{{ now|date:"T" }}</div></div>
+    <div class="row"><div class="k">Timezone</div><div class="v">{{ now|date:"T" }}</div></div>
   </div>
 </div>
+
+<script>
+// CSRF cookie helper
+function getCookie(name){
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? m.pop() : '';
+}
+const form = document.getElementById('avatarForm');
+const file = document.getElementById('avatarFile');
+const img  = document.getElementById('avatarImg');
+const fallback = document.getElementById('avatarFallback');
+const prog = document.getElementById('prog');
+const bar  = document.getElementById('bar');
+const stat = document.getElementById('stat');
+
+// Preview before upload
+file.addEventListener('change', () => {
+  const f = file.files && file.files[0];
+  if (!f) return;
+  const url = URL.createObjectURL(f);
+  if (fallback) fallback.style.display = 'none';
+  const imgWrap = img.closest('.avatar-img');
+  if (imgWrap) imgWrap.style.display = 'grid';
+  img.src = url;
+});
+
+// AJAX upload with progress
+form.addEventListener('submit', (e) => {
+  const isRemove = e.submitter && e.submitter.name === 'remove_avatar';
+  if (isRemove) return; // normal POST for remove (works fine)
+
+  e.preventDefault();
+  const data = new FormData(form);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', form.action, true);
+  xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+  xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+
+  prog.style.display = 'block';
+  stat.style.display = 'block';
+  bar.style.width = '0%';
+  stat.textContent = 'Uploading…';
+
+  if (xhr.upload) {
+    xhr.upload.addEventListener('progress', (ev) => {
+      if (ev.lengthComputable) {
+        const pct = Math.round((ev.loaded / ev.total) * 100);
+        bar.style.width = pct + '%';
+        stat.textContent = 'Uploading… ' + pct + '%';
+      }
+    });
+  }
+
+  xhr.onload = () => {
+    try {
+      const res = JSON.parse(xhr.responseText || '{}');
+      if (res.ok && res.avatar_url) {
+        img.src = res.avatar_url; // cache-busted final URL
+        stat.textContent = 'Done!';
+      } else {
+        stat.textContent = res.error || 'Upload failed.';
+      }
+    } catch {
+      stat.textContent = 'Upload failed.';
+    }
+    setTimeout(() => { prog.style.display = 'none'; stat.style.display = 'none'; }, 900);
+  };
+
+  xhr.onerror = () => {
+    stat.textContent = 'Network error.';
+    setTimeout(() => { prog.style.display = 'none'; stat.style.display = 'none'; }, 1200);
+  };
+
+  xhr.send(data);
+});
+
+// Auto-submit immediately after picking a file
+file.addEventListener('change', () => {
+  if (file.files && file.files[0]) {
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+  }
+});
+
+</script>
 {% endblock %}

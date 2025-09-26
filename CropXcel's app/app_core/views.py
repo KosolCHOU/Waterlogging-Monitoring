@@ -16,7 +16,10 @@ from django.conf import settings
 from django.http import JsonResponse, HttpResponseBadRequest, Http404, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from .forms import ProfileImageForm
 from django.contrib.auth.views import LogoutView
 from django.db.models import Prefetch
 from django.urls import reverse
@@ -622,19 +625,56 @@ def forecast_json(request, field_id: int):
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
+from .models import Profile
+
 @login_required
 def profile(request):
-    user = request.user
-    display_name = (user.get_full_name() or user.get_username() or "").strip()
-    initials = "".join([p[0] for p in display_name.split() if p][:2]).upper() or (user.username[:2].upper() if user.username else "U")
-    context = {
-        "user_obj": user,
+    user_obj: User = request.user
+    prof, _ = Profile.objects.get_or_create(user=user_obj)  # <-- ensure exists
+
+    # initials fallback
+    display_name = (user_obj.get_full_name() or user_obj.get_username() or "").strip()
+    initials = "".join([p[0] for p in display_name.split() if p][:2]).upper() \
+               or (user_obj.username[:2].upper() if user_obj.username else "U")
+
+    if request.method == "POST":
+        if "remove_avatar" in request.POST:
+            if prof.avatar:
+                prof.avatar.delete(save=False)
+                prof.avatar = None
+                prof.save(update_fields=["avatar"])
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({"ok": True, "avatar_url": None})
+            messages.success(request, "Profile picture removed.")
+            return redirect("profile")
+
+        # bind to existing profile instance so instance.user_id is set
+        form = ProfileImageForm(request.POST, request.FILES, instance=prof)
+        if form.is_valid():
+            prof = form.save()  # upload_to now sees a real user_id
+            new_url = prof.avatar.url + f"?v={int(timezone.now().timestamp())}"
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({"ok": True, "avatar_url": new_url})
+            messages.success(request, "Profile picture updated.")
+            return redirect("profile")
+        else:
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                err = "; ".join([" ".join(v) for k, v in form.errors.items()])
+                return JsonResponse({"ok": False, "error": err}, status=400)
+            messages.error(request, "Upload failed. Please fix the errors below.")
+    else:
+        form = ProfileImageForm(instance=prof)
+
+    ctx = {
+        "user_obj": user_obj,
+        "profile_obj": prof,
         "initials": initials,
-        "member_since": user.date_joined,
-        "last_login": user.last_login,             # can be None on first login
-        "now": timezone.now(),                     # <-- requires the import above
+        "member_since": user_obj.date_joined,
+        "last_login": user_obj.last_login or user_obj.date_joined,
+        "now": timezone.now(),
+        "form": form,
     }
-    return render(request, "profile.html", context)
+    return render(request, "profile.html", ctx)
 
 class LogoutViewAllowGet(LogoutView):
     http_method_names = ['get', 'post', 'head', 'options']

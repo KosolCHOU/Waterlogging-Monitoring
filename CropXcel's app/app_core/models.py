@@ -32,3 +32,32 @@ class AnalysisJob(models.Model):
 
     def __str__(self):
         return f"Job {self.id} for Field {self.field_id} ({self.status})"
+    
+# app_core/models.py
+import os
+from uuid import uuid4
+from django.utils import timezone
+from django.db import models
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+def avatar_upload_to(instance, filename):
+    base, ext = os.path.splitext(filename or "")
+    ext = ext.lower() if ext else ".jpg"
+    return f"avatars/user_{instance.user_id}/{timezone.now():%Y/%m}/{uuid4().hex}{ext}"
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    avatar = models.ImageField(upload_to=avatar_upload_to, blank=True, null=True)
+
+    def __str__(self):
+        return f"Profile({self.user.username})"
+
+@receiver(post_save, sender=User)
+def create_or_update_user_profile(sender, instance, created, **kwargs):
+    if created:
+        Profile.objects.create(user=instance)
+    else:
+        if hasattr(instance, "profile"):
+            instance.profile.save()
