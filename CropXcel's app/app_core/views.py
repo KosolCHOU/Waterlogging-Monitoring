@@ -20,6 +20,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .forms import ProfileImageForm
+from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import logout
 from django.db.models import Prefetch
 from django.urls import reverse
@@ -691,3 +692,15 @@ class LogoutViewAllowGet(View):
         logout(request)
         # If you ever want to support ?next=... later, you could redirect here instead.
         return render(request, self.template_name)
+
+def signup(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            next_url = request.GET.get("next") or request.POST.get("next") or "/"
+            return redirect(next_url)
+    else:
+        form = UserCreationForm()
+    return render(request, "registration/signup.html", {"form": form})

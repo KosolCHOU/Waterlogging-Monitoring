@@ -23,5 +23,6 @@ urlpatterns = [
     path('fields/<int:field_id>/forecast.json', login_required_with_message(views.forecast_json), name='forecast_json'),
     path("profile/", login_required_with_message(views.profile), name="profile"),
     path("accounts/logout/", LogoutViewAllowGet.as_view(), name="logout"),
+    path("signup/", views.signup, name="signup"),
 
 ]
