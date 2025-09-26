@@ -43,6 +43,26 @@
     :root { --header-h: 172px; }
     .listwrap{ max-height: calc(100vh - var(--header-h)); overflow: auto; padding-bottom: 12px; }
     @media (max-width: 640px){ :root { --header-h: 200px; } }
+
+    .title { font-size:28px; margin:0; color:#065f46; font-weight:800; }
+    .subtitle { color:#374151; margin:6px 0 18px; font-size:15px; }
+
+    .card {
+      background: var(--card);
+      border-radius: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.08);
+      padding: 18px;
+      transition: transform .2s ease;
+    }
+    .card:hover { transform: translateY(-4px); }
+
+    .go {
+      background: linear-gradient(90deg, #22c55e, #16a34a);
+      font-size:14px;
+      letter-spacing:0.3px;
+    }
+    .go:hover { opacity:0.9; }
+
   </style>
 {% endblock %}
 
@@ -50,16 +70,16 @@
   <div class="shell">
     <div class="titlebar">
       <div>
-        <h1 class="title">Your Fields</h1>
-        <p class="subtitle">Select a field to view its risk map, or add a new one.</p>
+        <h1 class="title">🌾 My Rice Fields</h1>
+        <p class="subtitle">Tap a field below to see its water and crop condition. You can also add a new field anytime.</p>
       </div>
-      <button id="addFieldBtn" class="add-btn">+ Add field</button>
+      <button id="addFieldBtn" class="add-btn">➕ Add New Field</button>
     </div>
 
     <div class="listwrap">
       <div id="fieldsList" class="grid-cards"></div>
     </div>
-    <p id="emptyMsg" class="muted" style="margin-top:8px; display:none">No fields yet. Click <b>“Add field”</b> to create one.</p>
+    <p id="emptyMsg" class="muted" style="margin-top:8px; display:none">👩‍🌾 You haven’t added any fields yet. Press <b>“➕ Add New Field”</b> to start.</p>
   </div>
 
   <!-- Drawer -->
@@ -72,25 +92,33 @@
     <div class="drawer-body">
       <div class="card map-card" style="position:relative">
         <div class="map-head">
-          <div style="font-weight:600;">Interactive Map</div>
-          <div>
-            <button id="layersBtn" class="btn" type="button">Layers</button>
-            <button id="locBtn" class="btn" type="button">My Location</button>
+          <div style="font-weight:600; font-size:15px;">🗺️ Draw Your Field on the Map</div>
+          <div style="display:flex; gap:8px;">
+            <button id="layersBtn" class="btn" type="button" title="Switch between satellite and street map">
+              🌍 Map View
+            </button>
+            <button id="locBtn" class="btn" type="button" title="Zoom to your current location">
+              📍 Go to My Location
+            </button>
           </div>
         </div>
         <div id="map"></div>
-        <div class="area-badge">Selected Area<br><span id="areaVal" class="val">0.00 hectares</span></div>
+        <div class="area-badge">
+          📏 Selected Area<br>
+          <span id="areaVal" class="val">0.00 hectares</span>
+        </div>
       </div>
+
       <div class="panel" style="margin-top:12px">
         <div class="field-row">
-          <div class="label">Field Name</div>
-          <input id="nameInput" class="input" type="text" placeholder="e.g. Huljia's North Field">
+          <div class="label">📝 Field Name</div>
+          <input id="nameInput" class="input" type="text" placeholder="e.g. Grandma’s Rice Plot">
         </div>
         <div class="field-row">
-          <div class="label">Estimated Area</div>
+          <div class="label">🌾 Estimated Area</div>
           <input id="areaInput" class="input" type="text" value="0.00 hectares" readonly>
         </div>
-        <button id="saveBtn" class="save" type="button">Save Field</button>
+        <button id="saveBtn" class="save" type="button">💾 Save Field</button>
         <div id="saveMsg" class="muted" style="margin-top:8px;"></div>
       </div>
     </div>
@@ -137,10 +165,10 @@
         <div class="card" data-id="${id}">
           <h4>${name}</h4>
           <div class="row">
-            <span class="pill">Area: <span id="area-${id}">${areaTxt}</span></span>
+            <span class="pill"><span id="area-${id}">${areaTxt}</span></span>
             <span class="muted">${created || ""}</span>
           </div>
-          <button class="go" onclick="setLastField(${id});location.href='${href}'">View risk</button>
+          <button class="go" onclick="setLastField(${id});location.href='${href}'">See Field Report</button>
         </div>`;
     }
 
@@ -224,12 +252,23 @@
         },
         edit:{ featureGroup: drawnItems, remove:true }
       }));
-      L.control.layers({ "Esri World Imagery": esri, "OpenStreetMap": osm }, {}, { collapsed: true }).addTo(map);
+  
+      let currentBase = "satellite";  // default
 
       document.getElementById('layersBtn').onclick = () => {
-        const panes = document.getElementsByClassName('leaflet-control-layers');
-        if (panes[0]) panes[0].classList.remove('leaflet-control-layers-collapsed');
+        if (currentBase === "satellite") {
+          map.removeLayer(esri);
+          osm.addTo(map);
+          currentBase = "street";
+          document.getElementById('layersBtn').textContent = "🌍 Satellite View";
+        } else {
+          map.removeLayer(osm);
+          esri.addTo(map);
+          currentBase = "satellite";
+          document.getElementById('layersBtn').textContent = "🗺️ Street Map";
+        }
       };
+
       document.getElementById('locBtn').onclick = ()=>{
         if(!navigator.geolocation) return;
         navigator.geolocation.getCurrentPosition(pos=>{

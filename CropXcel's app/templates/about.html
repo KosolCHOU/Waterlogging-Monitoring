@@ -1,66 +1,131 @@
 {% extends "base.html" %}
 {% block title %}About – CropXcel{% endblock %}
 
+{% block head %}
+<style>
+  :root{
+    --bg:#f1f5f9; --ink:#0f172a; --muted:#64748b; --card:#fff;
+    --shadow:0 10px 30px rgba(0,0,0,.08);
+    /* soft palettes */
+    --soft-yellow:#fff9db;  /* pale rice straw */
+    --soft-green:#ecfdf5;   /* pale field green */
+    --soft-blue:#eff6ff;    /* pale sky blue */
+    --soft-teal:#e8fbfa;    /* pale water-teal */
+    --soft-border:#e5e7eb;
+  }
+  html,body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
+  .shell{max-width:900px;margin:0 auto;line-height:1.7;color:#374151;padding:24px 12px 40px;}
+  h1{font-size:32px;font-weight:800;color:var(--ink);margin:0 0 16px}
+  h2{font-size:22px;font-weight:700;margin:0 0 12px;color:var(--ink)}
+  h3{font-size:18px;font-weight:700;color:var(--ink);margin:0 0 8px}
+
+  /* base card */
+  .card{
+    background:var(--card);
+    border-radius:16px; box-shadow:var(--shadow);
+    padding:20px; margin-bottom:16px; position:relative;
+  }
+  /* soft variants (pretty but subtle) */
+  .soft{ box-shadow:0 8px 24px rgba(0,0,0,.06), inset 0 0 0 1px var(--soft-border); }
+  .soft.yellow{ background:var(--soft-yellow); }
+  .soft.green { background:var(--soft-green); }
+  .soft.blue  { background:var(--soft-blue);  }
+  .soft.teal  { background:var(--soft-teal);  }
+  /* left accent line for personality */
+  .soft::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:6px;
+    border-top-left-radius:16px; border-bottom-left-radius:16px;
+    background:linear-gradient(180deg,#10b981,#60a5fa);
+    opacity:.75;
+  }
+
+  ul{margin:12px 0;padding-left:20px}
+  p{margin:8px 0 0}
+
+  /* hint bubble (same behavior as Analytics) */
+  .hint{
+    display:inline-block; width:18px; height:18px; margin-left:6px;
+    border-radius:999px; background:#e2e8f0; position:relative; vertical-align:middle;
+  }
+  .hint::before{
+    content:"i"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font:700 12px/18px system-ui; color:#0f172a;
+  }
+  .hint:hover{ background:#cbd5e1; }
+  .hint::after {
+    content: attr(data-tip);
+    position: absolute; top: 50%; left: 105%; transform: translateY(-50%);
+    background: #0f172a; color: #fff; padding: 10px 12px; border-radius: 8px;
+    font-size: 12px; line-height: 1.45; min-width: 220px; max-width: 320px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 9999; opacity: 0;
+    pointer-events: none; transition: opacity .18s ease, transform .18s ease;
+  }
+  .hint:hover::after{ opacity:1; transform:translateY(-50%) translateX(6px); }
+
+  /* mini badge for section headers */
+  .badge{display:inline-block; padding:4px 10px; border-radius:999px; font:700 11px/1 system-ui; color:#075985; background:#e0f2fe; margin-left:6px;}
+</style>
+{% endblock %}
+
 {% block content %}
 <div style="max-height:calc(100vh - 40px); overflow-y:auto; padding-right:8px;">
-  <div class="shell" style="max-width:850px;margin:0 auto;line-height:1.7;color:#374151;padding-bottom:40px;">
-    <h1 style="font-size:32px;font-weight:800;color:#0f172a;margin-bottom:16px;">🌾 About CropXcel</h1>
+  <div class="shell">
+    <h1>🌾 About CropXcel</h1>
 
-    <p style="font-size:17px;margin-bottom:24px;">
-      For many Cambodian farmers, <b>waterlogging is a silent thief</b>. Heavy rains flood the fields,
-      the rice turns yellow, and weeks of hard work can disappear in just a few days.
-      Most farmers only realize the damage when it’s too late.
-    </p>
-
-    <div style="background:#fef9c3;padding:16px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:28px;">
-      <h2 style="margin-top:0;font-size:20px;color:#b45309;">Pain Points We Solve</h2>
-      <ul style="margin:12px 0;padding-left:20px;">
-        <li><b>Unseen water stress:</b> Farmers can’t see hidden waterlogging early enough.</li>
+    <div class="card soft yellow">
+      <h2>⚠️ Pain Points We Solve</h2>
+      <p>For many Cambodian farmers, <b>waterlogging is a silent thief</b>. Heavy rains flood the fields, the rice turns yellow, and weeks of hard work can disappear in days.</p>
+      <ul>
+        <li><b>Unseen water stress:</b> Hidden water stays in soil; damage shows up late.</li>
         <li><b>Late decisions:</b> By the time yellow patches appear, yield is already lost.</li>
-        <li><b>Lack of guidance:</b> Even if problems are seen, many don’t know what action to take.</li>
+        <li><b>Lack of guidance:</b> Farmers see problems but don’t know the next step.</li>
       </ul>
-      <p style="margin-top:10px;">
-        CropXcel gives farmers <b>eyes in the sky</b> — using satellites to warn before it’s too late.
+      <p>CropXcel gives farmers <b>eyes in the sky</b> 🌍 — early warnings before it’s too late.</p>
+    </div>
+
+    <div class="card soft green">
+      <h2>✨ How CropXcel Helps You</h2>
+      <p>
+        We use Sentinel-1 & Sentinel-2
+        <span class="hint" data-tip="These satellites revisit frequently and see through clouds (radar). We turn their signals into simple maps and advice."></span>
+        to <b>monitor your fields every few days</b> and turn complex signals into <b>clear, simple insights</b>:
+      </p>
+      <ul>
+        <li>Know which areas are <span style="font-weight:700;color:#15803d">Healthy</span>, need <span style="font-weight:700;color:#a16207">Attention</span>, or require <span style="font-weight:700;color:#b91c1c">Action</span>.</li>
+        <li>Receive <b>Water Advice Cards</b> 💧 — drain, reduce irrigation, or keep routine.</li>
+        <li>Track changes over time to <b>protect your harvest early</b>.</li>
+      </ul>
+    </div>
+
+    <!-- NEW: brief analytics section -->
+    <div class="card soft blue">
+      <h2>📊 Analytics at a Glance <span class="badge">New</span></h2>
+      <p>The Analytics page turns weather and satellite signals into farmer-friendly guidance:</p>
+      <ul>
+        <li><b>Weather today & next 72h rain signal</b> — plan spraying, fertilizing, and drainage.</li>
+        <li><b>7-day forecast table</b> — quickly spot heavy rain, wind, heat, or dry spells.</li>
+        <li><b>Recommendations</b> — simple actions you can take now to protect yield.</li>
+      </ul>
+      <p style="margin-top:6px">
+        Tip: Open any field and tap <b>Analytics</b> to see risks and advice for that field.
+        <span class="hint" data-tip="We combine forecast rain (mm) with probability (%) so ‘heavy rain likely’ means something actionable for you."></span>
       </p>
     </div>
 
-    <h2 style="font-size:24px;font-weight:700;margin:24px 0 12px;color:#0f172a;">✨ How CropXcel Helps You</h2>
-    <p>
-      We use Sentinel-1 and Sentinel-2 satellites to <b>monitor your fields every few days</b>.
-      Our system turns complex radar signals into <b>simple, clear insights</b>:
-    </p>
-    <ul style="margin:12px 0;padding-left:20px;">
-      <li>See which part of your field is <span style="color:#22c55e;font-weight:600;">Healthy</span>, which needs <span style="color:#f59e0b;font-weight:600;">Attention</span>, and where urgent <span style="color:#ef4444;font-weight:600;">Action</span> is needed.</li>
-      <li>Get <b>water advice cards</b> telling you whether to drain, irrigate less, or maintain your current routine.</li>
-      <li>Follow changes over time, so you can <b>act early and protect your harvest</b>.</li>
-    </ul>
-
-    <div style="margin:28px 0;padding:18px;background:#ecfdf5;border-left:6px solid #10b981;border-radius:12px;">
-      <h2 style="margin-top:0;font-size:20px;color:#065f46;">How to Use the Dashboard</h2>
-      <p>The Dashboard is your control center. It’s designed to be farmer-friendly:</p>
-      <ul style="margin:12px 0;padding-left:20px;">
-        <li><b>Map View:</b> See your field with colors showing water risk. Green is safe, yellow is warning, red is danger.</li>
-        <li><b>Per-Pass Insights:</b> Each satellite pass is a row with the date, risk level, and advice. Farmers can follow this like a diary of the field.</li>
-        <li><b>Analysis Scale (Donut):</b> A simple circle shows how much of your field is healthy vs. risky.</li>
-        <li><b>Plot History:</b> A graph shows how waterlogging risk changes over the last 4 months — helping you prepare for the future, not just today.</li>
+    <div class="card soft teal">
+      <h2>🗺️ How to Use the Dashboard</h2>
+      <ul>
+        <li><b>Map View:</b> Colors show water risk — green safe, yellow warning, red danger.</li>
+        <li><b>Per-Pass Insights:</b> Each satellite pass is like a diary entry for your field.</li>
+        <li><b>Analysis Scale (Donut):</b> See how much of your field is healthy vs risky.</li>
+        <li><b>History Plot:</b> Watch risk trends for smarter planning.</li>
       </ul>
     </div>
 
-    <h2 style="font-size:24px;font-weight:700;margin:24px 0 12px;color:#0f172a;">🌱 Why This Matters</h2>
-    <p>
-      In Cambodia, <b>every hectare of rice matters</b>. With rising climate risks, farmers need tools
-      that are <b>simple, visual, and actionable</b>. CropXcel was built to give farmers confidence —
-      to know when to irrigate, when to drain, and when to simply wait.  
-    </p>
-    <p>
-      Our dream is that no farmer has to lose their crop because they didn’t see the warning signs in time.
-    </p>
-
-    <div style="margin-top:32px;padding:16px;text-align:center;background:#f1f5f9;border-radius:12px;">
-      <h3 style="margin:0;color:#0f172a;">📖 Coming Soon</h3>
-      <p style="margin:6px 0 0 0;font-size:14px;color:#475569;">
-        This page will soon include step-by-step guides, farmer success stories, and FAQs
-        to make CropXcel even easier to use.
+    <div class="card" style="text-align:center;background:#f8fafc;">
+      <h3>📖 Coming Soon</h3>
+      <p style="margin-top:6px;color:#475569;">
+        We’ll add step-by-step guides, farmer stories, and FAQs to make CropXcel even easier.
       </p>
     </div>
   </div>
