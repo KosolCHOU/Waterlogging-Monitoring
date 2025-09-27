@@ -3,190 +3,171 @@
 
 {% block head %}
 <style>
-  .login-wrap{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;overflow:hidden}
-  .auth-card{width:min(560px,92vw);background:#fff;border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,.10);padding:28px 24px;position:relative;overflow:hidden}
-  .ribbon{position:absolute;inset:auto -20% auto -20%;top:-140px;height:220px;background:linear-gradient(90deg,#22c55e 0%,#16a34a 50%,#0ea5e9 100%);filter:blur(40px);opacity:.12;transform:rotate(-6deg);pointer-events:none}
+/* Page shell */
+.login-wrap {
+  position:fixed;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);
+}
 
-  /* NEW icon (different from login): rice in water */
-  .rice{width:68px;height:68px;margin:6px auto 10px;display:block}
-  .rice .stem{animation:stemFloat 4s ease-in-out infinite}
-  @keyframes stemFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+/* Card: scrollable inside */
+.auth-card{
+  width:min(560px,92vw);
+  max-height:90vh;
+  overflow-y:auto;
+  background:#fff;
+  border-radius:20px;
+  box-shadow:0 20px 50px rgba(0,0,0,.10);
+  padding:28px 24px;
+  position:relative;
+}
+.auth-card details summary{
+  color:#ffffff;
+  font-weight:700;
+  cursor:pointer;
+}
+@media (prefers-color-scheme: dark){
+  .auth-card details summary{ color:#e2e8f0; }
+}
 
-  .title{font-weight:800;font-size:1.6rem;letter-spacing:.2px;color:#0f172a;margin:6px 0 6px;text-align:center}
-  .subtitle{color:#334155;margin:0 0 14px;line-height:1.45;text-align:center}
+.auth-card::-webkit-scrollbar{ width:8px; }
+.auth-card::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:999px; }
 
-  .welcome-box{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:12px 14px;border-radius:12px;margin:0 0 16px;font-size:.95rem;line-height:1.45}
+/* Ribbon */
+.ribbon{position:absolute; inset:auto -20% auto -20%; top:-140px; height:220px;
+  background:linear-gradient(90deg,#22c55e 0%,#16a34a 50%,#0ea5e9 100%);
+  filter:blur(40px); opacity:.12; transform:rotate(-6deg); pointer-events:none}
 
-  .error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:10px 12px;border-radius:10px;margin-bottom:12px}
-  .field-error{color:#b91c1c;font-size:.9rem;margin-top:6px}
-  .hint{font-size:.9rem;color:#64748b;margin-top:6px}
+/* Headings */
+.title{font-weight:800; font-size:1.6rem; color:#0f172a; margin:6px 0 4px; text-align:center}
+.subtitle{color:#334155; margin:0 0 16px; line-height:1.45; text-align:center}
+.welcome-msg{background:#ecfdf5; color:#065f46; padding:10px 14px; border-radius:12px;
+             font-size:.95rem; font-weight:600; margin-bottom:16px; text-align:center}
 
-  .form-grid{display:block;gap:12px;margin-top:6px}
-  .field label{font-weight:700;color:#0f172a;display:block;margin-bottom:6px}
-  .input-wrap{position:relative;}
-  .toggle-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:.95rem}
+/* Fields – identical to login */
+.form-grid{display:block; gap:12px; margin-top:6px; max-width:420px; width:100%; margin:0 auto;}
+.field label{font-weight:700; color:#0f172a; display:block; margin-bottom:6px}
+.input-wrap{position:relative; width:100%;}
+.auth-card input, .auth-card select{
+  border:1px solid #cbd5e1; padding:12px 14px;
+  width:100%; border-radius:12px; box-sizing:border-box;
+  font-size:1rem; color:#0f172a;
+}
+.auth-card input:focus, .auth-card select:focus{
+  border-color:#0ea5e9; box-shadow:0 0 0 4px rgba(14,165,233,.15)
+}
+.toggle-eye{position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  background:none; border:0; cursor:pointer; font-size:.95rem}
 
-  /* Equal widths */
-  .auth-card input[type="text"], .auth-card input[type="password"], .cta .btn-primary{display:block;width:100%;border-radius:12px}
-  .auth-card input{border:1px solid #cbd5e1;padding:12px 14px}
-  .auth-card input:focus{border-color:#0ea5e9;box-shadow:0 0 0 4px rgba(14,165,233,.15)}
+/* Hints & errors */
+.hint{font-size:.9rem; color:#64748b; margin-top:6px}
+.field-error{color:#b91c1c; font-size:.9rem; margin-top:6px}
 
-  .cta{margin-top:14px;display:block}
-  .btn{appearance:none;border:0;outline:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:12px;font-weight:800;text-decoration:none;transition:transform .05s ease,box-shadow .2s ease,background .2s ease,color .2s ease}
-  .btn:active{transform:translateY(1px)}
-  .btn-primary{color:#fff;width:100%;text-align:center;background:linear-gradient(180deg,#0ea5e9,#0284c7);box-shadow:0 8px 20px rgba(2,132,199,.35)}
-  .btn-primary:hover{box-shadow:0 10px 26px rgba(2,132,199,.45)}
+/* Equal widths for inputs & button */
+.input-wrap input,
+.cta .btn-primary { width:100%; max-width:100%; display:block; border-radius:12px; }
 
-  .help{margin-top:12px;font-size:.95rem;color:#475569;text-align:center}
-  .help a{color:#0284c7;text-decoration:none;font-weight:700}
-  .help a:hover{text-decoration:underline}
-  .small{margin-top:10px;font-size:.82rem;color:#64748b;text-align:center}
+/* CTA */
+.cta{margin-top:14px; max-width:420px; margin:14px auto 0; display:block;}
+.btn{appearance:none; border:0; outline:0; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  gap:8px; padding:12px 16px; border-radius:12px; font-weight:800;
+  text-decoration:none; transition:transform .05s ease, box-shadow .2s ease, background .2s ease, color .2s ease;}
+.btn:active{transform:translateY(1px)}
+.btn-primary{color:#fff; background:linear-gradient(180deg,#0ea5e9,#0284c7); box-shadow:0 8px 20px rgba(2,132,199,.35)}
+.btn-primary:hover{box-shadow:0 10px 26px rgba(2,132,199,.45)}
 
-  @media (prefers-color-scheme: dark){
-    .login-wrap{background:linear-gradient(180deg,#0b1220 0%,#0b1020 100%)}
-    .auth-card{background:#0f172a;box-shadow:0 20px 50px rgba(0,0,0,.5)}
-    .title{color:#e2e8f0}.subtitle{color:#cbd5e1}
-    .auth-card input{background:linear-gradient(180deg,#0c1323 0%,#0b1220 100%);border-color:#1f2937;color:#e2e8f0}
-    .help{color:#cbd5e1}.small{color:#94a3b8}.field label{color:#e2e8f0}
-    .welcome-box{background:#052e16;border-color:#14532d;color:#bbf7d0}
-  }
+/* Help link */
+.help{margin-top:12px; font-size:.95rem; color:#475569; text-align:center}
+.help a{color:#0284c7; text-decoration:none; font-weight:700}
+.help a:hover{text-decoration:underline}
 
-  .form-grid,
-  .cta {
-    max-width: 420px;  /* cap width for large screens */
-    width: 100%;       /* shrink on smaller screens */
-    margin: 0 auto;    /* centers horizontally */
-  }
-
-  .input-wrap {
-    width: 100%;
-  }
-
-  .input-wrap input,
-  .cta .btn-primary {
-    width: 100%;
-    box-sizing: border-box; /* include padding & border in width */
-  }
-
+/* Dark mode parity */
+@media (prefers-color-scheme: dark){
+  .login-wrap{background:linear-gradient(180deg,#0b1220 0%,#0b1020 100%)}
+  .auth-card{background:#0f172a; box-shadow:0 20px 50px rgba(0,0,0,.5)}
+  .title{color:#e2e8f0} .subtitle{color:#cbd5e1}
+  .auth-card input,.auth-card select{background:linear-gradient(180deg,#0c1323,#0b1220); border-color:#1f2937; color:#e2e8f0}
+  .btn-primary{background:linear-gradient(180deg,#0284c7,#0369a1)}
+  .help{color:#cbd5e1} .field label{color:#e2e8f0}
+  .welcome-msg{background:#064e3b; color:#a7f3d0}
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="login-wrap">
   <form method="post" class="auth-card" novalidate>
-    <div class="ribbon" aria-hidden="true"></div>
-
-    <!-- Different icon: Rice plant in water -->
-    <svg class="rice" viewBox="0 0 72 72" fill="none" aria-hidden="true">
-      <!-- Water ripples -->
-      <path d="M12 56c8-4 16-4 24 0 8-4 16-4 24 0" stroke="#93c5fd" stroke-width="2" opacity=".55" stroke-linecap="round"/>
-      <path d="M16 60c6-3 12-3 20 0 6-3 12-3 20 0" stroke="#bae6fd" stroke-width="2" opacity=".45" stroke-linecap="round"/>
-      <!-- Stem & leaves -->
-      <g class="stem">
-        <path d="M36 50V34" stroke="#16a34a" stroke-width="3" stroke-linecap="round"/>
-        <path d="M36 38c-5-2-9-6-11-11 5 1 9 4 12 9" fill="#22c55e" opacity=".95"/>
-        <path d="M36 40c4-3 8-7 9-13-5 2-8 6-10 11" fill="#86efac" opacity=".95"/>
-        <!-- grains -->
-        <circle cx="48" cy="28" r="2.4" fill="#fbbf24"/>
-        <circle cx="45" cy="24" r="2.1" fill="#f59e0b"/>
-        <circle cx="42" cy="21" r="1.9" fill="#fbbf24"/>
-      </g>
-    </svg>
+    <div class="ribbon"></div>
 
     <h1 class="title">Create your account</h1>
-    <!-- <p class="subtitle">Join CropXcel to save your fields and get water-risk alerts for rice.</p> -->
-
-    <!-- Friendly welcome -->
-    <div class="welcome-box">
-      🌾 <strong>Welcome to CropXcel!</strong><br>
-      We help Cambodian rice farmers watch for waterlogging. Sign up to save your fields,
-      receive simple alerts in plain language, and get guidance when water levels look risky.
-    </div>
+    <p class="subtitle">It only takes a minute — then you’ll get personalized water-risk alerts and tools for your fields.</p>
+    <div class="welcome-msg">🌱 Welcome! Join CropXcel today and make smarter decisions for healthier, higher-yield rice.</div>
 
     {% csrf_token %}
-    {% if form.non_field_errors %}
-      <div class="error" role="alert">{{ form.non_field_errors }}</div>
-    {% endif %}
-
     <div class="form-grid">
       <div class="field">
-        <label for="{{ form.username.id_for_label }}">Username</label>
+        <label>Username</label>
         <div class="input-wrap">{{ form.username }}</div>
         {% if form.username.errors %}
-          <div class="field-error">{{ form.username.errors|striptags }}</div>
-        {% else %}
-          <div class="hint">Pick a simple name you’ll remember (e.g., khmerfarmer23).</div>
+          <div class="field-error">🌱 Please enter a username — it’s required.</div>
         {% endif %}
       </div>
 
       <div class="field">
-        <label for="{{ form.password1.id_for_label }}">Password</label>
+        <label>Password</label>
         <div class="input-wrap">
           {{ form.password1 }}
-          <button type="button" class="toggle-eye" data-target-id="{{ form.password1.id_for_label }}" aria-label="Show password" title="Show/Hide">👁️</button>
+          <button type="button" class="toggle-eye">👁️</button>
         </div>
-        <div class="hint" id="capsWarn1" style="display:none;">Caps Lock is ON — passwords are case-sensitive.</div>
         {% if form.password1.errors %}
-          <div class="field-error">{{ form.password1.errors|striptags }}</div>
-        {% else %}
-          <div class="hint">Use at least 8 characters. A mix of letters and numbers is safest.</div>
+          <div class="field-error">🔒 Password must be at least 8 characters.</div>
         {% endif %}
       </div>
 
       <div class="field">
-        <label for="{{ form.password2.id_for_label }}">Confirm password</label>
+        <label>Confirm password</label>
         <div class="input-wrap">
           {{ form.password2 }}
-          <button type="button" class="toggle-eye" data-target-id="{{ form.password2.id_for_label }}" aria-label="Show password" title="Show/Hide">👁️</button>
+          <button type="button" class="toggle-eye">👁️</button>
         </div>
-        <div class="hint" id="capsWarn2" style="display:none;">Caps Lock is ON.</div>
         {% if form.password2.errors %}
-          <div class="field-error">{{ form.password2.errors|striptags }}</div>
-        {% else %}
-          <div class="hint">Re-type it so we can be sure it’s correct.</div>
+          <div class="field-error">✍️ Your confirmation doesn’t match the password.</div>
         {% endif %}
       </div>
     </div>
+
+    <details {% if form.errors %}open{% endif %} style="margin-top:12px">
+      <summary>More details (optional)</summary>
+      <div class="form-grid" style="margin-top:10px">
+        <div class="field"><label>Full name</label>{{ form.full_name }}</div>
+        <div class="field"><label>Phone</label>{{ form.phone }}</div>
+        <div class="field"><label>Date of birth</label>{{ form.date_of_birth }}</div>
+        <div class="field"><label>Main crop</label>{{ form.main_crop }}</div>
+        <div class="field"><label>Province</label>{{ form.province }}</div>
+      </div>
+    </details>
 
     <div class="cta">
       <button class="btn btn-primary" type="submit">🌱 Create account</button>
     </div>
 
     <div class="help">Already have one? <a href="{% url 'login' %}">Sign in</a></div>
-    <div class="small">By creating an account, you agree to our terms and respect for farmer data.</div>
   </form>
 </div>
 
 <script>
-  (function () {
-    const u = document.getElementById('{{ form.username.id_for_label }}');
-    const p1 = document.getElementById('{{ form.password1.id_for_label }}');
-    const p2 = document.getElementById('{{ form.password2.id_for_label }}');
-
-    if (u){u.setAttribute('placeholder','👤 Choose a username');u.setAttribute('autocomplete','username');u.setAttribute('inputmode','text');u.setAttribute('autofocus','autofocus');}
-    if (p1){p1.setAttribute('placeholder','🔒 Create a password');p1.setAttribute('autocomplete','new-password');}
-    if (p2){p2.setAttribute('placeholder','🔒 Confirm your password');p2.setAttribute('autocomplete','new-password');}
-
-    document.querySelectorAll('.toggle-eye').forEach(btn => {
-      const id = btn.getAttribute('data-target-id');
-      const input = document.getElementById(id);
-      if (!input) return;
-      btn.addEventListener('click', () => {
-        const isPwd = input.type === 'password';
-        input.type = isPwd ? 'text' : 'password';
-        btn.textContent = isPwd ? '🙈' : '👁️';
-      });
+  // Toggle show/hide password
+  document.querySelectorAll('.toggle-eye').forEach(btn=>{
+    const input = btn.previousElementSibling;
+    btn.addEventListener('click', ()=>{
+      const isPwd = input.type === 'password';
+      input.type = isPwd ? 'text' : 'password';
+      btn.textContent = isPwd ? '🙈' : '👁️';
     });
-
-    function caps(el, noticeId){
-      const n = document.getElementById(noticeId);
-      if (!el || !n) return;
-      el.addEventListener('keyup', e => {
-        if ('getModifierState' in e) n.style.display = e.getModifierState('CapsLock') ? 'block' : 'none';
-      });
-      el.addEventListener('focusout',()=> n.style.display='none');
-    }
-    caps(p1, 'capsWarn1'); caps(p2, 'capsWarn2');
-  })();
+  });
 </script>
 {% endblock %}

@@ -11,7 +11,7 @@ def avatar_upload_to(instance, filename):
     ext = ext.lower() if ext else ".jpg"
     return f"avatars/user_{instance.user_id}/{timezone.now():%Y/%m}/{uuid4().hex}{ext}"
 
-UNSPECIFIED = "unspecified"
+UNSPECIFIED = ""
 PROVINCE_CHOICES = [
     ("Banteay Meanchey", "Banteay Meanchey"),
     ("Battambang", "Battambang"),
@@ -50,11 +50,8 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     full_name = models.CharField(max_length=120, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
-    main_crop = models.CharField(max_length=64, choices=MAIN_CROP_CHOICES,
-                                 default=UNSPECIFIED, blank=True)
-    province = models.CharField(max_length=64, choices=PROVINCE_CHOICES,
-                                default=UNSPECIFIED, blank=True)
-    # ✅ NEW: primary contact number
+    main_crop = models.CharField(max_length=64, choices=MAIN_CROP_CHOICES, blank=True)
+    province = models.CharField(max_length=64, choices=PROVINCE_CHOICES, blank=True)
     phone = models.CharField(max_length=20, blank=True, help_text="Primary contact number")
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 

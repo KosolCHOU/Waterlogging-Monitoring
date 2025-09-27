@@ -21,7 +21,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .forms import ProfileImageForm, ProfileForm
 from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import logout
+from django.contrib.auth import logout, login
 from django.db.models import Prefetch
 from django.urls import reverse
 from django.utils import timezone
@@ -31,6 +31,7 @@ from .models import FieldAOI, AnalysisJob, Profile
 from analysis.engine import export_stack_from_geom, export_s1_timeseries
 from analysis.insights import compute_temporal_engine_s1, build_insights_html, classify_and_area
 from analysis.weather import get_forecast_for_field
+from .forms import SignupForm
 
 # New: local geodesic area (no GEE)
 from shapely.geometry import shape as shp_shape  
@@ -720,15 +721,21 @@ class LogoutViewAllowGet(View):
         return render(request, self.template_name)
 
 def signup(request):
+    """
+    Signup with optional profile fields. Only username/password are required.
+    """
+    next_url = request.GET.get("next") or request.POST.get("next") or "profile"
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = SignupForm(request.POST)
         if form.is_valid():
-            user = form.save()
+            user = form.save(commit=True)   # <-- ensure our custom save runs
             login(request, user)
-            next_url = request.GET.get("next") or request.POST.get("next") or "/"
+            messages.success(request, "Welcome! Your account is ready.")
             return redirect(next_url)
+        else:
+            messages.error(request, "Please fix the errors below.")
     else:
-        form = UserCreationForm()
+        form = SignupForm()
     return render(request, "registration/signup.html", {"form": form})
 
 @login_required
