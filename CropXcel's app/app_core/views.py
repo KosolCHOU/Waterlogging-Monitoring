@@ -744,7 +744,6 @@ def edit_profile(request):
         form = ProfileForm(instance=prof)
     return render(request, "edit_profile.html", {"form": form})
 
-@login_required
 def support(request):
     # super simple support page; replace with your real flow later
     return render(request, "support.html", {})
