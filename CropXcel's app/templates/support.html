@@ -1,10 +1,93 @@
 {% extends "base.html" %}
 {% block title %}Support – CropXcel{% endblock %}
+{% block head %}
+<style>
+  :root{
+    --bg:#eef7f2;
+    --card:#ffffff;
+    --ink:#111827;
+    --muted:#6b7280;
+    --line:rgba(17,24,39,.08);
+    --green:#10b981;
+    --blue:#0088cc;
+  }
+
+  html, body { background:var(--bg); }
+
+  /* Page frame */
+  .support-wrap{
+    position:fixed;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;  /* no scroll */
+    background:var(--bg);
+    padding:0; margin:0;
+  }
+
+  /* Card */
+  .support-card{
+    background:var(--card);
+    border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.08);
+    border:1px solid rgba(17,24,39,.06);
+    padding:28px;
+    text-align:center;
+    max-width:420px;
+  }
+
+  .support-card h2{ font-size:1.6rem; margin-bottom:12px; }
+  .support-card p{ color:var(--muted); margin:10px 0; }
+
+  /* Buttons */
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; max-width:280px;
+    padding:12px 18px; border-radius:10px;
+    text-decoration:none; font-weight:600; color:#fff;
+    transition:.25s;
+    margin:8px auto;
+  }
+  .btn-email{ background:var(--green); }
+  .btn-email:hover{ filter:brightness(.95); }
+  .btn-telegram{ background:var(--blue); }
+  .btn-telegram:hover{ filter:brightness(.95); }
+
+  /* Back to profile link button */
+  .btn-profile{
+    background:none;
+    color:var(--blue);
+    font-weight:500;
+    font-size:0.95rem;
+    padding:8px 0;
+    text-decoration:underline;
+    border:none;
+    box-shadow:none;
+    margin-top:12px;
+    transition:color .2s;
+  }
+  .btn-profile:hover{
+    color:#005f99;
+    text-decoration:none;
+  }
+
+  .note{ font-size:.9rem; color:var(--muted); margin-top:14px; }
+</style>
+{% endblock %}
 {% block content %}
-<div style="max-width:520px;margin:32px auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08)">
-  <h2>💬 Need help?</h2>
-  <p>Send us a message and we’ll get back soon.</p>
-  <p><a class="btn" href="mailto:support@cropxcel.com">✉️ Email Support</a></p>
-  <p><a class="btn" href="https://t.me/your_support_channel">📲 Telegram</a></p>
+<div style="max-width:560px;margin:40px auto;background:#fff;padding:28px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);text-align:center">
+  <h2 style="font-size:1.8rem;margin-bottom:12px;">🌾 We’re here to help</h2>
+  <p style="color:#555;margin-bottom:20px;">Got a question or need assistance? Our team is ready to support you.</p>
+  
+  <div style="display:flex;flex-direction:column;gap:14px;align-items:center">
+    <a class="btn btn-email" href="mailto:support@cropxcel.com">✉️ Email Support</a>
+    <a class="btn btn-telegram" href="https://t.me/your_support_channel">📲 Telegram Chat</a>
+    <a class="btn-profile" href="{% url 'profile' %}">👤 Back to Profile</a>
+  </div>
+  
+  <p style="margin-top:20px;font-size:0.9rem;color:#777;">
+    💡 We usually reply within <strong>24 hours</strong>.
+  </p>
 </div>
 {% endblock %}

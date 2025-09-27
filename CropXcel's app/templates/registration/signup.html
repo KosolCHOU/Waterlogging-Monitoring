@@ -21,9 +21,9 @@
   .field-error{color:#b91c1c;font-size:.9rem;margin-top:6px}
   .hint{font-size:.9rem;color:#64748b;margin-top:6px}
 
-  .form-grid{display:grid;gap:12px;margin-top:6px}
+  .form-grid{display:block;gap:12px;margin-top:6px}
   .field label{font-weight:700;color:#0f172a;display:block;margin-bottom:6px}
-  .input-wrap{position:relative}
+  .input-wrap{position:relative;}
   .toggle-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:.95rem}
 
   /* Equal widths */
@@ -50,6 +50,24 @@
     .help{color:#cbd5e1}.small{color:#94a3b8}.field label{color:#e2e8f0}
     .welcome-box{background:#052e16;border-color:#14532d;color:#bbf7d0}
   }
+
+  .form-grid,
+  .cta {
+    max-width: auto;  /* cap width for large screens */
+    width: 100%;       /* shrink on smaller screens */
+    margin: 0 auto;    /* centers horizontally */
+  }
+
+  .input-wrap {
+    width: 100%;
+  }
+
+  .input-wrap input,
+  .cta .btn-primary {
+    width: 100%;
+    box-sizing: border-box; /* include padding & border in width */
+  }
+
 </style>
 {% endblock %}
 
