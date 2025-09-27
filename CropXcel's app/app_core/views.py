@@ -755,10 +755,20 @@ def signup(request):
             # ----------------------------------------------------
 
             login(request, user)
-            messages.success(request, "Welcome! Your account is ready.")
+            messages.success(request, "🌱 Welcome! Your account is ready.")
             return redirect(next_url)
         else:
-            messages.error(request, "Please fix the errors below.")
+            # collect all field + non-field errors
+            error_list = []
+            for field, errs in form.errors.items():
+                for err in errs:
+                    if field == "__all__":
+                        error_list.append(err)  # e.g. password mismatch
+                    else:
+                        error_list.append(f"{field.capitalize()}: {err}")
+            
+            # show them all in one friendly message
+            messages.error(request, "⚠️ " + " | ".join(error_list))
     else:
         form = SignupForm()
     return render(request, "registration/signup.html", {"form": form})
