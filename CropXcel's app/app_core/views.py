@@ -19,7 +19,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from .forms import ProfileImageForm
+from .forms import ProfileImageForm, ProfileForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import logout
 from django.db.models import Prefetch
@@ -72,7 +72,12 @@ def aoi_upload(request):
         ), encoding="utf-8")
 
         field = FieldAOI# after creating field
-        field = FieldAOI.objects.create(name=user_name, geom=geom_geojson, area_ha=area_ha)
+        field = FieldAOI.objects.create(
+            owner=request.user if request.user.is_authenticated else None,  # NEW
+            name=user_name,
+            geom=geom_geojson,
+            area_ha=area_ha
+        )
 
         # if user didn't type a name, auto-assign
         if not user_name:
@@ -634,6 +639,11 @@ def profile(request):
     user_obj: User = request.user
     prof, _ = Profile.objects.get_or_create(user=user_obj)  # <-- ensure exists
 
+    # NEW: my fields summary
+    my_fields = FieldAOI.objects.filter(owner=user_obj)
+    fields_count = my_fields.count()
+    fields_area  = round(sum([f.area_ha or 0.0 for f in my_fields]), 2)
+
     # initials fallback
     display_name = (user_obj.get_full_name() or user_obj.get_username() or "").strip()
     initials = "".join([p[0] for p in display_name.split() if p][:2]).upper() \
@@ -675,6 +685,8 @@ def profile(request):
         "last_login": user_obj.last_login or user_obj.date_joined,
         "now": timezone.now(),
         "form": form,
+        "fields_count": fields_count,
+        "fields_area": f"{fields_area:.2f}",
     }
     return render(request, "profile.html", ctx)
 
@@ -704,3 +716,21 @@ def signup(request):
     else:
         form = UserCreationForm()
     return render(request, "registration/signup.html", {"form": form})
+
+@login_required
+def edit_profile(request):
+    prof, _ = Profile.objects.get_or_create(user=request.user)
+    if request.method == "POST":
+        form = ProfileForm(request.POST, instance=prof)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated.")
+            return redirect("profile")
+    else:
+        form = ProfileForm(instance=prof)
+    return render(request, "edit_profile.html", {"form": form})
+
+@login_required
+def support(request):
+    # super simple support page; replace with your real flow later
+    return render(request, "support.html", {})

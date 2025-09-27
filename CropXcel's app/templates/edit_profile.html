@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Edit Profile – CropXcel{% endblock %}
+{% block content %}
+<div style="max-width:520px;margin:32px auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08)">
+  <h2 style="margin:0 0 12px">✏️ Edit My Info</h2>
+  <form method="post">{% csrf_token %} {{ form.as_p }}
+    <button class="btn btn-primary" type="submit" style="margin-top:8px">Save</button>
+  </form>
+</div>
+{% endblock %}

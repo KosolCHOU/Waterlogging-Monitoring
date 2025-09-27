@@ -1,5 +1,5 @@
 from django import forms
-from .models import AOI
+from .models import Profile
 
 class AOIUploadForm(forms.Form):
     aoi_file = forms.FileField(
@@ -7,10 +7,6 @@ class AOIUploadForm(forms.Form):
         help_text="Upload a .geojson file describing your field",
         allow_empty_file=False
     )
-
-# --- Profile image form ---
-from .models import Profile
-from django import forms
 
 class ProfileImageForm(forms.ModelForm):
     class Meta:
@@ -30,4 +26,25 @@ class ProfileImageForm(forms.ModelForm):
             raise forms.ValidationError("Use JPEG/PNG/WEBP.")
         return f
 
+KH_PROVINCES = [
+    ("Banteay Meanchey","Banteay Meanchey"), ("Battambang","Battambang"),
+    ("Kampong Cham","Kampong Cham"), ("Kampong Chhnang","Kampong Chhnang"),
+    ("Kampong Speu","Kampong Speu"), ("Kampong Thom","Kampong Thom"),
+    ("Kampot","Kampot"), ("Kandal","Kandal"), ("Kep","Kep"), ("Kratié","Kratié"),
+    ("Mondul Kiri","Mondul Kiri"), ("Oddar Meanchey","Oddar Meanchey"),
+    ("Pailin","Pailin"), ("Phnom Penh","Phnom Penh"), ("Preah Sihanouk","Preah Sihanouk"),
+    ("Preah Vihear","Preah Vihear"), ("Prey Veng","Prey Veng"),
+    ("Pursat","Pursat"), ("Ratanak Kiri","Ratanak Kiri"), ("Siem Reap","Siem Reap"),
+    ("Stung Treng","Stung Treng"), ("Svay Rieng","Svay Rieng"),
+    ("Takeo","Takeo"), ("Tbong Khmum","Tbong Khmum"),
+]
 
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ["main_crop", "province"]
+        widgets = {
+            "main_crop": forms.TextInput(attrs={"class":"input","placeholder":"e.g., Sen Kra’op"}),
+            "province":  forms.Select(choices=[("", "— Select province —")]+KH_PROVINCES,
+                                      attrs={"class":"input"}),
+        }

@@ -154,15 +154,34 @@
       </form>
     </div>
 
-    <!-- Identity -->
-    <div class="name">{{ user_obj.get_full_name|default:user_obj.username }}</div>
-    <div class="muted">{{ user_obj.email }}</div>
+        <!-- Welcome + badge -->
+    <div class="name">👩‍🌾 Welcome, {{ user_obj.get_full_name|default:user_obj.username }}!</div>
+    <div class="muted">
+      <span style="background:#ecfdf5; color:#065f46; padding:4px 10px; border-radius:999px; font-size:13px; font-weight:600;">
+        🌟 CropXcel Early Member
+      </span>
+    </div>
     <div class="sp12"></div>
 
-    <!-- Rows (no duplicate data beyond essentials) -->
+    <!-- Info rows -->
     <div class="rows">
-      <div class="row"><div class="k">Member since</div><div class="v">{{ member_since|date:"M d, Y" }}</div></div>
-      <div class="row"><div class="k">Last login</div><div class="v">{{ last_login|date:"M d, Y H:i" }}</div></div>
+      <div class="row"><div class="k">📅 Member since</div><div class="v">{{ member_since|date:"M d, Y" }}</div></div>
+      <div class="row"><div class="k">⏱ Last login</div><div class="v">{{ last_login|date:"M d, Y H:i" }}</div></div>
+      <div class="row"><div class="k">📅 Member since</div><div class="v">{{ member_since|date:"M d, Y" }}</div></div>
+      <div class="row"><div class="k">🌾 Main crop</div><div class="v">{{ profile_obj.main_crop|default:"—" }}</div></div>
+      <div class="row"><div class="k">📍 Province</div><div class="v">{{ profile_obj.province|default:"—" }}</div></div>
+      <div class="row"><div class="k">🗺️ Fields registered</div>
+        <div class="v">{{ fields_count }} fields – {{ fields_area }} ha total</div>
+      </div>
+      <div class="row"><div class="k">📧 Email</div><div class="v">{{ user_obj.email }}</div></div>
+    </div>
+
+    <div class="sp16"></div>
+
+    <!-- Action buttons -->
+    <div style="display:flex; flex-direction:column; gap:12px; text-align:center;">
+      <a href="{% url 'edit_profile' %}" class="btn">✏️ Edit My Info</a>
+      <a href="{% url 'support' %}" class="btn">💬 Support / Help</a>
     </div>
 
     <div class="sp16"></div>
