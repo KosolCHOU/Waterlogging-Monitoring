@@ -4,98 +4,37 @@
 {% block head %}
 <style>
   :root{
-    --bg:#eef7f2;
-    --card:#ffffff;
-    --ink:#111827;
-    --muted:#6b7280;
-    --line:rgba(17,24,39,.08);
-    --ring:#10b981;
-    --ring-2:#6ee7b7;
+    --bg:#eef7f2; --card:#ffffff; --ink:#111827; --muted:#6b7280;
+    --line:rgba(17,24,39,.08); --ring:#10b981; --ring-2:#6ee7b7;
   }
   html, body { background:var(--bg); }
-
-  /* Frame: static (no scroll) and centered like profile */
-  .profile-wrap{
-    position:fixed; inset:0;
-    display:flex; justify-content:center; align-items:center;
-    overflow:hidden; background:var(--bg);
-    padding:0; margin:0;
-  }
-
-  .card{
-    width:min(720px, 92vw);
-    background:var(--card);
-    border-radius:16px;
-    box-shadow:0 10px 30px rgba(0,0,0,.08);
-    border:1px solid rgba(17,24,39,.06);
-  }
+  .profile-wrap{ position:fixed; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; background:var(--bg); }
+  .card{ width:min(720px, 92vw); background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.08); border:1px solid rgba(17,24,39,.06); }
   .pad{ padding:20px; }
   .title{ font-weight:800; margin:0 0 12px; display:flex; gap:8px; align-items:center; }
   .muted{ color:var(--muted) }
 
-  /* Form layout */
-  .form-grid{
-    display:grid;
-    grid-template-columns:1fr;
-    gap:14px;
-  }
-  @media (min-width:720px){
-    .form-grid{ grid-template-columns:1fr 1fr; }
-    .span-2{ grid-column:1 / -1; }
-  }
+  .form-grid{ display:grid; grid-template-columns:1fr; gap:14px; }
+  @media (min-width:720px){ .form-grid{ grid-template-columns:1fr 1fr; } .span-2{ grid-column:1/-1; } }
 
   .field{ display:flex; flex-direction:column; gap:6px; }
   .label{ font-size:14px; font-weight:700; color:#0b1220; }
   .hint{ font-size:12px; color:var(--muted); }
 
-  .input, .select{
-    width:100%;
-    padding:12px 14px;
-    border-radius:12px;
-    border:1px solid rgba(17,24,39,.12);
-    background:#fff; color:var(--ink);
-    font-size:14px; outline:none;
-  }
-  .input:focus, .select:focus{
-    border-color:#10b981; box-shadow:0 0 0 4px rgba(16,185,129,.12);
-  }
+  .input, .select{ width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(17,24,39,.12); background:#fff; color:var(--ink); font-size:14px; outline:none; }
+  .input:focus, .select:focus{ border-color:#10b981; box-shadow:0 0 0 4px rgba(16,185,129,.12); }
 
   .row-inline{ display:flex; align-items:center; gap:10px; }
-  .age-chip{
-    background:#ecfdf5; color:#065f46;
-    border:1px solid #a7f3d0;
-    padding:8px 12px; border-radius:999px;
-    font-size:13px; font-weight:700;
-    white-space:nowrap;
-  }
+  .age-chip{ background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; padding:8px 12px; border-radius:999px; font-size:13px; font-weight:700; white-space:nowrap; }
 
-  /* Buttons */
   .actions{ display:flex; gap:12px; margin-top:8px; }
-  .btn{
-    display:inline-flex; align-items:center; justify-content:center; gap:8px;
-    border:1px solid rgba(17,24,39,.12);
-    padding:12px 16px; border-radius:12px; background:#fff; color:var(--ink);
-    font-weight:700; cursor:pointer; text-decoration:none; width:100%;
-  }
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid rgba(17,24,39,.12); padding:12px 16px; border-radius:12px; background:#fff; color:var(--ink); font-weight:700; cursor:pointer; text-decoration:none; width:100%; }
   .btn:hover{ background:#f9fafb; }
-  .btn-primary{
-    background:linear-gradient(180deg,#16c982,#10b981);
-    color:#0b1220; border:none;
-    box-shadow:0 10px 24px rgba(16,185,129,.22);
-  }
-  .btn-danger{
-    background:#fff; color:#b91c1c;
-    border:1px solid #fca5a5;
-  }
-  .btn-danger:hover{ background:#fee2e2; }
+  .btn-primary{ background:linear-gradient(180deg,#16c982,#10b981); color:#0b1220; border:none; box-shadow:0 10px 24px rgba(16,185,129,.22); }
 
-  /* Error styles (farmer-friendly) */
   .errors{ background:#fef2f2; border:1px solid #fecaca; color:#7f1d1d; padding:12px; border-radius:12px; margin-bottom:6px; }
   .field .errorlist{ margin:0; padding:0; list-style:none; }
-  .field .errorlist li{
-    margin-top:4px; font-size:12px; color:#b91c1c;
-    background:#fff1f2; border:1px dashed #fecdd3; padding:6px 8px; border-radius:8px;
-  }
+  .field .errorlist li{ margin-top:4px; font-size:12px; color:#b91c1c; background:#fff1f2; border:1px dashed #fecdd3; padding:6px 8px; border-radius:8px; }
 </style>
 {% endblock %}
 
@@ -103,9 +42,7 @@
 <div class="profile-wrap">
   <div class="card pad">
     <h2 class="title">✏️ Edit My Info</h2>
-    <p class="muted" style="margin-top:-6px;margin-bottom:8px">
-      Keep this up to date so CropXcel can tailor water-risk tips for your fields.
-    </p>
+    <p class="muted" style="margin-top:-6px;margin-bottom:8px">Keep this up to date so CropXcel can tailor water-risk tips for your fields.</p>
 
     {% if form.non_field_errors %}
       <div class="errors">
@@ -118,17 +55,36 @@
 
       <div class="form-grid">
 
-        <!-- Full name -->
-        <div class="field span-2">
+        {# 🔁 CHANGED: Full name (left) + Phone (right) #}
+        <div class="field">
           <label class="label" for="{{ form.full_name.id_for_label }}">Full name</label>
-          {# Preferred: your Django form sets widget attrs {'class': 'input', 'placeholder': 'e.g., Sokha Phan'} #}
           {{ form.full_name }}
           {% if form.full_name.errors %}{{ form.full_name.errors }}{% else %}
             <div class="hint">Use your real name so support can address you properly.</div>
           {% endif %}
         </div>
 
-        <!-- Date of birth + live Age -->
+        <div class="field">
+          <label class="label">
+            Phone
+          </label>
+
+          {# accept either form.phone or form.contact_phone, depending on your form name #}
+          {% if form.phone %}
+            {{ form.phone }}
+            {% if form.phone.errors %}{{ form.phone.errors }}{% endif %}
+          {% elif form.contact_phone %}
+            {{ form.contact_phone }}
+            {% if form.contact_phone.errors %}{{ form.contact_phone.errors }}{% endif %}
+          {% else %}
+            {# Fallback input if the form field name differs; posts as 'phone' #}
+            <input type="tel" name="phone" id="id_phone" class="input" placeholder="e.g., 012 345 678" pattern="^[0-9+\s()-]{6,20}$">
+          {% endif %}
+
+          <div class="hint">We’ll use this to contact you about field support.</div>
+        </div>
+
+        <!-- Date of birth -->
         <div class="field">
           <label class="label" for="{{ form.date_of_birth.id_for_label }}">Date of birth</label>
           {{ form.date_of_birth }}
@@ -137,6 +93,7 @@
           {% endif %}
         </div>
 
+        <!-- Age (computed) -->
         <div class="field">
           <label class="label">Age</label>
           <div class="row-inline">
@@ -145,7 +102,7 @@
           </div>
         </div>
 
-        <!-- Main crop (select) -->
+        <!-- Main crop -->
         <div class="field">
           <label class="label" for="id_main_crop">Main crop</label>
           {% if crop_choices %}
@@ -163,7 +120,7 @@
           <div class="hint">Pick your main rice variety.</div>
         </div>
 
-        <!-- Province (select) -->
+        <!-- Province -->
         <div class="field">
           <label class="label" for="id_province">Province</label>
           {% if province_choices %}
@@ -181,15 +138,6 @@
           <div class="hint">We use this for local weather and advice.</div>
         </div>
 
-        <!-- Optional: email (read-only display via form or context) -->
-        {% if form.email %}
-        <div class="field span-2">
-          <label class="label" for="{{ form.email.id_for_label }}">Email</label>
-          {{ form.email }}
-          {% if form.email.errors %}{{ form.email.errors }}{% endif %}
-        </div>
-        {% endif %}
-
       </div>
 
       <div class="actions">
@@ -199,14 +147,15 @@
     </form>
 
     <script>
-      // attach default classes to widgets if your form didn’t set them
+      // Ensure widgets have the right classes (in case your form didn't set them)
       (function ensureClasses(){
         const map = {
           'id_full_name': 'input',
           'id_date_of_birth': 'input',
           'id_main_crop': 'select',
           'id_province': 'select',
-          'id_email': 'input'
+          'id_phone': 'input',
+          'id_contact_phone': 'input',
         };
         Object.entries(map).forEach(([id, cls])=>{
           const el = document.getElementById(id);
@@ -214,23 +163,23 @@
         });
       })();
 
-      // Live age calculator
+      // Live age calculator (unchanged)
       function calcAge(iso){
         if(!iso) return null;
         const dob = new Date(iso);
         if(isNaN(dob)) return null;
-        const today = new Date();
-        let age = today.getFullYear() - dob.getFullYear();
-        const m = today.getMonth() - dob.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-        return age >= 0 ? age : null;
+        const t = new Date();
+        let a = t.getFullYear() - dob.getFullYear();
+        const m = t.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && t.getDate() < dob.getDate())) a--;
+        return a >= 0 ? a : null;
       }
       function updateAge(){
-        const dobInput = document.getElementById('id_date_of_birth') || document.querySelector('[name="date_of_birth"]');
+        const i = document.getElementById('id_date_of_birth') || document.querySelector('[name="date_of_birth"]');
         const chip = document.getElementById('ageChip');
-        if(!dobInput || !chip) return;
-        const age = calcAge(dobInput.value);
-        chip.textContent = (age===null) ? '— years' : (age + ' years');
+        if(!i || !chip) return;
+        const a = calcAge(i.value);
+        chip.textContent = (a===null) ? '— years' : (a + ' years');
       }
       document.addEventListener('input', (e)=>{
         if(e.target && (e.target.id==='id_date_of_birth' || e.target.name==='date_of_birth')) updateAge();

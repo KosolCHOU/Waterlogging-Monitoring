@@ -1,5 +1,6 @@
 from django import forms
 from .models import Profile
+import re
 
 class AOIUploadForm(forms.Form):
     aoi_file = forms.FileField(
@@ -17,10 +18,8 @@ class ProfileImageForm(forms.ModelForm):
         f = self.cleaned_data.get("avatar")
         if not f:
             return f
-        # Size limit: 2 MB
         if f.size > 2 * 1024 * 1024:
             raise forms.ValidationError("Please upload an image ≤ 2MB.")
-        # Basic type check
         valid = {"image/jpeg", "image/png", "image/webp"}
         if getattr(f, "content_type", "") not in valid:
             raise forms.ValidationError("Use JPEG/PNG/WEBP.")
@@ -42,10 +41,43 @@ KH_PROVINCES = [
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ["full_name", "date_of_birth", "main_crop", "province"]
+        fields = ["full_name", "phone", "date_of_birth", "main_crop", "province"]
         widgets = {
             "full_name": forms.TextInput(attrs={"class":"input", "placeholder":"e.g., Sokha Phan"}),
+            "phone": forms.TextInput(attrs={
+                "class": "input",
+                "placeholder": "e.g., 012 345 678",
+                "inputmode": "tel",
+                "pattern": r"^[0-9+\s()-]{6,20}$"
+            }),
             "date_of_birth": forms.DateInput(attrs={"type":"date", "class":"input"}),
             "main_crop": forms.Select(attrs={"class":"select"}),
             "province": forms.Select(attrs={"class":"select"}),
         }
+
+    def clean_phone(self):
+        raw = (self.cleaned_data.get("phone") or "").strip()
+        if not raw:
+            return raw  # allow blank
+
+        # Remove all non-digits
+        digits = re.sub(r"\D", "", raw)
+
+        # Validate: must start with 0 or 855
+        if not digits.startswith("0") and not digits.startswith("855"):
+            raise forms.ValidationError("Phone must start with 0 or +855")
+
+        # If it's +855xxx (9 digits after 855), normalize to 0xxx…
+        if digits.startswith("855"):
+            if len(digits) == 11:  # e.g., 85512345678
+                digits = "0" + digits[3:]  # → 012345678
+            else:
+                raise forms.ValidationError("Invalid +855 phone number length")
+
+        # Now expect 9 digits total (Cambodian numbers are usually 9)
+        if len(digits) != 9:
+            raise forms.ValidationError("Phone number must have 9 digits (e.g., 012345678).")
+
+        # Format into groups of 3
+        formatted = f"{digits[0:3]} {digits[3:6]} {digits[6:9]}"
+        return formatted

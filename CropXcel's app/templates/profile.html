@@ -211,7 +211,15 @@
         <div class="row"><div class="k">Age</div>
           <div class="v">{% if age_years is not None %}{{ age_years }} years{% else %}—{% endif %}</div>
         </div>
-        <div class="row"><div class="k">Email</div><div class="v">{{ user_obj.email }}</div></div>
+
+        {# 🔁 CHANGED: Email ➜ Phone #}
+        <div class="row">
+          <div class="k">Phone</div>
+          <div class="v">
+            {# prefer profile field if present; show em-dash if empty #}
+            {{ profile_obj.phone|default:"—" }}
+          </div>
+        </div>
       </div>
 
       <!-- Membership & Farming -->

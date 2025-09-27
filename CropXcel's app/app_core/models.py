@@ -48,20 +48,21 @@ MAIN_CROP_CHOICES = [
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-    full_name = models.CharField(max_length=120, blank=True)               # NEW
-    date_of_birth = models.DateField(null=True, blank=True)                # NEW
+    full_name = models.CharField(max_length=120, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
     main_crop = models.CharField(max_length=64, choices=MAIN_CROP_CHOICES,
                                  default=UNSPECIFIED, blank=True)
     province = models.CharField(max_length=64, choices=PROVINCE_CHOICES,
-                                default=UNSPECIFIED, blank=True)           # <- important
+                                default=UNSPECIFIED, blank=True)
+    # ✅ NEW: primary contact number
+    phone = models.CharField(max_length=20, blank=True, help_text="Primary contact number")
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 
     def __str__(self):
         return self.full_name or self.user.get_username()
 
-# Attach field ownership so we can show “your” totals
 class FieldAOI(models.Model):
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="fields", null=True, blank=True)  # NEW
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="fields", null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
     geom = models.JSONField()
     area_ha = models.FloatField(null=True, blank=True)
@@ -69,7 +70,6 @@ class FieldAOI(models.Model):
 
     def __str__(self):
         return self.name or f"Field {self.id}"
-
 
 class AnalysisJob(models.Model):
     field = models.ForeignKey(FieldAOI, on_delete=models.CASCADE, related_name="jobs")
@@ -81,7 +81,7 @@ class AnalysisJob(models.Model):
 
     overlay_html = models.FileField(upload_to="overlays/", blank=True, null=True)
     overlay_png  = models.ImageField(upload_to="overlays/", blank=True, null=True)
-    hotspots_geojson = models.FileField(upload_to="hotspots/", blank=True, null=True)  # NEW
+    hotspots_geojson = models.FileField(upload_to="hotspots/", blank=True, null=True)
 
     def __str__(self):
         return f"Job {self.id} for Field {self.field_id} ({self.status})"
