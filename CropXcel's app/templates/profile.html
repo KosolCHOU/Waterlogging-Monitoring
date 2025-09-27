@@ -4,48 +4,33 @@
 {% block head %}
 <style>
   :root{
-    --bg:#eef7f2;
+    --bg:#f0fdf4;
     --card:#ffffff;
     --ink:#111827;
     --muted:#6b7280;
     --line:rgba(17,24,39,.08);
     --ring:#10b981;
     --ring-2:#6ee7b7;
+    --accent1:#bfdbfe; /* blue */
+    --accent2:#fde68a; /* yellow */
+    --accent3:#fecaca; /* red */
+    --accent4:#bbf7d0; /* green */
   }
 
   html, body { background:var(--bg); }
 
-  /* Page frame */
-  .profile-wrap{
-    position:fixed;
-    inset:0;                          /* fill entire viewport */
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    overflow:hidden;                  /* prevent scrolling */
-    background:var(--bg);
-    padding:0; margin:0;
-  }
+  .profile-wrap{ position:fixed; inset:0; display:flex; justify-content:center; align-items:center; background:var(--bg); }
 
-
-  /* Decorative cover band */
   .cover{
-    height:140px;
+    height:160px;
     border-radius:20px;
     background:
-      radial-gradient(1200px 200px at 50% -20%, rgba(16,185,129,.25), transparent 60%),
-      linear-gradient(135deg, #e9fbf3 0%, #ffffff 60%);
-    position:relative;
-    box-shadow:0 8px 30px rgba(0,0,0,.06) inset;
+      radial-gradient(1200px 200px at 50% -20%, rgba(59,130,246,.25), transparent 60%),
+      linear-gradient(135deg, #d1fae5 0%, #bfdbfe 50%, #fef9c3 100%);
+    box-shadow:0 8px 30px rgba(0,0,0,.08) inset;
   }
 
-  /* Card */
-  .card{
-    background:var(--card);
-    border-radius:16px;
-    box-shadow:0 10px 30px rgba(0,0,0,.08);
-    border:1px solid rgba(17,24,39,.06);
-  }
+  .card{ background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.12); border:1px solid rgba(17,24,39,.08); }
   .pad{ padding:20px; }
 
   /* Avatar block – floats above card */
@@ -61,12 +46,7 @@
     position:relative;
   }
   .avatar::after, .avatar-img::after{
-    content:"";
-    position:absolute; inset:-6px;
-    border-radius:50%;
-    background:conic-gradient(from 210deg, var(--ring), var(--ring-2), var(--ring));
-    filter:blur(.5px);
-    z-index:-1;
+    background:conic-gradient(from 210deg, var(--ring), var(--ring-2), #3b82f6, var(--ring));
   }
   .avatar{
     background:linear-gradient(180deg,var(--ring-2),var(--ring));
@@ -133,11 +113,12 @@
     margin-top: 20px;
   }
 
-  .info-section {
-    border: 1px dashed var(--line);
-    border-radius: 10px;
-    padding: 12px;
-    background: #fafafa;
+  .info-section{
+    border:1px solid transparent;
+    border-radius:10px;
+    padding:14px;
+    background:linear-gradient(135deg, #fff, var(--accent4));
+    transition:transform .15s, box-shadow .15s;
   }
 
   .info-section h3 {
