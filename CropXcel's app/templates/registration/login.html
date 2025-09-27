@@ -44,17 +44,28 @@
   .field{position:relative}
   .field label{font-weight:700; color:#0f172a; display:block; margin-bottom:6px}
   .input-wrap{position:relative}
-  .input-wrap .ico{
-    position:absolute; left:12px; top:50%; transform:translateY(-50%); pointer-events:none; opacity:.7
+  /* Icon alignment with text */
+  .input-wrap .ico {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.7;
+    pointer-events: none;
   }
+
+  /* Make inputs and button the same full width */
   .auth-card input[type="text"],
-  .auth-card input[type="password"]{
-    width:100%; padding:12px 14px 12px 42px;
-    border:1px solid #d1d5db; border-radius:12px;
-    background:linear-gradient(180deg,#ffffff 0%,#f9fbff 100%);
-    color:#0f172a; outline:none;
-    transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
-    box-shadow:0 2px 0 rgba(2,132,199,.05) inset;
+  .auth-card input[type="password"],
+  .cta .btn-primary {
+    display: block;
+    width: 100%;
+    border-radius: 12px;
+  }
+
+  /* Ensure CTA wrapper doesn’t shrink the button */
+  .cta {
+    margin-top: 14px;
   }
   .auth-card input:focus{border-color:#0ea5e9; box-shadow:0 0 0 4px rgba(14,165,233,.15)}
   .hint{font-size:.9rem; color:#64748b; margin-top:6px}
@@ -110,6 +121,19 @@
     border-radius: 12px;
   }
 
+  /* Remove background from Forgot? */
+  .row-between a {
+    background: none !important;
+    color: #0284c7 !important;
+    padding: 0 !important;
+    font-weight: 700;
+    border: 0;
+    border-radius: 0;
+    text-decoration: none;
+  }
+  .row-between a:hover {
+    text-decoration: underline;
+  }
 </style>
 {% endblock %}
 
@@ -140,8 +164,6 @@
       <div class="field">
         <label for="{{ form.username.id_for_label }}">Username</label>
         <div class="input-wrap">
-          <!-- person icon -->
-          <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5Z" fill="currentColor"/></svg>
           {{ form.username }}
         </div>
         {% if form.username.errors %}
@@ -158,8 +180,6 @@
           <a class="btn-quiet" href="{% url 'password_reset' %}" style="font-weight:700">Forgot?</a>
         </div>
         <div class="input-wrap">
-          <!-- lock icon -->
-          <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M17 9h-1V7a4 4 0 1 0-8 0v2H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2Zm-6 6.732V17h2v-1.268a2 2 0 1 0-2 0ZM9 7a3 3 0 1 1 6 0v2H9Z" fill="currentColor"/></svg>
           {{ form.password }}
           <button type="button" class="toggle-eye" aria-label="Show password" title="Show/Hide">👁️</button>
         </div>
@@ -186,8 +206,8 @@
   (function () {
     const u = document.getElementById('{{ form.username.id_for_label }}');
     const p = document.getElementById('{{ form.password.id_for_label }}');
-    if (u){ u.setAttribute('placeholder','Your username'); u.setAttribute('autocomplete','username'); u.setAttribute('inputmode','text'); u.setAttribute('autofocus','autofocus'); }
-    if (p){ p.setAttribute('placeholder','Your password'); p.setAttribute('autocomplete','current-password'); }
+    if (u){ u.setAttribute('placeholder','👤Your username'); u.setAttribute('autocomplete','username'); u.setAttribute('inputmode','text'); u.setAttribute('autofocus','autofocus'); }
+    if (p){ p.setAttribute('placeholder','🔒Your password'); p.setAttribute('autocomplete','current-password'); }
 
     // Show / hide password
     const eye = document.querySelector('.toggle-eye');
