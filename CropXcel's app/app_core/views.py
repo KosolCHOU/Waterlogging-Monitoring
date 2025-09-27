@@ -8,6 +8,7 @@ from datetime import datetime, date
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 
 from .serializers import FieldSerializer, JobSerializer
 from .tasks import run_waterlogging_analysis
@@ -141,8 +142,9 @@ def aoi_upload(request):
         return HttpResponseBadRequest(f"Invalid payload: {e}")
 
 # ---------- Page: risk map ----------
+@login_required
 def risk_map(request, field_id: int):
-    field = get_object_or_404(FieldAOI, id=field_id)
+    field = get_object_or_404(FieldAOI, id=field_id, owner=request.user)
 
     # 1) Find latest job for this field (any status)
     job = (AnalysisJob.objects
@@ -269,20 +271,31 @@ def probe(request, job_id: int):
 # ---------- DRF API ----------
 class FieldViewSet(viewsets.ModelViewSet):
     """
-    Minimal ViewSet so router.register('fields', FieldViewSet, ...) works.
-    Provides:
-      - GET /api/fields/                 (list)
-      - POST /api/fields/                (create)
-      - GET /api/fields/{id}/            (retrieve)
-      - GET /api/fields/{id}/latest_job/ (latest analysis job result)
-      - POST /api/fields/{id}/analyze/   (enqueue local analysis via Celery)
+    User-scoped Field API.
+    GET /api/fields/         → only my fields (newest first)
+    POST /api/fields/        → owner auto-set to request.user
     """
-    queryset = FieldAOI.objects.all().order_by("-id")
     serializer_class = FieldSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = FieldAOI.objects.all().order_by("-id")
+        # Non-staff users only see their own fields
+        if not user.is_staff:
+            qs = qs.filter(owner=user)
+        # Optional ?mine=1 keeps same behavior for staff if they want
+        if self.request.query_params.get("mine") == "1":
+            qs = qs.filter(owner=user)
+        return qs
+
+    def perform_create(self, serializer):
+        # Ensure owner is always the current user
+        serializer.save(owner=self.request.user)
 
     @action(detail=True, methods=["get"])
     def latest_job(self, request, pk=None):
-        field = self.get_object()
+        field = self.get_object()  # scoped by get_queryset(), so already safe
         job = (AnalysisJob.objects
                .filter(field=field, status__in=["done", "running", "queued", "failed"])
                .order_by("-id")
@@ -293,35 +306,28 @@ class FieldViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def analyze(self, request, pk=None):
-        """
-        Enqueue local analysis (no GEE). Expects the FieldAOI to have stack path info.
-        """
         field = self.get_object()
-        # create a job record
         job = AnalysisJob.objects.create(field=field, status="queued", message="Queued by API")
-        # fire Celery task
         run_waterlogging_analysis.delay(job.id)
         return Response({"ok": True, "job_id": job.id}, status=202)
-    
+
     @action(detail=True, methods=["post"])
     def export_timeseries(self, request, pk=None):
         field = self.get_object()
+        # ... keep your existing body unchanged ...
+        # (no change needed below this line)
         geom_geojson = field.geom
-
         start = request.data.get("start")
         end = request.data.get("end")
         step_days = int(request.data.get("step_days", 10))
         orbit = request.data.get("orbit")
-
         media_root = Path(getattr(settings, "MEDIA_ROOT", "media"))
         media_url  = getattr(settings, "MEDIA_URL", "/media/")
         ts_dir = media_root / "timeseries"
         ts_dir.mkdir(parents=True, exist_ok=True)
-
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         fname = f"timeseries_field_{field.id}_{stamp}.csv"
         csv_path = ts_dir / fname
-
         try:
             export_s1_timeseries(
                 geom_geojson=geom_geojson,
@@ -334,7 +340,6 @@ class FieldViewSet(viewsets.ModelViewSet):
             )
         except Exception as e:
             return Response({"ok": False, "error": f"GEE export failed: {e}"}, status=400)
-
         csv_rel = f"timeseries/{fname}"
         csv_url = (media_url.rstrip("/") + "/" + csv_rel).replace("//", "/")
         return Response({"ok": True, "csv_file": fname, "csv_url": csv_url}, status=200)
@@ -344,32 +349,37 @@ def lands(request):
     return render(request, "lands.html")
 
 
+from django.contrib.auth.decorators import login_required
+
+@login_required
 def dashboard_index(request):
-    # 1) Always try the last viewed field (cookie) first
+    """
+    Redirect to a sensible dashboard start:
+      1) If cookie 'last_field' refers to *my* field → go there
+      2) Else if I have any fields → go to my newest one
+      3) Else → go to Lands (empty state)
+    """
+    # 1) cookie (validate ownership)
     last = request.COOKIES.get("last_field")
-    if last:
-        return redirect(f"/dashboard/{last}/")
+    if last and last.isdigit():
+        try:
+            FieldAOI.objects.get(id=int(last), owner=request.user)
+            return redirect(f"/dashboard/{int(last)}/")
+        except FieldAOI.DoesNotExist:
+            pass  # ignore stale/foreign cookie
 
-    # Fallback 2 (existing): newest risk_field_<field_id>_*.tif
-    if (not risk_tif) or (not os.path.exists(risk_tif)):
-        import glob
-        ov_dir = os.path.join(settings.MEDIA_ROOT, "overlays")
-        matches = sorted(glob.glob(os.path.join(ov_dir, f"risk_field_{field_id}_*.tif")), reverse=True)
-        if matches:
-            risk_tif = matches[0]
+    # 2) my newest field
+    mine_latest = FieldAOI.objects.filter(owner=request.user).order_by("-id").first()
+    if mine_latest:
+        return redirect(f"/dashboard/{mine_latest.id}/")
 
-    # NEW: Fallback 3/4: probe/generic names
-    if (not risk_tif) or (not os.path.exists(risk_tif)):
-        import glob
-        ov_dir = os.path.join(settings.MEDIA_ROOT, "overlays")
-        for pat in ("risk_from_probe_*.tif", "risk_*.tif"):
-            matches = sorted(glob.glob(os.path.join(ov_dir, pat)), reverse=True)
-            if matches:
-                risk_tif = matches[0]
-                break
+    # 3) no fields yet
+    return redirect("lands")
 
+
+@login_required
 def dashboard(request, field_id: int):
-    field = get_object_or_404(FieldAOI, id=field_id)
+    field = get_object_or_404(FieldAOI, id=field_id, owner=request.user)  # ✅ ownership check
     job = (AnalysisJob.objects.filter(field=field).order_by("-id").first())
 
     # --- always remember last viewed field ---
@@ -426,7 +436,11 @@ def dashboard(request, field_id: int):
     return remember(resp)
 
 # app_core/views.py → field_insights_api()
+@require_http_methods(["GET"])
+@login_required
 def field_insights_api(request, field_id: int):
+    # enforce that the insights are for *my* field
+    get_object_or_404(FieldAOI, id=field_id, owner=request.user)
     job = (AnalysisJob.objects
            .filter(field_id=field_id, status="done")
            .order_by("-id").first())
@@ -560,32 +574,29 @@ def field_insights_api(request, field_id: int):
 def about(request):
     return render(request, "about.html")
 
+@login_required
 def analytics(request, field_id: int | None = None):
     """
-    Supports:
-      /fields/<id>/analytics/          (with id)
-      /analytics/                      (no id -> use cookie and redirect)
+    Analytics also must be per-user.
     """
-    # 1) No field id? Try the remembered cookie.
     if field_id is None:
+        # Try cookie but validate ownership
         last = request.COOKIES.get("last_field")
-        if last:
+        if last and last.isdigit():
             try:
-                FieldAOI.objects.get(pk=int(last))
+                FieldAOI.objects.get(pk=int(last), owner=request.user)
                 return redirect("analytics", field_id=int(last))
-            except (ValueError, FieldAOI.DoesNotExist):
+            except FieldAOI.DoesNotExist:
                 pass
-
-        # ⬇️ CHANGE THIS BLOCK
-        # Fallback: pick the most recent field instead of always /lands
-        latest_field = FieldAOI.objects.order_by("-id").first()
+        # Fallback: my latest field (not global)
+        latest_field = FieldAOI.objects.filter(owner=request.user).order_by("-id").first()
         if latest_field:
             return redirect("analytics", field_id=latest_field.id)
-        else:
-            return redirect("lands")   # only if no fields exist at all
+        return redirect("lands")   # no fields
+
 
     # 2) Normal analytics rendering (unchanged logic you already have)
-    field = get_object_or_404(FieldAOI, id=field_id)
+    field = get_object_or_404(FieldAOI, id=field_id, owner=request.user)
 
     # robust bounds (your existing version)
     try:
