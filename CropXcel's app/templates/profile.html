@@ -17,10 +17,16 @@
 
   /* Page frame */
   .profile-wrap{
-    max-width:860px;
-    margin:20px auto;
-    padding:0 12px;
+    position:fixed;
+    inset:0;                          /* fill entire viewport */
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;                  /* prevent scrolling */
+    background:var(--bg);
+    padding:0; margin:0;
   }
+
 
   /* Decorative cover band */
   .cover{

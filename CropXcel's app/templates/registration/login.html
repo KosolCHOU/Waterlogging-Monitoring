@@ -4,15 +4,15 @@
 {% block head %}
 <style>
   /* Page shell – same vibe as your logout page */
-  .login-wrap{
-    min-height:calc(100vh - 80px);
-    display:grid;place-items:center;
-    padding:24px;
-    background:
-      radial-gradient(1200px 600px at 10% -10%, #e6f6ff 0%, transparent 60%),
-      radial-gradient(1200px 600px at 110% 10%, #e8ffe9 0%, transparent 60%),
-      linear-gradient(180deg, #f7fbff 0%, #f4f7fb 100%);
+  .login-wrap {
+    position:fixed;
+    inset:0;               /* top:0; right:0; bottom:0; left:0 */
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;
   }
+
 
   /* Card */
   .auth-card{
@@ -92,6 +92,24 @@
     .help{color:#cbd5e1} .small{color:#94a3b8}
     .field label{color:#e2e8f0}
   }
+
+  /* Make the button full width like the inputs */
+  .cta {
+    margin-top: 14px;
+    display: block;   /* instead of flex */
+  }
+
+  .cta .btn-primary {
+    display: block;
+    width: 100%;
+    text-align: center;
+  }
+
+  .auth-card input,
+  .cta .btn-primary {
+    border-radius: 12px;
+  }
+
 </style>
 {% endblock %}
 
@@ -126,8 +144,11 @@
           <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5Z" fill="currentColor"/></svg>
           {{ form.username }}
         </div>
-        {% if form.username.errors %}<div class="field-error">{{ form.username.errors|striptags }}</div>{% else %}
-        <div class="hint">Use the username you registered with CropXcel.</div>{% endif %}
+        {% if form.username.errors %}
+          <div class="field-error">🌱 Username is required — it’s how we connect you to your fields.</div>
+        {% else %}
+          <div class="hint">Use the username you registered with CropXcel.</div>
+        {% endif %}
       </div>
 
       <!-- Password -->
@@ -143,7 +164,9 @@
           <button type="button" class="toggle-eye" aria-label="Show password" title="Show/Hide">👁️</button>
         </div>
         <div class="hint" id="capsWarn" style="display:none;">Caps Lock is ON — passwords are case-sensitive.</div>
-        {% if form.password.errors %}<div class="field-error">{{ form.password.errors|striptags }}</div>{% endif %}
+        {% if form.password.errors %}
+          <div class="field-error">🔒 Password is required — it keeps your farm data safe.</div>
+        {% endif %}
       </div>
     </div>
 
