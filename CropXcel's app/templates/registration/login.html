@@ -3,137 +3,92 @@
 
 {% block head %}
 <style>
-  /* Page shell – same vibe as your logout page */
-  .login-wrap {
-    position:fixed;
-    inset:0;               /* top:0; right:0; bottom:0; left:0 */
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    overflow:hidden;
-  }
+/* Page shell */
+.login-wrap {
+  position:fixed;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+}
 
+/* Card */
+.auth-card{
+  width:min(560px,92vw);
+  background:#fff;
+  border-radius:20px;
+  box-shadow:0 20px 50px rgba(0,0,0,.10);
+  padding:28px 24px;
+  position:relative; 
+  overflow:hidden;
+}
+.ribbon{position:absolute; inset:auto -20% auto -20%; top:-140px; height:220px;
+  background:linear-gradient(90deg,#22c55e 0%,#16a34a 50%,#0ea5e9 100%);
+  filter:blur(40px); opacity:.12; transform:rotate(-6deg); pointer-events:none}
 
-  /* Card */
-  .auth-card{
-    width:min(560px, 92vw);
-    background:#fff;
-    border-radius:20px;
-    box-shadow:0 20px 50px rgba(0,0,0,.10);
-    padding:28px 24px;
-    position:relative; overflow:hidden;
-  }
-  .ribbon{position:absolute; inset:auto -20% auto -20%; top:-140px; height:220px;
-    background:linear-gradient(90deg,#22c55e 0%,#16a34a 50%,#0ea5e9 100%);
-    filter:blur(40px); opacity:.12; transform:rotate(-6deg); pointer-events:none}
+/* Icon */
+.sprout{width:64px;height:64px;margin:8px auto 12px; display:block; animation:float 3.8s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 
-  /* Icon */
-  .sprout{width:64px;height:64px;margin:8px auto 12px; display:block; animation:float 3.8s ease-in-out infinite}
-  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+/* Headings */
+.title{font-weight:800; font-size:1.6rem; color:#0f172a; margin:6px 0 4px; text-align:center}
+.subtitle{color:#334155; margin:0 0 16px; line-height:1.45; text-align:center}
 
-  /* Headings */
-  .title{font-weight:800; font-size:1.6rem; letter-spacing:.2px; color:#0f172a; margin:6px 0 4px; text-align:center}
-  .subtitle{color:#334155; margin:0 0 16px; line-height:1.45; text-align:center}
+/* Alerts */
+.error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:10px 12px;border-radius:10px;margin-bottom:12px}
+.field-error{color:#b91c1c;font-size:.9rem;margin-top:6px}
 
-  /* Alerts */
-  .error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:10px 12px;border-radius:10px;margin-bottom:12px}
-  .field-error{color:#b91c1c;font-size:.9rem;margin-top:6px}
+/* Fields */
+.form-grid{display:block; gap:12px; margin-top:6px; max-width:420px; width:100%; margin:0 auto;}
+.field label{font-weight:700; color:#0f172a; display:block; margin-bottom:6px}
+.input-wrap{position:relative; width:100%;}
+.input-wrap .ico{position:absolute; left:14px; top:50%; transform:translateY(-50%); opacity:.7; pointer-events:none}
 
-  /* Fields */
-  .form-grid{display:grid; gap:12px; margin-top:6px}
-  .field{position:relative}
-  .field label{font-weight:700; color:#0f172a; display:block; margin-bottom:6px}
-  .input-wrap{position:relative}
-  /* Icon alignment with text */
-  .input-wrap .ico {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    opacity: 0.7;
-    pointer-events: none;
-  }
+/* Equal widths for inputs & button */
+.input-wrap input,
+.cta .btn-primary {
+  width:100%;
+  max-width: 100%; 
+  box-sizing:border-box;
+  display:block;
+  border-radius:12px;
+}
+.auth-card input{border:1px solid #cbd5e1; padding:12px 14px;}
+.auth-card input:focus{border-color:#0ea5e9; box-shadow:0 0 0 4px rgba(14,165,233,.15)}
 
-  /* Make inputs and button the same full width */
-  .auth-card input[type="text"],
-  .auth-card input[type="password"],
-  .cta .btn-primary {
-    display: block;
-    width: 100%;
-    border-radius: 12px;
-  }
+.toggle-eye{position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:0; cursor:pointer; font-size:.95rem}
+.hint{font-size:.9rem; color:#64748b; margin-top:6px}
 
-  /* Ensure CTA wrapper doesn’t shrink the button */
-  .cta {
-    margin-top: 14px;
-  }
-  .auth-card input:focus{border-color:#0ea5e9; box-shadow:0 0 0 4px rgba(14,165,233,.15)}
-  .hint{font-size:.9rem; color:#64748b; margin-top:6px}
+/* CTA */
+.cta{margin-top:14px; max-width:420px; margin:14px auto 0; display:block;}
+.btn{appearance:none; border:0; outline:0; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  gap:8px; padding:12px 16px; border-radius:12px; font-weight:800;
+  text-decoration:none; transition:transform .05s ease, box-shadow .2s ease, background .2s ease, color .2s ease;}
+.btn:active{transform:translateY(1px)}
+.btn-primary{color:#fff; background:linear-gradient(180deg,#0ea5e9,#0284c7); box-shadow:0 8px 20px rgba(2,132,199,.35)}
+.btn-primary:hover{box-shadow:0 10px 26px rgba(2,132,199,.45)}
 
-  /* CTA Row */
-  .cta{margin-top:14px; display:flex; gap:10px; align-items:center}
-  .btn{
-    appearance:none; border:0; outline:0; cursor:pointer;
-    display:inline-flex; align-items:center; justify-content:center;
-    gap:8px; padding:12px 16px; border-radius:12px; font-weight:800;
-    text-decoration:none; transition:transform .05s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
-  }
-  .btn:active{transform:translateY(1px)}
-  .btn-primary{flex:1; color:#fff; background:linear-gradient(180deg,#0ea5e9,#0284c7); box-shadow:0 8px 20px rgba(2,132,199,.35)}
-  .btn-primary:hover{box-shadow:0 10px 26px rgba(2,132,199,.45)}
-  .btn-quiet{padding:10px 12px; background:#f1f5f9; color:#0f172a; text-decoration:none; border-radius:10px}
-  .btn-quiet:hover{background:#e2e8f0}
+/* Secondary links */
+.row-between{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.row-between a{background:none !important; color:#0284c7 !important; padding:0 !important; font-weight:700; border:0; border-radius:0; text-decoration:none;}
+.row-between a:hover{text-decoration:underline}
 
-  /* Extra helpers */
-  .row-between{display:flex; justify-content:space-between; align-items:center; gap:8px}
-  .toggle-eye{position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:0; cursor:pointer; font-size:.95rem}
+.help{margin-top:12px; font-size:.95rem; color:#475569; text-align:center}
+.help a{color:#0284c7; text-decoration:none; font-weight:700}
+.help a:hover{text-decoration:underline}
+.small{margin-top:10px; font-size:.82rem; color:#64748b; text-align:center}
 
-  .help{margin-top:12px; font-size:.95rem; color:#475569; text-align:center}
-  .help a{color:#0284c7; text-decoration:none; font-weight:700}
-  .help a:hover{text-decoration:underline}
-  .small{margin-top:10px; font-size:.82rem; color:#64748b; text-align:center}
-
-  /* Dark mode */
-  @media (prefers-color-scheme: dark){
-    .login-wrap{background:linear-gradient(180deg, #0b1220 0%, #0b1020 100%)}
-    .auth-card{background:#0f172a; box-shadow:0 20px 50px rgba(0,0,0,.5)}
-    .title{color:#e2e8f0} .subtitle{color:#cbd5e1}
-    .auth-card input{background:linear-gradient(180deg,#0c1323 0%, #0b1220 100%); border-color:#1f2937; color:#e2e8f0}
-    .btn-quiet{background:#0b1220; color:#e2e8f0} .btn-quiet:hover{background:#111827}
-    .help{color:#cbd5e1} .small{color:#94a3b8}
-    .field label{color:#e2e8f0}
-  }
-
-  /* Make the button full width like the inputs */
-  .cta {
-    margin-top: 14px;
-    display: block;   /* instead of flex */
-  }
-
-  .cta .btn-primary {
-    display: block;
-    width: 100%;
-    text-align: center;
-  }
-
-  .auth-card input,
-  .cta .btn-primary {
-    border-radius: 12px;
-  }
-
-  /* Remove background from Forgot? */
-  .row-between a {
-    background: none !important;
-    color: #0284c7 !important;
-    padding: 0 !important;
-    font-weight: 700;
-    border: 0;
-    border-radius: 0;
-    text-decoration: none;
-  }
-  .row-between a:hover {
-    text-decoration: underline;
-  }
+/* Dark mode */
+@media (prefers-color-scheme: dark){
+  .login-wrap{background:linear-gradient(180deg,#0b1220 0%,#0b1020 100%)}
+  .auth-card{background:#0f172a; box-shadow:0 20px 50px rgba(0,0,0,.5)}
+  .title{color:#e2e8f0} .subtitle{color:#cbd5e1}
+  .auth-card input{background:linear-gradient(180deg,#0c1323 0%,#0b1220 100%); border-color:#1f2937; color:#e2e8f0}
+  .btn-primary{background:linear-gradient(180deg,#0284c7,#0369a1)}
+  .help{color:#cbd5e1} .small{color:#94a3b8} .field label{color:#e2e8f0}
+}
 </style>
 {% endblock %}
 
