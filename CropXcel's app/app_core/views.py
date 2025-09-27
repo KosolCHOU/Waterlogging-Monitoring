@@ -3,7 +3,7 @@ import os
 import json
 import math
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -27,7 +27,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 
-from .models import FieldAOI, AnalysisJob
+from .models import FieldAOI, AnalysisJob, Profile
 from analysis.engine import export_stack_from_geom, export_s1_timeseries
 from analysis.insights import compute_temporal_engine_s1, build_insights_html, classify_and_area
 from analysis.weather import get_forecast_for_field
@@ -632,54 +632,68 @@ def forecast_json(request, field_id: int):
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
-from .models import Profile
+def _age_from_dob(dob):
+    if not dob:
+        return None
+    today = date.today()
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    return max(age, 0)
+
 
 @login_required
 def profile(request):
-    user_obj: User = request.user
-    prof, _ = Profile.objects.get_or_create(user=user_obj)  # <-- ensure exists
+    user_obj = request.user
+    # always have a profile
+    profile_obj, _ = Profile.objects.get_or_create(user=user_obj)
+    age_years = _age_from_dob(profile_obj.date_of_birth)
 
-    # NEW: my fields summary
+    # fields summary
     my_fields = FieldAOI.objects.filter(owner=user_obj)
     fields_count = my_fields.count()
-    fields_area  = round(sum([f.area_ha or 0.0 for f in my_fields]), 2)
+    fields_area = round(sum((f.area_ha or 0.0) for f in my_fields), 2)
 
-    # initials fallback
+    # initials fallback for avatar
     display_name = (user_obj.get_full_name() or user_obj.get_username() or "").strip()
     initials = "".join([p[0] for p in display_name.split() if p][:2]).upper() \
                or (user_obj.username[:2].upper() if user_obj.username else "U")
 
     if request.method == "POST":
+        # remove avatar (if you later add a button named="remove_avatar")
         if "remove_avatar" in request.POST:
-            if prof.avatar:
-                prof.avatar.delete(save=False)
-                prof.avatar = None
-                prof.save(update_fields=["avatar"])
+            if profile_obj.avatar:
+                profile_obj.avatar.delete(save=False)
+                profile_obj.avatar = None
+                profile_obj.save(update_fields=["avatar"])
             if request.headers.get("x-requested-with") == "XMLHttpRequest":
                 return JsonResponse({"ok": True, "avatar_url": None})
             messages.success(request, "Profile picture removed.")
             return redirect("profile")
 
-        # bind to existing profile instance so instance.user_id is set
-        form = ProfileImageForm(request.POST, request.FILES, instance=prof)
+        # upload/change avatar
+        form = ProfileImageForm(request.POST, request.FILES, instance=profile_obj)
         if form.is_valid():
-            prof = form.save()  # upload_to now sees a real user_id
-            new_url = prof.avatar.url + f"?v={int(timezone.now().timestamp())}"
+            saved = form.save()
+            new_url = saved.avatar.url + f"?v={int(timezone.now().timestamp())}"
             if request.headers.get("x-requested-with") == "XMLHttpRequest":
                 return JsonResponse({"ok": True, "avatar_url": new_url})
             messages.success(request, "Profile picture updated.")
             return redirect("profile")
         else:
             if request.headers.get("x-requested-with") == "XMLHttpRequest":
-                err = "; ".join([" ".join(v) for k, v in form.errors.items()])
-                return JsonResponse({"ok": False, "error": err}, status=400)
+                # flatten Django error dict into a single message
+                err_list = []
+                for _, errs in form.errors.items():
+                    err_list.extend(errs)
+                return JsonResponse({"ok": False, "error": "; ".join(err_list)}, status=400)
             messages.error(request, "Upload failed. Please fix the errors below.")
+            # fall-through to re-render page with errors below
     else:
-        form = ProfileImageForm(instance=prof)
+        form = ProfileImageForm(instance=profile_obj)
 
     ctx = {
         "user_obj": user_obj,
-        "profile_obj": prof,
+        "profile_obj": profile_obj,
+        "age_years": age_years,
         "initials": initials,
         "member_since": user_obj.date_joined,
         "last_login": user_obj.last_login or user_obj.date_joined,

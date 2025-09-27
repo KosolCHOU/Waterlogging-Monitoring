@@ -126,6 +126,35 @@
     background:#fee2e2;
   }
 
+  .info-sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  .info-section {
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    background: #fafafa;
+  }
+
+  .info-section h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+
+  .info-section .row {
+    border-bottom: 1px dashed var(--line);
+    padding: 8px 0;
+  }
+  .info-section .row:last-child {
+    border-bottom: none;
+  }
+
 </style>
 {% endblock %}
 
@@ -156,6 +185,7 @@
 
         <!-- Welcome + badge -->
     <div class="name">👩‍🌾 Welcome, {{ user_obj.get_full_name|default:user_obj.username }}!</div>
+    <div class="muted" style="font-size: 14px; margin-top: 4px;">{{ user_obj.email }}</div>
     <div class="muted">
       <span style="background:#ecfdf5; color:#065f46; padding:4px 10px; border-radius:999px; font-size:13px; font-weight:600;">
         🌟 CropXcel Early Member
@@ -163,17 +193,37 @@
     </div>
     <div class="sp12"></div>
 
-    <!-- Info rows -->
-    <div class="rows">
-      <div class="row"><div class="k">📅 Member since</div><div class="v">{{ member_since|date:"M d, Y" }}</div></div>
-      <div class="row"><div class="k">⏱ Last login</div><div class="v">{{ last_login|date:"M d, Y H:i" }}</div></div>
-      <div class="row"><div class="k">📅 Member since</div><div class="v">{{ member_since|date:"M d, Y" }}</div></div>
-      <div class="row"><div class="k">🌾 Main crop</div><div class="v">{{ profile_obj.main_crop|default:"—" }}</div></div>
-      <div class="row"><div class="k">📍 Province</div><div class="v">{{ profile_obj.province|default:"—" }}</div></div>
-      <div class="row"><div class="k">🗺️ Fields registered</div>
-        <div class="v">{{ fields_count }} fields – {{ fields_area }} ha total</div>
+    <!-- Info sections -->
+    <div class="info-sections">
+      <!-- Personal Info -->
+      <div class="info-section">
+        <h3>👤 Personal Info</h3>
+        <div class="row"><div class="k">Full name</div>
+          <div class="v">{{ profile_obj.full_name|default:user_obj.get_full_name|default:user_obj.username }}</div>
+        </div>
+        <div class="row"><div class="k">Date of birth</div>
+          <div class="v">
+            {% if profile_obj.date_of_birth %}
+              {{ profile_obj.date_of_birth|date:"M d, Y" }}
+            {% else %}—{% endif %}
+          </div>
+        </div>
+        <div class="row"><div class="k">Age</div>
+          <div class="v">{% if age_years is not None %}{{ age_years }} years{% else %}—{% endif %}</div>
+        </div>
+        <div class="row"><div class="k">Email</div><div class="v">{{ user_obj.email }}</div></div>
       </div>
-      <div class="row"><div class="k">📧 Email</div><div class="v">{{ user_obj.email }}</div></div>
+
+      <!-- Membership & Farming -->
+      <div class="info-section">
+        <h3>🌱 Membership & Farming</h3>
+        <div class="row"><div class="k">Member since</div><div class="v">{{ member_since|date:"M d, Y" }}</div></div>
+        <div class="row"><div class="k">Main crop</div><div class="v">{{ profile_obj.main_crop|default:"—" }}</div></div>
+        <div class="row"><div class="k">Province</div><div class="v">{{ profile_obj.province|default:"—" }}</div></div>
+        <div class="row"><div class="k">Fields registered</div>
+          <div class="v">{{ fields_count }} fields – {{ fields_area }} ha total</div>
+        </div>
+      </div>
     </div>
 
     <div class="sp16"></div>

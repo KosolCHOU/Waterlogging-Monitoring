@@ -42,9 +42,10 @@ KH_PROVINCES = [
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ["main_crop", "province"]
+        fields = ["full_name", "date_of_birth", "main_crop", "province"]
         widgets = {
-            "main_crop": forms.TextInput(attrs={"class":"input","placeholder":"e.g., Sen Kra’op"}),
-            "province":  forms.Select(choices=[("", "— Select province —")]+KH_PROVINCES,
-                                      attrs={"class":"input"}),
+            "full_name": forms.TextInput(attrs={"class":"input", "placeholder":"e.g., Sokha Phan"}),
+            "date_of_birth": forms.DateInput(attrs={"type":"date", "class":"input"}),
+            "main_crop": forms.Select(attrs={"class":"select"}),
+            "province": forms.Select(attrs={"class":"select"}),
         }

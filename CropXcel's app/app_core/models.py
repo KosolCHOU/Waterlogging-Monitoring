@@ -11,17 +11,53 @@ def avatar_upload_to(instance, filename):
     ext = ext.lower() if ext else ".jpg"
     return f"avatars/user_{instance.user_id}/{timezone.now():%Y/%m}/{uuid4().hex}{ext}"
 
+UNSPECIFIED = "unspecified"
+PROVINCE_CHOICES = [
+    ("Banteay Meanchey", "Banteay Meanchey"),
+    ("Battambang", "Battambang"),
+    ("Kampong Cham", "Kampong Cham"),
+    ("Kampong Chhnang", "Kampong Chhnang"),
+    ("Kampong Speu", "Kampong Speu"),
+    ("Kampong Thom", "Kampong Thom"),
+    ("Kampot", "Kampot"),
+    ("Kandal", "Kandal"),
+    ("Koh Kong", "Koh Kong"),
+    ("Kratie", "Kratie"),
+    ("Mondulkiri", "Mondulkiri"),
+    ("Phnom Penh", "Phnom Penh"),
+    ("Preah Vihear", "Preah Vihear"),
+    ("Prey Veng", "Prey Veng"),
+    ("Pursat", "Pursat"),
+    ("Ratanakiri", "Ratanakiri"),
+    ("Siem Reap", "Siem Reap"),
+    ("Preah Sihanouk", "Preah Sihanouk"),
+    ("Stung Treng", "Stung Treng"),
+    ("Svay Rieng", "Svay Rieng"),
+    ("Takeo", "Takeo"),
+    ("Oddar Meanchey", "Oddar Meanchey"),
+    ("Kep", "Kep"),
+    ("Pailin", "Pailin"),
+    ("Tbong Khmum", "Tbong Khmum"),
+]
+
+MAIN_CROP_CHOICES = [
+    ("Sen Kra’ob", "Sen Kra’ob"),
+    ("Phka Rumduol", "Phka Rumduol"),
+    ("Other", "Other"),
+]
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-    avatar = models.ImageField(upload_to=avatar_upload_to, blank=True, null=True)
-
-    # NEW
-    main_crop = models.CharField(max_length=100, blank=True, null=True)
-    province  = models.CharField(max_length=100, blank=True, null=True)
+    full_name = models.CharField(max_length=120, blank=True)               # NEW
+    date_of_birth = models.DateField(null=True, blank=True)                # NEW
+    main_crop = models.CharField(max_length=64, choices=MAIN_CROP_CHOICES,
+                                 default=UNSPECIFIED, blank=True)
+    province = models.CharField(max_length=64, choices=PROVINCE_CHOICES,
+                                default=UNSPECIFIED, blank=True)           # <- important
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 
     def __str__(self):
-        return f"Profile({self.user.username})"
-
+        return self.full_name or self.user.get_username()
 
 # Attach field ownership so we can show “your” totals
 class FieldAOI(models.Model):
