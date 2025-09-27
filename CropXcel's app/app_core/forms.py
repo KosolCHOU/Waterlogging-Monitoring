@@ -150,15 +150,15 @@ class SignupForm(UserCreationForm):
         # always update Profile
         prof, _ = Profile.objects.get_or_create(user=user)
         prof.full_name     = full
-        prof.phone         = (self.cleaned_data.get("phone") or "").strip() or None
+        # ❗Change None → "" so DB never gets NULL for CharField
+        prof.phone         = (self.cleaned_data.get("phone") or "").strip()
         prof.date_of_birth = self.cleaned_data.get("date_of_birth") or None
 
-        # only save crop/province if chosen (avoid empty string overwriting)
         crop = self.cleaned_data.get("main_crop")
         prov = self.cleaned_data.get("province")
-        if crop: 
+        if crop:
             prof.main_crop = crop
-        if prov: 
+        if prov:
             prof.province = prov
 
         prof.save()

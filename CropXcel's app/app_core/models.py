@@ -52,7 +52,7 @@ class Profile(models.Model):
     date_of_birth = models.DateField(null=True, blank=True)
     main_crop = models.CharField(max_length=64, choices=MAIN_CROP_CHOICES, blank=True)
     province = models.CharField(max_length=64, choices=PROVINCE_CHOICES, blank=True)
-    phone = models.CharField(max_length=20, blank=True, help_text="Primary contact number")
+    phone = models.CharField(max_length=20, blank=True, null=True, help_text="Primary contact number")
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 
     def __str__(self):
