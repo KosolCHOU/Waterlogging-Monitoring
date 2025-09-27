@@ -728,7 +728,21 @@ def signup(request):
     if request.method == "POST":
         form = SignupForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=True)   # <-- ensure our custom save runs
+            user = form.save(commit=True)  # creates user AND writes profile via form.save()
+
+            # --- DEFENSIVE: also persist optional fields here ---
+            cd = form.cleaned_data
+            prof = getattr(user, "profile", None) or Profile.objects.create(user=user)
+            prof.full_name     = (cd.get("full_name") or "").strip()
+            prof.phone         = (cd.get("phone") or "").strip()
+            prof.date_of_birth = cd.get("date_of_birth") or None
+            if cd.get("main_crop"):
+                prof.main_crop = cd["main_crop"]
+            if cd.get("province"):
+                prof.province = cd["province"]
+            prof.save()
+            # ----------------------------------------------------
+
             login(request, user)
             messages.success(request, "Welcome! Your account is ready.")
             return redirect(next_url)
