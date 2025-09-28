@@ -1,6 +1,3 @@
-{% extends "base.html" %}
-{% block title %}About – CropXcel{% endblock %}
-
 {% block head %}
 <style>
   :root{
@@ -64,6 +61,33 @@
 
   /* mini badge for section headers */
   .badge{display:inline-block; padding:4px 10px; border-radius:999px; font:700 11px/1 system-ui; color:#075985; background:#e0f2fe; margin-left:6px;}
+  .btn-profile {
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:12px 20px;
+    font-size:1rem;
+    font-weight:700;
+    color:#fff;
+    background:linear-gradient(135deg, #16a34a, #22c55e); /* green gradient */
+    border:none;
+    border-radius:14px;
+    cursor:pointer;
+    text-decoration:none;
+    box-shadow:0 8px 18px rgba(22,163,74,.35);
+    transition: transform .1s ease, box-shadow .2s ease;
+  }
+
+  .btn-profile:hover {
+    box-shadow:0 10px 24px rgba(22,163,74,.45);
+    transform:translateY(-2px);
+  }
+
+  .btn-profile:active {
+    transform:translateY(1px);
+    box-shadow:0 6px 14px rgba(22,163,74,.35);
+  }
+
 </style>
 {% endblock %}
 
@@ -127,6 +151,15 @@
       <p style="margin-top:6px;color:#475569;">
         We’ll add step-by-step guides, farmer stories, and FAQs to make CropXcel even easier.
       </p>
+    </div>
+    <div class="card" style="text-align:center;background:#fffaf0;">
+      <h3>👤 Ready to personalize CropXcel?</h3>
+      <p style="margin-top:6px;color:#475569;">
+        Visit your profile to update your crops and see tailored insights.
+      </p>
+      <a href="{% url 'profile' %}" class="btn-profile" style="margin-top:12px;display:inline-block;">
+        🌱 Go to Profile
+      </a>
     </div>
   </div>
 </div>
