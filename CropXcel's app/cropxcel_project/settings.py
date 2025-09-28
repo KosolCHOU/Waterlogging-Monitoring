@@ -138,5 +138,6 @@ CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/1"
 # Redirects after auth
 LOGIN_REDIRECT_URL  = "/profile/"            # after successful login
 LOGOUT_REDIRECT_URL = "/accounts/login/"     # after logout
+LOGIN_URL = "/accounts/login/"
 
 

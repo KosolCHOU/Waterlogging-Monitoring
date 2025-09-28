@@ -1,0 +1,75 @@
+/* static/css/logout.css */
+
+/* Page shell */
+.logout-wrap{
+  position:fixed;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+  margin:0;
+  padding:0;
+  background:
+    radial-gradient(1200px 600px at 20% -20%, #fff7ed 0%, transparent 60%),
+    radial-gradient(1200px 600px at 100% 20%, #fef3c7 0%, transparent 60%),
+    linear-gradient(180deg, #fdf2f8 0%, #fef9c3 100%);
+}
+
+/* Card */
+.logout-card{
+  width:min(560px, 92vw);
+  background:linear-gradient(180deg,#fffaf0 0%,#ffffff 100%);
+  border-radius:20px;
+  box-shadow:0 20px 50px rgba(0,0,0,.10);
+  padding:28px 24px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+
+/* Soft ribbon */
+.ribbon{
+  position:absolute; inset:auto -20% auto -20%;
+  top:-140px; height:220px;
+  background:linear-gradient(90deg,#f59e0b 0%,#f97316 50%,#facc15 100%);
+  filter:blur(40px); opacity:.12; transform:rotate(-6deg);
+  pointer-events:none;
+}
+
+/* Icon */
+.sprout{width:72px;height:72px;margin:8px auto 12px;display:block;animation:float 3.8s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}
+
+/* Text */
+.title{font-weight:800;font-size:1.5rem;letter-spacing:.2px;color:#b45309;margin:8px 0 6px}
+.subtitle{color:#1e293b;margin:0 0 14px;line-height:1.45}
+.note{
+  font-size:.95rem;
+  color:#065f46;
+  background:#ecfdf5;
+  border-radius:12px;
+  padding:10px 12px;
+  display:inline-block;
+  font-weight:600;
+}
+
+
+/* CTA Row (layout only; button visuals come from auth.css .btn rules) */
+.cta-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
+
+/* Footer help */
+.help{margin-top:16px;font-size:.95rem;color:#475569}
+.help a{color:#334155;text-decoration:none;font-weight:700}
+.help a:hover{text-decoration:underline}
+
+/* Small print */
+.small{margin-top:10px; font-size:.85rem; color:#475569}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark){
+  .logout-wrap{background:linear-gradient(180deg,#0b1220 0%,#0b1020 100%)}
+  .logout-card{background:#0f172a;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+  .title{color:#e2e8f0}.subtitle{color:#1e293b}.note{background:#0b1220;color:#cbd5e1}
+  .help{color:#cbd5e1}.small{color:#94a3b8}
+}
