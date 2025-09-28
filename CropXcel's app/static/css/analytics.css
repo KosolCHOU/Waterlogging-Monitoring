@@ -1,0 +1,224 @@
+:root{
+  --bg:#f1f5f9; --ink:#0f172a; --muted:#64748b;
+  --soft:#e8fbfa; --soft-border:#d1f3f1;
+  --kpiw:240px; --card:#fff; --shadow:0 10px 30px rgba(0,0,0,.08);
+  --blue:#60a5fa; --green:#34d399;
+  --col-w: 6px;
+  --col-gap: 2px;
+}
+html,body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
+.wrap{padding:12px;display:grid;grid-template-columns:1.2fr 1fr;gap:12px}
+@media (max-width:1024px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px}
+
+/* ===== Weather today ===== */
+.today{background:var(--soft);border-radius:16px;box-shadow:inset 0 0 0 1px var(--soft-border);padding:18px}
+.todayHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.todayHead .title{font-weight:800;color:var(--ink);font-size:14px}
+.todayMeta{color:var(--muted);font-size:12px}
+.todayBody{display:flex;gap:18px;align-items:center}
+.todayLeft{display:flex;align-items:center;gap:16px}
+.todayLeft .icon{font-size:56px}
+.todayLeft .temp{font-size:56px;font-weight:800;color:var(--ink);line-height:1}
+.todayLeft .desc{color:#374151;font-weight:600;margin-top:4px}
+.vbar{width:1px;height:54px;background:var(--soft-border);border-radius:2px}
+.aside{margin-left:auto;width:var(--kpiw);display:flex;flex-direction:column;gap:8px}
+.rightInfo{display:flex;gap:8px;align-items:center;justify-content:center;
+           padding:10px 12px;border-radius:12px;background:#eef2ff;font-weight:600}
+.rightInfo i{font-style:normal;opacity:.9}
+.todayFoot{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.miniStat{background:#f6faf7;border-radius:12px;padding:10px 12px;box-shadow:inset 0 0 0 1px #e8efe8}
+.miniStat .lbl{color:var(--muted);font-size:12px}
+.miniStat{
+  background:#f6faf7;border-radius:12px;padding:10px 12px;box-shadow:inset 0 0 0 1px #e8efe8;
+  text-align:center;
+}
+.miniStat .lbl{color:var(--muted);font-size:12px;display:block;}
+.miniStat .val{font-weight:800;color:var(--ink);font-size:18px;margin-top:2px;display:block}
+
+/* ===== 72h Rain signal ===== */
+.panel72 h4{margin:0 0 10px 0;font-size:14px;font-weight:800;color:var(--ink)}
+.p72{display:grid;grid-template-columns:3fr .8fr;gap:12px;align-items:stretch}
+.p72-left{min-width:0;overflow:hidden}
+.sparkWrap{overflow:hidden}
+.p72-right{display:flex;flex-direction:column;gap:8px}
+.kpi{background:#eef2ff;border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;justify-content:right;font-weight:700;font-size:12px;white-space:nowrap}
+.kpi b{font-size:14px}
+
+/* ===== 7-day table ===== */
+.pretty{font-weight:800;font-size:16px;margin:0 0 10px 0;color:var(--ink);position:relative;padding-left:16px}
+.pretty::before{content:"";width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#34d399,#0ea5e9);position:absolute;left:0;top:5px}
+table.mini{width:100%;border-collapse:collapse;font-size:12px;border-radius:12px;overflow:hidden}
+table.mini th,table.mini td{padding:8px;border-bottom:1px solid #e5e7eb}
+table.mini thead th{background:#f8fafc;font-weight:800;position:sticky;top:0;cursor:pointer;user-select:none}
+tr:hover{background:#fafafa}
+
+/* Rain bg */
+table.mini td.rain-low  { background:#ecfdf5; color:#065f46; font-weight:600; }
+table.mini td.rain-mod  { background:#fef3c7; color:#92400e; font-weight:600; }
+table.mini td.rain-high { background:#fee2e2; color:#991b1b; font-weight:700; }
+
+/* Probability bg */
+table.mini td.prob-low-bg  { background:#ecfeff; color:#075985; font-weight:600; }
+table.mini td.prob-med-bg  { background:#dbeafe; color:#1e40af; font-weight:600; }
+table.mini td.prob-high-bg { background:#bfdbfe; color:#1e3a8a; font-weight:700; }
+
+/* Temperature bg */
+table.mini td.temp-cool-bg { background:#e0f2fe; color:#075985; font-weight:600; }
+table.mini td.temp-warm-bg { background:#fff7ed; color:#9a3412; font-weight:600; }
+table.mini td.temp-hot-bg  { background:#fee2e2; color:#991b1b; font-weight:700; }
+
+/* Wind bg */
+table.mini td.wind-med-bg  { background:#fef3c7; color:#92400e; font-weight:600; }
+table.mini td.wind-high-bg { background:#fee2e2; color:#991b1b; font-weight:700; }
+
+/* Risk pill */
+.pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800}
+.pill.low{background:#ecfdf5;color:#065f46}
+.pill.mod{background:#fef9c3;color:#854d0e}
+.pill.high{background:#fee2e2;color:#991b1b}
+
+/* Date chip */
+table.mini td.date { font-weight:600; color:#374151; background:#f8fafc; }
+
+@media (max-width:980px){
+  .p72{grid-template-columns:1fr}
+}
+
+/* Recommendations */
+.recCard{
+  display:flex; gap:10px; align-items:flex-start;
+  padding:12px; border-radius:12px; background:#f8fafc;
+  box-shadow:0 6px 18px rgba(0,0,0,.06), inset 0 0 0 1px #e5e7eb;
+}
+.recIcon{font-size:20px; line-height:1; margin-top:2px}
+.recText{font-size:13px; color:#0f172a; font-weight:600}
+.recCard.heavy_rain_soon,
+.recCard.wet_spell{ background:#eff6ff; box-shadow:inset 0 0 0 1px #dbeafe; border-left:4px solid #3b82f6; }
+.recCard.flooding{ background:#e0f2fe; box-shadow:inset 0 0 0 1px #bae6fd; border-left:4px solid #0284c7; }
+.recCard.wind_risk{ background:#fff7ed; box-shadow:inset 0 0 0 1px #fde68a; border-left:4px solid #f59e0b; }
+.recCard.heat_wave{ background:#fef2f2; box-shadow:inset 0 0 0 1px #fecaca; border-left:4px solid #ef4444; }
+.recCard.cool_spell{ background:#ecfeff; box-shadow:inset 0 0 0 1px #bae6fd; border-left:4px solid #06b6d4; }
+.recCard.dry_spell{ background:#fffbeb; box-shadow:inset 0 0 0 1px #fde68a; border-left:4px solid #ca8a04; }
+.recCard.safe,.recCard.default{ background:#f0fdf4; box-shadow:inset 0 0 0 1px #bbf7d0; border-left:4px solid #22c55e; }
+
+.bar.prob{background:var(--blue);opacity:.6;width:2px}
+.bar.rain{background:linear-gradient(to top,#34d399,#6ee7b7);width:5px}
+.kpiWrap { margin-top: 10px; display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.kpi { background:#eef2ff; border-radius:12px; padding:8px 12px; display:flex; gap:6px; align-items:center; font-weight:700; font-size:12px; }
+
+/* plot container */
+.sparkWrap{ position:relative; height:160px; padding:6px 8px 18px 28px; border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1px #eef2f7; }
+.spark{position:absolute;left:28px;right:8px;top:6px;bottom:18px;display:flex;align-items:flex-end;gap:2px}
+.bar{border-radius:2px;background:#cbd5e1}
+.bar.prob{background:var(--blue); opacity:.6; width:2px}
+.bar.rain{background:linear-gradient(to top,#34d399,#6ee7b7); width:5px}
+.yAxis{position:absolute;left:0;top:6px;bottom:18px;width:28px;font-size:10px;color:#475569}
+.yAxis .ytick{position:absolute;left:0;transform:translateY(50%)}
+.yAxis .ytick span{position:absolute;right:4px;top:-7px}
+.xAxis{position:absolute;left:28px;right:8px;bottom:0;height:16px;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:#475569}
+.gridLayer{position:absolute;left:28px;right:8px;top:6px;bottom:18px}
+.gridLayer .g{position:absolute;left:0;right:0;height:1px;background:#e5e7eb}
+
+@media (max-width:980px){ .p72{grid-template-columns:1fr} }
+
+/* Badges + hint bubbles */
+.recHead{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.recBadge{ font:700 11px/1.2 system-ui,sans-serif; padding:4px 8px; border-radius:999px; letter-spacing:.2px; display:inline-block; }
+.recBadge.h72{ background:#e0f2fe; color:#075985; }
+.recBadge.d7 { background:#ecfdf5; color:#065f46; }
+.recCard.short { border-left-color:#0ea5e9; }
+.recCard.mid   { border-left-color:#10b981; }
+
+/* Axis rhythm + hover UI */
+.spark{ gap: var(--col-gap); }
+.xAxis{ position:absolute; left:28px; right:8px; bottom:0; height:16px; display:flex; justify-content:flex-start; align-items:flex-end; gap:var(--col-gap); font-size:10px; color:#475569; }
+.xAxis .xtick{ flex:0 0 auto; width:var(--col-w); text-align:center; line-height:1; white-space:nowrap; overflow:visible; }
+
+.xAxisTicks{ position:absolute; left:28px; right:8px; bottom:0; height:16px; display:flex; justify-content:flex-start; align-items:flex-end; gap:var(--col-gap); font-size:10px; color:#475569; }
+.xAxisTicks .xtick{ flex:0 0 auto; width:var(--col-w); text-align:center; line-height:1; white-space:nowrap; overflow:visible; }
+
+.plot-tip{ position:absolute; pointer-events:none; display:none; background:rgba(15,23,42,.92); color:#fff; padding:6px 8px; border-radius:8px; font-size:11px; transform:translate(-50%,-8px); white-space:nowrap; z-index:5; }
+.col:hover .bar { filter: brightness(1.08); }
+
+/* 72h SVG plot specifics */
+.plot72{ position:relative; height:180px; background:#fff; border-radius:12px; box-shadow:inset 0 0 0 1px #eef2f7; }
+.plot72 svg{ width:100%; height:100%; display:block; }
+.axis text{ font:10px system-ui, sans-serif; fill:#475569; }
+.grid line{ stroke:#e5e7eb; stroke-width:1; }
+.barProb{ fill:#60a5fa; opacity:.65; transition:opacity .15s ease; }
+.barRain{ fill:url(#rainGrad72); transition:opacity .15s ease; }
+.cross{ stroke:#111827; stroke-width:1.5; vector-effect:non-scaling-stroke; display:none; pointer-events:none; }
+.hoverBand{ fill:#94a3b8; opacity:.12; display:none; pointer-events:none; }
+
+/* tip id for 72 */
+#tip72 { position:absolute; pointer-events:none; display:none; background:rgba(15,23,42,.92); color:#fff; padding:6px 8px; border-radius:8px; font-size:11px; transform:translate(-50%,-8px); white-space:nowrap; z-index:5; }
+.cross { stroke:#111827; stroke-width:2; shape-rendering:crispEdges; vector-effect:non-scaling-stroke; display:none; pointer-events:none; }
+
+/* Hint badge bubble */
+.hint{ display:inline-block; width:18px; height:18px; margin-left:6px; border-radius:999px; background:#e2e8f0; position:relative; vertical-align:middle; }
+.hint::before{ content:"i"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font:700 12px/18px system-ui; color:#0f172a; }
+.hint:hover{ background:#cbd5e1; }
+.hint::after{
+  content: attr(data-tip);
+  position:absolute; top:50%; left:105%; transform:translateY(-50%);
+  background:#0f172a; color:#fff; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.45;
+  min-width:220px; max-width:320px; max-height:60vh; overflow-y:auto; white-space:normal;
+  box-shadow:0 8px 24px rgba(0,0,0,.18); z-index:9999; opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease;
+}
+.hint:hover::after{ opacity:1; transform:translateY(-50%) translateX(6px); }
+
+/* Make sure cards don't clip bubbles */
+.card { overflow: visible !important; }
+
+/* Container */
+.legend72 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* Buttons */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chip:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+/* Swatch (color dot) */
+.chip .swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+}
+
+/* When turned off (aria-pressed=false or toggled) */
+.chip.off,
+.chip[aria-pressed="false"] {
+  opacity: 0.5;
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #6b7280;
+}
