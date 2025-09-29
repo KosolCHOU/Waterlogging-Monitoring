@@ -89,6 +89,7 @@
       "BOUNDS": {{ bounds|safe }},
       "OVERLAY_URL": "{{ overlay_png|default:''|escapejs }}",
       "HOTSPOTS": "{{ hotspots_url|default:''|escapejs }}",
+      "HOTSPOTS": "{{ hotspots_url }}?v={{ job.id }}",
       "PROBE_BIN": "{{ probe_bin|default:''|escapejs }}",
       "PROBE_META": "{{ probe_meta|default:''|escapejs }}",
       "FIELD_ID": {{ field.id|default:"0" }}
@@ -99,4 +100,5 @@
 {% block extra_scripts %}
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="{% static 'js/dashboard.js' %}"></script>
+  <script src="{% static 'js/dashboard.js' %}?v={{ JOB_ID }}"></script>
 {% endblock %}

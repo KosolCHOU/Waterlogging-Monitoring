@@ -24,6 +24,18 @@ except Exception:
 # Farmer-facing labels (3 typical S1 reasons)
 FRIENDLY_LABELS = ["Radar drop (water)", "VH/VV ratio change", "Signal variability"]
 
+REASON_EXPLAIN = {
+    "Radar drop (water)": "Dark patch on radar = standing water in field",
+    "VH/VV ratio change": "Unusual soil/water signal = possible saturation",
+    "Signal variability": "Radar signal unstable = uneven wet/dry spots"
+}
+
+REASON_EMOJI = {
+    "Radar drop (water)": "💧",
+    "VH/VV ratio change": "🌱",
+    "Signal variability": "⚡"
+}
+
 # Default knobs (you may override in the function call)
 DEFAULTS = dict(
     HOTSPOT_PERCENTILE    = 90,     # top 10%
@@ -295,6 +307,8 @@ def extract_hotspots(
         area_m2, area_ha = area_from_pixels(area_px, src_transform)
         level = risk_level(mean_risk)
         reason = top_reason_label(top_idx)
+        reason_explain = REASON_EXPLAIN.get(reason, reason)
+        reason_emoji = REASON_EMOJI.get(reason, "ℹ️")
 
         chart_b64 = tiny_bar_png_friendly(
             values=(comp_means).tolist(),
@@ -311,6 +325,8 @@ def extract_hotspots(
             "area_m2": round(area_m2, 1),
             "area_ha": round(area_ha, 4),
             "reason": reason,
+            "reason_explain": reason_explain,
+            "reason_emoji": reason_emoji,
             "action": action_for(level),
             "chart_b64": chart_b64
         })
@@ -333,6 +349,8 @@ def extract_hotspots(
                 "area_m2": h["area_m2"],
                 "area_ha": h["area_ha"],
                 "reason": h["reason"],
+                "reason_explain": h["reason_explain"],
+                "reason_emoji": h["reason_emoji"],
                 "action": h["action"],
                 # optional:
                 "chart_b64": h["chart_b64"],

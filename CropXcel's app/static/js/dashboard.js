@@ -17,6 +17,7 @@ const {
   PROBE_BIN, PROBE_META, FIELD_ID
 } = window.CropXcel || {};
 
+console.log("%cCropXcel dashboard.js v3 (emoji+why)","background:#111;color:#0ff;padding:2px 6px;border-radius:6px");
 // ============== MAP ==================
 const map = L.map('map');
 
@@ -65,6 +66,19 @@ document.addEventListener('keyup', (e)=>{
   }
 });
 
+// Fallback mapping (normalized)
+const REASON_FALLBACK = {
+  "radar drop (water)": { emoji: "💧", explain: "Dark radar patch = standing water in field" },
+  "vh/vv ratio change": { emoji: "🌱", explain: "Soil/water signal shift = possible saturation" },
+  "signal variability": { emoji: "⚡", explain: "Unstable radar = uneven wet/dry spots" }
+};
+const norm = s => String(s||"").toLowerCase().replace(/\s+/g," ").trim();
+function withFriendly(reason, emoji, explain){
+  const f = REASON_FALLBACK[norm(reason)];
+  return { emoji: emoji || (f ? f.emoji : "ℹ️"), explain: explain || (f ? f.explain : "") };
+}
+
+
 // ===== Helpers (toast + risk utils)
 const pill = document.getElementById("hoverpill");
 let toastTimer = null;
@@ -108,6 +122,13 @@ if (HOTSPOTS) {
           const areaHa  = f.properties?.area_ha;
           const reason  = f.properties?.reason || '—';
           const action  = f.properties?.action || '';
+          const friendly = withFriendly(
+            reason,
+            f.properties?.reason_emoji,
+            f.properties?.reason_explain
+          );
+          const reasonEmoji   = friendly.emoji;
+          const reasonExplain = friendly.explain;
           const color   = colorFromPercent(riskPercent);
           const chartB64 = f.properties?.chart_b64;
 
@@ -146,7 +167,13 @@ if (HOTSPOTS) {
 
                 <div style="margin-bottom:12px">
                   <div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#64748b;font-weight:700">Why risky</div>
-                  <div style="font-size:13px;color:#0f172a;margin-top:2px">${reason}</div>
+                  <div style="display:flex;gap:8px;align-items:flex-start;margin-top:4px">
+                    <div style="font-size:18px;line-height:1">${reasonEmoji}</div>
+                    <div>
+                      <div style="font-size:13px;color:#0f172a;"><b>${reason}</b></div>
+                      ${reasonExplain ? `<div style="font-size:12px;color:#475569;margin-top:2px">${reasonExplain}</div>` : ``}
+                    </div>
+                  </div>
                 </div>
 
                 ${action ? `
