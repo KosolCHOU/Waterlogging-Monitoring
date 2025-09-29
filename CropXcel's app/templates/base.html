@@ -332,6 +332,24 @@
       mountLogoInside();
     }
 
+    // Keyboard shortcut: press "S" to toggle sidebar
+    document.addEventListener('keydown', (e) => {
+      // ignore typing inside input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      // Press "s" or "S"
+      if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+
+      // Alternative: Ctrl + B (uncomment if you prefer this)
+      // if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+      //   e.preventDefault();
+      //   toggleSidebar();
+      // }
+    });
+
     // Toggle behavior when clicking the logo itself
     function toggleSidebar(){
       const willHide = !sidebar.classList.contains('hidden');
