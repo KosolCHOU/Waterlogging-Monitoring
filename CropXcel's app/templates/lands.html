@@ -18,7 +18,10 @@
         <h1 class="title">🌾 My Rice Fields</h1>
         <p class="subtitle">Tap a field below to see its water and crop condition. You can also add a new field anytime.</p>
       </div>
-      <button id="addFieldBtn" class="add-btn">➕ Add New Field</button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <a href="{% url 'crop_recommend_simple' %}" class="add-btn recommend">🌱 Crop Recommendation</a>
+        <button id="addFieldBtn" class="add-btn" type="button">➕ Add New Field</button>
+      </div>
     </div>
 
     <div class="listwrap">

@@ -19,14 +19,13 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
-from .forms import ProfileImageForm, ProfileForm
-from django.contrib.auth.forms import UserCreationForm
+from .forms import CropRecommendForm, ProfileImageForm, ProfileForm
 from django.contrib.auth import logout, login
-from django.db.models import Prefetch
-from django.urls import reverse
 from django.utils import timezone
 from django.views import View
+from .forms import CropRecForm
+from .models import FieldAOI, AnalysisJob, Profile
+from app_core.ml.recommender import predict_crop
 
 from .models import FieldAOI, AnalysisJob, Profile
 from analysis.engine import export_stack_from_geom, export_s1_timeseries
@@ -307,13 +306,13 @@ class FieldViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = FieldAOI.objects.all().order_by("-id")
-        # Non-staff users only see their own fields
-        if not user.is_staff:
-            qs = qs.filter(owner=user)
-        # Optional ?mine=1 keeps same behavior for staff if they want
-        if self.request.query_params.get("mine") == "1":
-            qs = qs.filter(owner=user)
+        # Default: always show only my fields
+        qs = FieldAOI.objects.filter(owner=user).order_by("-id")
+
+        # Staff can explicitly request all fields for debugging/ops
+        if user.is_staff and self.request.query_params.get("all") == "1":
+            qs = FieldAOI.objects.all().order_by("-id")
+
         return qs
 
     def perform_create(self, serializer):
@@ -371,10 +370,10 @@ class FieldViewSet(viewsets.ModelViewSet):
         csv_url = (media_url.rstrip("/") + "/" + csv_rel).replace("//", "/")
         return Response({"ok": True, "csv_file": fname, "csv_url": csv_url}, status=200)
 
+@login_required
 def lands(request):
     # If you have a fields list page, redirect there instead.
     return render(request, "lands.html")
-
 
 from django.contrib.auth.decorators import login_required
 
@@ -816,3 +815,78 @@ def edit_profile(request):
 def support(request):
     # super simple support page; replace with your real flow later
     return render(request, "support.html", {})
+
+@login_required
+def crop_recommend_simple(request):
+    """
+    Field-independent crop recommendation.
+    Inputs: N, P, K, temperature, humidity, pH, rainfall.
+    Output: recommended crop (+ optional probabilities).
+    """
+    result_label, prob_map = None, {}
+    if request.method == "POST":
+        form = CropRecForm(request.POST)
+        if form.is_valid():
+            feats = form.cleaned_features()
+            result_label, prob_map = predict_crop(feats)
+            messages.success(request, f"✅ Recommended crop: {result_label}")
+            # Show results below the form
+        else:
+            messages.error(request, "Please fix the highlighted fields.")
+    else:
+        form = CropRecForm()
+
+    return render(request, "crop_recommend_simple.html", {
+        "form": form,
+        "result_label": result_label,
+        "probs": prob_map,
+    })
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def crop_recommend_simple(request):
+    """
+    Field-independent crop recommendation.
+    Inputs: N, P, K, temperature, humidity, pH, rainfall.
+    Output: best result + table of top 3.
+    """
+    result_label = None
+    top3 = []   # list of dicts: [{"crop": str, "prob": float, "pct": int}, ...]
+    if request.method == "POST":
+        form = CropRecForm(request.POST)
+        if form.is_valid():
+            feats = form.cleaned_features()
+            # Expect predict_crop to return: (best_label, probs_dict)
+            # probs_dict example: {"SenPidor-1":0.61, "IR66":0.23, "PhkaRumduol":0.16}
+            result_label, probs = predict_crop(feats)
+
+            # ---- compute top 3 (with defensive checks) ----
+            if isinstance(probs, dict) and probs:
+                # sort by prob desc
+                ranked = sorted(probs.items(), key=lambda kv: kv[1], reverse=True)[:3]
+                # normalize if not already (avoid sum=0)
+                s = sum(v for _, v in ranked) or 1.0
+                top3 = [
+                    {
+                        "crop": k,
+                        "prob": float(v),
+                        "pct": int(round((v / s) * 100)) if s != 0 else 0,
+                    }
+                    for k, v in ranked
+                ]
+                # Recompute best from ranked to be safe
+                result_label = top3[0]["crop"] if top3 else result_label
+
+            messages.success(request, f"✅ Top recommendation: {result_label}")
+        else:
+            messages.error(request, "Please fix the highlighted fields.")
+    else:
+        form = CropRecForm()
+
+    return render(request, "crop_recommend_simple.html", {
+        "form": form,
+        "result_label": result_label,
+        "top3": top3,
+    })

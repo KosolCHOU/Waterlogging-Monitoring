@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+{% block title %}Crop Recommendation – CropXcel{% endblock %}
+
+{% block head %}
+  {% load static %}
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <style>
+    :root{
+      /* base palette */
+      --bg:#f6faf9;
+      --card:#ffffff;
+      --ink:#0f172a;
+      --muted:#64748b;
+      --line:#e2e8f0;
+      --ring:#b3e5ff;
+
+      /* brand & accents */
+      --brand:#10a37f;          /* emerald-teal brand */
+      --brand-ink:#065f46;      /* darker text on brandy backgrounds */
+      --brand-soft:rgba(16,163,127,.10);
+
+      /* bars for rank 1..3 */
+      --bar1:#10a37f;
+      --bar2:#06b6d4;           /* cyan */
+      --bar3:#475569;           /* slate */
+
+      /* status colors (kept for reuse) */
+      --good:#16a34a; --warn:#f59e0b; --bad:#dc2626;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#0b1220; --card:#0f1629; --ink:#e5e7eb; --muted:#94a3b8; --line:#243143; --ring:#1f3b4d;
+        --brand:#10a37f; --brand-ink:#d1fae5; --brand-soft:rgba(16,163,127,.14);
+        --bar1:#10a37f; --bar2:#22d3ee; --bar3:#94a3b8;
+      }
+    }
+
+    .page{ padding:16px; background:linear-gradient(180deg,var(--bg),#ecf7f4 30%, var(--bg) 100%); }
+    .titlebar{ display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .title{ font-size:clamp(22px,3vw,28px); margin:0 0 2px; letter-spacing:.2px; }
+    .subtitle{ color:var(--muted); margin:0; }
+
+    .layout{ display:grid; grid-template-columns: 1.2fr .8fr; gap:16px; }
+    @media (max-width: 960px){ .layout{ grid-template-columns: 1fr; } }
+
+    .card{ background:var(--card); border-radius:16px; padding:18px; box-shadow:0 8px 28px rgba(2,6,23,.10); border:1px solid var(--line); }
+    .card h3{ margin:0 0 10px; }
+    .muted{ color:var(--muted); }
+    .grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+
+/* buttons (top-right) */
+.btn{
+  padding:11px 18px;
+  border-radius:999px;
+  background:linear-gradient(135deg, var(--brand) 0%, #0ea5e9 100%);
+  color:#fff;
+  border:1px solid var(--brand);
+  cursor:pointer;
+  font-weight:600;
+  letter-spacing:.3px;
+  box-shadow:0 3px 6px rgba(0,0,0,.12);
+  transition:all .25s ease;
+}
+.btn:hover{
+  filter:brightness(1.08);
+  transform:translateY(-1px);
+  box-shadow:0 4px 10px rgba(0,0,0,.18);
+}
+.btn:focus-visible{
+  outline:3px solid var(--ring);
+  outline-offset:2px;
+}
+.btn:active{
+  transform:translateY(0);
+  box-shadow:0 2px 5px rgba(0,0,0,.12);
+}
+.btn:disabled{
+  opacity:.65;
+  cursor:not-allowed;
+}
+
+/* ghost buttons */
+.btn-ghost{
+  padding:11px 18px;
+  border-radius:999px;
+  background:transparent;
+  color:var(--brand);
+  border:1px solid var(--brand);
+  font-weight:600;
+  transition:all .25s ease;
+}
+.btn-ghost:hover{
+  background:var(--brand-soft);
+  color:var(--brand-ink);
+  transform:translateY(-1px);
+}
+.btn-ghost:active{ transform:translateY(0); }
+
+/* alt ghost (cyan accent) */
+.btn-ghost.alt{
+  color:#0ea5e9;
+  border-color:#38bdf8;
+}
+.btn-ghost.alt:hover{
+  background:rgba(14,165,233,.12);
+  color:#0284c7;
+}
+.btn-ghost.alt:active{ transform:translateY(0); }
+
+/* back-to-lands button (blue filled) */
+.btn-ghost.back{
+  background:#0ea5e9;
+  color:#fff;
+  border-color:#0284c7;
+}
+.btn-ghost.back:hover{
+  background:#0284c7;
+  color:#f0f9ff;
+}
+
+.btn-group{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+    /* input group with unit */
+    .ig{ display:flex; flex-direction:column; gap:6px; }
+    .ig label{ font-weight:600; font-size:14px; }
+    .inwrap{ display:flex; align-items:center; gap:6px; background:#fff0; border:1px solid var(--line); border-radius:12px; padding:4px 8px; }
+    .inwrap:focus-within{ outline:2px solid var(--ring); }
+    .unit{ font-size:13px; color:var(--muted); padding:6px 8px; border-left:1px dashed var(--line); }
+    .number{ width:100%; border:none; background:transparent; padding:10px 6px; font-size:16px; outline:none; color:var(--ink); }
+    .number::placeholder{ color:color-mix(in srgb, var(--muted) 80%, transparent); }
+    input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{ -webkit-appearance: none; margin:0; }
+    input[type=number]{ -moz-appearance:textfield; }
+
+    .help{ font-size:12px; color:var(--muted); }
+
+    .kv{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--line); }
+    .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:var(--brand-soft); border:1px solid var(--ring); font-size:13px; color:var(--brand-ink); }
+    .note{ font-size:13px; }
+
+    .callout{ border-left:4px solid var(--brand); background:var(--brand-soft); padding:10px 12px; border-radius:12px; }
+
+.result-badge{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:20px;
+  background:linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
+  /* border:1px solid #059669;  <-- removed */
+  padding:16px 20px;
+  border-radius:14px;
+  box-shadow:0 4px 10px rgba(0,0,0,.12);
+  color:#ffffff;
+}
+
+    .result-badge .title{
+    font-size:15px;
+    margin:0;
+    color:#d1fae5;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+    }
+    .result-badge .value{
+    font-size:24px;
+    font-weight:800;
+    margin:0;
+    color:#ffffff;
+    }
+
+    .top3-table{ width:100%; border-collapse:separate; border-spacing:0 8px; margin-top:10px; }
+    .top3-table th{ text-align:left; font-size:13px; color:var(--muted); font-weight:700; padding:0 10px 4px; }
+    .top3-table td{ background:rgba(2,6,23,.02); border:1px solid var(--line); padding:10px; }
+    .top3-table tr td:first-child{ border-top-left-radius:10px; border-bottom-left-radius:10px; }
+    .top3-table tr td:last-child{ border-top-right-radius:10px; border-bottom-right-radius:10px; }
+    .top3-name{ font-weight:700; }
+    .top3-pct{ font-variant-numeric: tabular-nums; font-weight:700; }
+
+    .bar{ height:10px; background:var(--line); border-radius:999px; overflow:hidden; }
+    .bar > i{ display:block; height:100%; width:0; transition:width .6s ease; }
+    /* rank colors */
+    tbody tr:nth-child(1) .bar > i{ background:var(--bar1); }
+    tbody tr:nth-child(2) .bar > i{ background:var(--bar2); }
+    tbody tr:nth-child(3) .bar > i{ background:var(--bar3); }
+
+    .tip{ font-size:13px; color:var(--muted); margin-top:8px; }
+    .error{ color:#dc2626; font-size:13px; margin-top:4px; }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="titlebar">
+    <div>
+      <h1 class="title">🌱 Crop Recommendation</h1>
+      <p class="subtitle">Enter your field conditions. We’ll suggest the most suitable rice variety given nutrients and weather.</p>
+    </div>
+    <div class="btn-group">
+        <a class="btn-ghost back" href="{% url 'lands' %}">← Back to Lands</a>
+        <button class="btn-ghost" type="button" id="btnWetPreset">🌦 Wet-season preset</button>
+        <button class="btn-ghost alt" type="button" id="btnDryPreset">☀️ Dry-season preset</button>
+    </div>
+  </div>
+
+  <div class="layout" style="margin-top:12px;">
+    <!-- LEFT: FORM -->
+    <div class="card">
+      <form method="post" novalidate id="recForm">
+        {% csrf_token %}
+
+        <div class="grid">
+          <!-- N -->
+          <div class="ig">
+            <label for="id_N">Nitrogen</label>
+            <div class="inwrap">
+              <input id="id_N" name="N" type="number" class="number"
+                     inputmode="decimal" step="1" min="0" max="300"
+                     placeholder="e.g., 90" required
+                     value="{{ form.N.value|default_if_none:'' }}">
+              <span class="unit">kg/ha</span>
+            </div>
+            {% if form.N.errors %}
+              <div class="error">{{ form.N.errors.0 }}</div>
+            {% endif %}
+            <div class="help">0–300. Typical top-dress 60–120.</div>
+          </div>
+
+          <!-- P -->
+          <div class="ig">
+            <label for="id_P">Phosphorus</label>
+            <div class="inwrap">
+              <input id="id_P" name="P" type="number" class="number"
+                     inputmode="decimal" step="1" min="0" max="200"
+                     placeholder="e.g., 40" required
+                     value="{{ form.P.value|default_if_none:'' }}">
+              <span class="unit">kg/ha</span>
+            </div>
+            {% if form.P.errors %}
+              <div class="error">{{ form.P.errors.0 }}</div>
+            {% endif %}
+            <div class="help">0–200. Common range 20–60.</div>
+          </div>
+
+          <!-- K -->
+          <div class="ig">
+            <label for="id_K">Potassium</label>
+            <div class="inwrap">
+              <input id="id_K" name="K" type="number" class="number"
+                     inputmode="decimal" step="1" min="0" max="250"
+                     placeholder="e.g., 40" required
+                     value="{{ form.K.value|default_if_none:'' }}">
+              <span class="unit">kg/ha</span>
+            </div>
+            {% if form.K.errors %}
+              <div class="error">{{ form.K.errors.0 }}</div>
+            {% endif %}
+            <div class="help">0–250. Common range 30–80.</div>
+          </div>
+
+          <!-- Temperature -->
+          <div class="ig">
+            <label for="id_temperature">Temperature</label>
+            <div class="inwrap">
+              <input id="id_temperature" name="temperature" type="number" class="number"
+                     inputmode="decimal" step="0.1" min="10" max="50"
+                     placeholder="e.g., 28.5" required
+                     value="{{ form.temperature.value|default_if_none:'' }}">
+              <span class="unit">°C</span>
+            </div>
+            {% if form.temperature.errors %}
+              <div class="error">{{ form.temperature.errors.0 }}</div>
+            {% endif %}
+            <div class="help">10–50. Rice thrives ~24–32 °C.</div>
+          </div>
+
+          <!-- Humidity -->
+          <div class="ig">
+            <label for="id_humidity">Humidity</label>
+            <div class="inwrap">
+              <input id="id_humidity" name="humidity" type="number" class="number"
+                     inputmode="numeric" step="1" min="0" max="100"
+                     placeholder="e.g., 78" required
+                     value="{{ form.humidity.value|default_if_none:'' }}">
+              <span class="unit">%</span>
+            </div>
+            {% if form.humidity.errors %}
+              <div class="error">{{ form.humidity.errors.0 }}</div>
+            {% endif %}
+            <div class="help">0–100%.</div>
+          </div>
+
+          <!-- pH -->
+          <div class="ig">
+            <label for="id_pH">Soil pH</label>
+            <div class="inwrap">
+              <input id="id_pH" name="pH" type="number" class="number"
+                     inputmode="decimal" step="0.1" min="3.5" max="9.5"
+                     placeholder="e.g., 6.2" required
+                     value="{{ form.pH.value|default_if_none:'' }}">
+              <span class="unit">pH</span>
+            </div>
+            {% if form.pH.errors %}
+              <div class="error">{{ form.pH.errors.0 }}</div>
+            {% endif %}
+            <div class="help">3.5–9.5. Most rice prefers ~5.5–7.</div>
+          </div>
+
+          <!-- Rainfall -->
+          <div class="ig">
+            <label for="id_rainfall">Rainfall</label>
+            <div class="inwrap">
+              <input id="id_rainfall" name="rainfall" type="number" class="number"
+                     inputmode="decimal" step="1" min="0" max="600"
+                     placeholder="e.g., 120" required
+                     value="{{ form.rainfall.value|default_if_none:'' }}">
+              <span class="unit">mm</span>
+            </div>
+            {% if form.rainfall.errors %}
+              <div class="error">{{ form.rainfall.errors.0 }}</div>
+            {% endif %}
+            <div class="help">0–600 in the last 30 days.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; display:flex; gap:8px; align-items:center;">
+          <button class="btn" type="submit">⚡ Get Recommendation</button>
+          <span class="muted note" id="saveNote" aria-live="polite"></span>
+        </div>
+      </form>
+    </div>
+
+    <!-- RIGHT: INFO + RESULT -->
+    <div class="card">
+      <h3>🌾 About this recommender</h3>
+        <p class="muted">
+        🌱 <b>This system</b> is your smart guide for choosing the right rice variety.  
+        Instead of relying only on experience, it uses <b>scientific data</b> from your soil nutrients 
+        (N, P, K, pH) and recent weather (temperature, humidity, rainfall) to suggest varieties 
+        best suited to your land.  
+        With this tool, you can make <b>data-driven decisions</b>, reduce risks, and aim for a healthier, 
+        more profitable harvest.
+        </p>
+
+      {% if result_label %}
+        <hr style="border:0; border-top:1px dashed var(--line); margin:14px 0;">
+
+        <!-- Featured: Best Match -->
+        <h3>🎯 Best Match</h3>
+        <div class="result-badge" style="margin-top:8px;">
+            <div class="result-badge" style="margin-top:8px; justify-content:space-between; width:100%;">
+            <p class="title">Best crop for your conditions</p>
+            <p class="value">{{ result_label }}</p>
+            </div>
+        </div>
+
+        <!-- Top 3 Table -->
+        <h3 style="margin-top:16px;">🏆 Top 3 Recommendations</h3>
+        {% if top3 and top3|length > 0 %}
+          <table class="top3-table" aria-label="Top 3 recommended crops with relative confidence">
+            <thead>
+              <tr>
+                <th style="width:40%;">Variety</th>
+                <th style="width:45%;">Match strength</th>
+                <th style="width:15%;">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in top3 %}
+                <tr>
+                  <td class="top3-name">{{ row.crop }}</td>
+                  <td>
+                    <div class="bar" role="img" aria-label="{{ row.pct }} percent">
+                      <i style="width: {{ row.pct }}%;"></i>
+                    </div>
+                  </td>
+                  <td class="top3-pct">{{ row.pct }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted">No recommendations yet.</p>
+        {% endif %}
+
+        <p class="tip">
+          💡 Tip: Treat this as guidance. Check <b>local seed availability</b> and your
+          <b>preferred growth duration</b>. For variety specifics in Cambodia, you can also consult
+          your agro-dealer or local extension officer.
+        </p>
+      {% else %}
+        <p class="note muted" style="margin-top:14px;">
+          👉 Enter your inputs on the left and press <b>Get Recommendation</b> to see results here.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Quick presets (Cambodia-style ballparks; tweak as you like)
+  const wet = { N:100, P:40, K:40, temperature:29, humidity:80, pH:6.0, rainfall:220 };
+  const dry = { N:90, P:35, K:35, temperature:31, humidity:60, pH:6.5, rainfall:60 };
+
+  const ids = ["N","P","K","temperature","humidity","pH","rainfall"];
+  function setVals(d){ ids.forEach(k=>{ const el=document.getElementById("id_"+k); if(el) el.value = (d[k]??""); }); }
+  function getVals(){ const o={}; ids.forEach(k=>{ const el=document.getElementById("id_"+k); o[k]=el?el.value:""; }); return o; }
+
+  function clamp(el){
+    const min = el.min!==""?parseFloat(el.min):null;
+    const max = el.max!==""?parseFloat(el.max):null;
+    let val = parseFloat(el.value);
+    if(!isFinite(val)) return;
+    if(min!==null && val<min) el.value=min;
+    if(max!==null && val>max) el.value=max;
+  }
+
+  ids.forEach(k=>{
+    const el = document.getElementById("id_"+k);
+    if(!el) return;
+    el.addEventListener("blur", ()=>clamp(el));
+    el.addEventListener("keydown", (e)=>{
+      if((e.ctrlKey||e.metaKey) && (e.key==="ArrowUp"||e.key==="ArrowDown")){
+        e.preventDefault();
+        const step = parseFloat(el.step||"1");
+        const s = e.key==="ArrowUp"? step : -step;
+        const v = parseFloat(el.value||"0") + s;
+        el.value = v.toFixed((el.step||"1").includes(".")? (el.step.split(".")[1]?.length||0):0);
+        clamp(el);
+      }
+    });
+  });
+
+    // Local save / restore
+    const key="cropxcel_rec_inputs";
+    const btnSave = document.getElementById("btnSave");
+    if (btnSave){
+    btnSave.onclick=()=>{
+        localStorage.setItem(key, JSON.stringify(getVals()));
+        const note = document.getElementById("saveNote");
+        note.textContent = "Saved locally.";
+        setTimeout(()=> note.textContent="", 2000);
+    };
+    }
+
+  window.addEventListener("DOMContentLoaded", ()=>{
+    const saved = localStorage.getItem(key);
+    if(saved){ try{ setVals(JSON.parse(saved)); }catch{} }
+
+    // animate bars on first render of results
+    document.querySelectorAll(".top3-table .bar > i").forEach(i=>{
+      const w = i.style.width; i.style.width = "0";
+      requestAnimationFrame(()=>{ i.style.width = w; });
+    });
+  });
+
+  document.getElementById("btnWetPreset").onclick=()=> setVals(wet);
+  document.getElementById("btnDryPreset").onclick=()=> setVals(dry);
+</script>
+{% endblock %}

@@ -26,5 +26,5 @@ urlpatterns = [
     path("support/", views.support, name="support"),
     path("accounts/logout/", LogoutViewAllowGet.as_view(), name="logout"),
     path("signup/", views.signup, name="signup"),
-
+    path("recommend/", login_required_with_message(views.crop_recommend_simple), name="crop_recommend_simple"),
 ]

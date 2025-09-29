@@ -2,6 +2,7 @@
 
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from uuid import uuid4
 import os
@@ -93,3 +94,30 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
     else:
         if hasattr(instance, "profile"):
             instance.profile.save()
+
+User = get_user_model()
+
+class CropRecommendation(models.Model):
+    field = models.ForeignKey("FieldAOI", on_delete=models.CASCADE, related_name="recommendations")
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="crop_recommendations")
+
+    # Inputs
+    N = models.FloatField()
+    P = models.FloatField()
+    K = models.FloatField()
+    temperature = models.FloatField()
+    humidity = models.FloatField()
+    pH = models.FloatField()
+    rainfall = models.FloatField()
+
+    # Outputs
+    recommended_crop = models.CharField(max_length=100)
+    prob_json = models.JSONField(blank=True, null=True)  # {"Rice": 0.82, "Maize": 0.12, ...}
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"{self.field_id} → {self.recommended_crop} @ {self.created_at:%Y-%m-%d}"

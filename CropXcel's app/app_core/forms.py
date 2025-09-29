@@ -164,3 +164,53 @@ class SignupForm(UserCreationForm):
 
         prof.save()
         return user
+
+class CropRecForm(forms.Form):
+    N = forms.FloatField(min_value=0, label="Nitrogen (N)")
+    P = forms.FloatField(min_value=0, label="Phosphorus (P)")
+    K = forms.FloatField(min_value=0, label="Potassium (K)")
+    temperature = forms.FloatField(label="Temperature (°C)")
+    humidity = forms.FloatField(min_value=0, max_value=100, label="Humidity (%)")
+    pH = forms.FloatField(min_value=0, max_value=14, label="Soil pH")
+    rainfall = forms.FloatField(min_value=0, label="Rainfall (mm)")
+
+    def cleaned_features(self):
+        cd = self.cleaned_data
+        return {
+            "N": cd["N"],
+            "P": cd["P"],
+            "K": cd["K"],
+            "temperature": cd["temperature"],
+            "humidity": cd["humidity"],
+            "pH": cd["pH"],
+            "rainfall": cd["rainfall"],
+        }
+    
+# app_core/forms.py
+from django import forms
+from django.core.exceptions import ValidationError
+
+def dfield(minv, maxv, step=None):
+    w = forms.NumberInput(attrs={
+        "class": "number",
+        "min": str(minv), "max": str(maxv),
+        "step": str(step if step is not None else 1)
+    })
+    return forms.DecimalField(min_value=minv, max_value=maxv, widget=w)
+
+class CropRecommendForm(forms.Form):
+    N  = dfield(0, 300, 1)
+    P  = dfield(0, 200, 1)
+    K  = dfield(0, 250, 1)
+    temperature = dfield(10, 50, 0.1)
+    humidity    = dfield(0, 100, 1)
+    pH          = dfield(3.5, 9.5, 0.1)
+    rainfall    = dfield(0, 600, 1)
+
+    def clean(self):
+        data = super().clean()
+        # example cross-field sanity: if rainfall>400 and N>200 → warn
+        if data.get("rainfall") and data.get("N"):
+            if float(data["rainfall"]) > 400 and float(data["N"]) > 200:
+                raise ValidationError("Very high rainfall + very high nitrogen may increase lodging risk.")
+        return data

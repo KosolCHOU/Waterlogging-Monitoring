@@ -37,7 +37,8 @@ function fieldCardHtml(f){
   const id = f.id ?? f.field_id;
   const name = f.name || `Field ${id}`;
   const created = (f.created_at || f.created || "").toString().slice(0,10);
-  const href = `/dashboard/${id}/`;
+  const reportHref = `/dashboard/${id}/`;
+  const recHref    = `/fields/${id}/recommend/`;
   const areaTxt = (f.area_ha != null) ? `${Number(f.area_ha).toFixed(2)} ha` : "—";
   return `
     <div class="card" data-id="${id}">
@@ -46,7 +47,9 @@ function fieldCardHtml(f){
         <span class="pill"><span id="area-${id}">${areaTxt}</span></span>
         <span class="muted">${created || ""}</span>
       </div>
-      <button class="go" onclick="setLastField(${id});location.href='${href}'">See Field Report</button>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="go" onclick="setLastField(${id});location.href='${reportHref}'">See Field Report</button>
+      </div>
     </div>`;
 }
 
@@ -59,6 +62,7 @@ async function loadFields(){
   try{
     const j = await getJSON("/api/fields/?ordering=-id");
     const items = Array.isArray(j) ? j : (j.results || []);
+    window._fieldsCache = items;
     fieldsList.innerHTML = items.map(fieldCardHtml).join("");
     emptyMsg.style.display = items.length ? "none" : "block";
     fillAreasIfMissing(items);
