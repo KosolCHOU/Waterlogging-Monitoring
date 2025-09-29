@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <link rel="stylesheet" href="{% static 'css/lands.css' %}">
+  <link rel="stylesheet" href="{% static 'css/lands.css' %}?v=20240930b">
 {% endblock %}
 
 {% block content %}
@@ -18,8 +18,15 @@
         <h1 class="title">🌾 My Rice Fields</h1>
         <p class="subtitle">Tap a field below to see its water and crop condition. You can also add a new field anytime.</p>
       </div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <a href="{% url 'crop_recommend_simple' %}" class="add-btn recommend">🌱 Crop Recommendation</a>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <a href="{% url 'crop_recommend_simple' %}" class="crop-recommend-btn">
+          <span class="btn-icon">🤖</span>
+          <span class="btn-text">
+            <strong>AI Crop Recommendation</strong>
+            <small>Get AI-powered suggestions</small>
+          </span>
+          <span class="btn-arrow">→</span>
+        </a>
         <button id="addFieldBtn" class="add-btn" type="button">➕ Add New Field</button>
       </div>
     </div>

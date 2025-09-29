@@ -199,9 +199,20 @@ def compute_temporal_engine_s1(
         r = _rules_at(t)
         rule_count = sum([r["vh_db_drop"], r["vv_db_drop"], r["ratio_pct_drop"], r["vh_low_abs"], r["z_watch"]])
         rule_count_norm = _clip01(rule_count / 5.0)
-        z_sev = _clip01((WATCH_Z - z_t) / (WATCH_Z - ALERT_Z + 1e-6)) if (not pd.isna(z_t) and z_t <= WATCH_Z) else 0.0
-        vh_sev = _clip01((0 - vh_lr_t) / abs(MIN_ABS_DROP_DB_VH)) if (not pd.isna(vh_lr_t) and vh_lr_t <= 0) else 0.0
-        vv_sev = _clip01((0 - vv_lr_t) / abs(MIN_ABS_DROP_DB_VV)) if (not pd.isna(vv_lr_t) and vv_lr_t <= 0) else 0.0
+        
+        # Make severity calculation more robust
+        z_sev = 0.0
+        if not pd.isna(z_t) and z_t <= WATCH_Z:
+            z_sev = _clip01((WATCH_Z - z_t) / (WATCH_Z - ALERT_Z + 1e-6))
+        
+        vh_sev = 0.0
+        if not pd.isna(vh_lr_t) and vh_lr_t <= 0:
+            vh_sev = _clip01((0 - vh_lr_t) / abs(MIN_ABS_DROP_DB_VH))
+        
+        vv_sev = 0.0
+        if not pd.isna(vv_lr_t) and vv_lr_t <= 0:
+            vv_sev = _clip01((0 - vv_lr_t) / abs(MIN_ABS_DROP_DB_VV))
+        
         ratio_sev = 0.7 if r["ratio_pct_drop"] else 0.0
         persist_boost = 0.15 if _bool_at(alerts_mask, t) else 0.0
         sev01 = _clip01(0.35*z_sev + 0.30*vh_sev + 0.15*vv_sev + 0.20*ratio_sev + persist_boost)
@@ -210,27 +221,62 @@ def compute_temporal_engine_s1(
         conf = 0.40
         conf += 0.25 * rule_count_norm
         conf += 0.15 * (1.0 if _bool_at(alerts_mask, t) else 0.0)
-        if vh_std is not None:
-            med_std = vh_std.rolling(f"{ROLL_WINDOW_DAYS}D", closed="left").median()
-            if (t in med_std.index) and (t in vh_std.index) and (not pd.isna(vh_std.loc[t])) and (not pd.isna(med_std.loc[t])):
-                conf += 0.10 * (1.0 if float(vh_std.loc[t]) <= 0.9 * float(med_std.loc[t]) else 0.0)
+        
+        # Simplified confidence calculation without rolling statistics that can vary
+        if vh_std is not None and t in vh_std.index and not pd.isna(vh_std.loc[t]):
+            try:
+                med_std = vh_std.rolling(f"{ROLL_WINDOW_DAYS}D", closed="left").median()
+                if (t in med_std.index) and (not pd.isna(med_std.loc[t])):
+                    conf += 0.10 * (1.0 if float(vh_std.loc[t]) <= 0.9 * float(med_std.loc[t]) else 0.0)
+            except:
+                pass  # Skip rolling calculation if it fails
+                
         key_ok = int(t in z.index and not pd.isna(z_t)) + int(vh_lrdb is not None and t in vh_lrdb.index and not pd.isna(vh_lr_t)) + int(vv_lrdb is not None and t in vv_lrdb.index and not pd.isna(vv_lr_t))
         conf += 0.10 * _clip01(key_ok / 3.0)
         return severity_0_100, _clip01(conf)
 
     def classify_level_with_severity(t):
         r = _rules_at(t)
-        level = ("Alert" if (_bool_at(alerts_mask, t) or r["z_alert"])
-                 else ("Watch" if (r["vh_db_drop"] or r["vv_db_drop"] or r["ratio_pct_drop"] or r["z_watch"])
-                       else "Healthy"))
-        sev, _ = severity_confidence_at(t)
-        if sev >= 65: return "Alert"
-        if sev >= 35: return "Watch"
-        return level
+        # First determine base level using rules (this should be deterministic)
+        base_level = ("Alert" if (_bool_at(alerts_mask, t) or r["z_alert"])
+                     else ("Watch" if (r["vh_db_drop"] or r["vv_db_drop"] or r["ratio_pct_drop"] or r["z_watch"])
+                           else "Healthy"))
+        
+        # Get severity - if calculation fails, fall back to base level
+        try:
+            sev, _ = severity_confidence_at(t)
+            # Ensure severity is a valid number
+            if not isinstance(sev, (int, float)) or pd.isna(sev):
+                return base_level
+        except:
+            return base_level
+        
+        # Simplified stability logic with more conservative thresholds
+        if base_level == "Alert":
+            # If rules say Alert, keep it unless severity is very low
+            return "Alert" if sev >= 10 else ("Watch" if sev >= 5 else "Healthy")
+        elif base_level == "Watch":
+            # If rules say Watch, apply severity-based upgrades/downgrades
+            if sev >= 75:  # Very high severity -> Alert
+                return "Alert"
+            elif sev < 15:  # Very low severity -> Healthy
+                return "Healthy"
+            else:
+                return "Watch"
+        else:  # base_level == "Healthy"
+            # If rules say Healthy, only upgrade with very high severity
+            if sev >= 80:
+                return "Alert"
+            elif sev >= 50:
+                return "Watch"
+            else:
+                return "Healthy"
 
     rows = []
     for t in df.index:
         sev, conf = severity_confidence_at(t)
+        # Calculate status once to avoid inconsistency from multiple calls
+        status = classify_level_with_severity(t)
         rows.append({
             "date": t,
             "S1_VH_CURR": float(vh.loc[t])      if vh is not None and t in vh.index else np.nan,
@@ -240,11 +286,11 @@ def compute_temporal_engine_s1(
             "S1_VH_VV_CURR": float(ratio.loc[t]) if ratio is not None and t in ratio.index else np.nan,
             "S1_VH_VV_DIFF": float(ratio_d.loc[t]) if ratio_d is not None and t in ratio_d.index else np.nan,
             "zscore": float(z.loc[t]) if (t in z.index and not pd.isna(z.loc[t])) else np.nan,
-            "status": classify_level_with_severity(t),
+            "status": status,
             "severity_0_100": int(sev),
             "confidence_0_1": float(conf),
             "reasons": reasons_at(t),
-            "actions": ACTIONS[classify_level_with_severity(t)],
+            "actions": ACTIONS[status],  # Use the cached status instead of calling function again
         })
     insights_df = pd.DataFrame(rows).sort_values("date")
 
