@@ -1,0 +1,14 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,status,severity_0_100,confidence_0_1,reasons,actions
+2025-06-07 07:00:00,0.004337,0.097615,-4.805235,1.127882,0.049139,-0.116872,,Watch,59,0.75,"VH logΔ ≤ -1.5 dB, VH/VV drop ≥ 8% vs base",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-06-17 07:00:00,0.007497,0.166008,0.513619,4.777758,0.050153,-0.075779,,Alert,29,0.7,VH/VV drop ≥ 8% vs base,Check field now. Drain standing water if possible (open outlets/pump).
+2025-06-27 07:00:00,0.011241,0.229695,3.142071,5.666169,0.058295,-0.034134,1.3411439326967802,Watch,14,0.65,"VH/VV drop ≥ 8% vs base, z = 1.3",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-07 07:00:00,0.017312,0.157608,5.450133,2.749033,0.136782,0.065465,1.2667831457451,Healthy,0,0.5,z = 1.3,All good. Keep routine checks.
+2025-07-17 07:00:00,0.021536,0.131926,6.001622,-0.182016,0.183762,0.134943,1.1405670424514138,Healthy,3,0.5,z = 1.1,All good. Keep routine checks.
+2025-07-27 07:00:00,0.023257,0.099148,3.786966,-2.03785,0.286901,0.213567,0.16548967890606334,Watch,15,0.55,"VV logΔ ≤ -1.0 dB, z = 0.2",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-08-06 07:00:00,0.023804,0.09924,2.349741,-1.714935,0.264855,0.16108,-0.3325068791598327,Watch,15,0.55,"VV logΔ ≤ -1.0 dB, z = -0.3",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-08-16 07:00:00,0.025191,0.116862,1.495352,-0.628422,0.225139,0.085204,-0.8567966916764074,Watch,12,0.55,z = -0.9,Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-08-26 07:00:00,0.028973,0.146081,1.274547,0.894674,0.208424,0.02078,-0.9579523991032262,Watch,8,0.55,z = -1.0,Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-05 07:00:00,0.025772,0.121488,0.070569,0.097021,0.222223,0.009862,-1.2011410482866858,Watch,20,0.55,z = -1.2,Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-15 07:00:00,0.001731,0.012638,-13.634192,-10.247716,0.124647,-0.104883,-8.394493323938581,Alert,100,0.9500000000000001,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, z = -8.4, VV logΔ low & smooth",Check field now. Drain standing water if possible (open outlets/pump).
+2025-09-25 07:00:00,0.001509,0.012232,-14.66569,-10.435131,0.101218,-0.120871,-9.50007839930466,Alert,100,0.9500000000000001,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, z = -9.5, VV logΔ low & smooth",Check field now. Drain standing water if possible (open outlets/pump).
+2025-09-27 07:00:00,0.001609,0.012358,-14.140946,-10.570481,0.109913,-0.109226,-7.993440298050743,Alert,100,0.9500000000000001,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, z = -8.0, VV logΔ low & smooth",Check field now. Drain standing water if possible (open outlets/pump).

@@ -41,8 +41,11 @@ from shapely.geometry import shape as shp_shape
 @require_http_methods(["POST"])
 def aoi_upload(request):
     """
-    Save a drawn AOI, create Field + Job, export a field-scoped stack and time-series,
+    Save a drawn AOI, create Field + Job, export stack/time-series,
     then kick off the analysis.
+
+    Change: When user leaves `name` empty, assign a per-user sequence:
+            "Field #<count for this user>" instead of global id.
     """
     try:
         payload = json.loads(request.body.decode("utf-8"))
@@ -73,20 +76,44 @@ def aoi_upload(request):
             indent=2
         ), encoding="utf-8")
 
-        field = FieldAOI# after creating field
+        # --- Owner (must be logged in for per-user numbering) ---
+        owner = request.user if request.user.is_authenticated else None
+
+        # --- Decide display name ---
+        # If user typed a name, use it. Otherwise generate a per-user sequence.
+        auto_name = None
+        if not user_name:
+            if owner:
+                # Count this user's existing fields to get the next sequence
+                # e.g., if they already have 2, this becomes "Field #3"
+                next_seq = FieldAOI.objects.filter(owner=owner).count() + 1
+                base = f"Field #{next_seq}"
+
+                # Ensure uniqueness in case of race/rename: Field #3, Field #3 (2), ...
+                candidate = base
+                bump = 2
+                while FieldAOI.objects.filter(owner=owner, name=candidate).exists():
+                    candidate = f"{base} ({bump})"
+                    bump += 1
+                auto_name = candidate
+            else:
+                # Anonymous: fallback later to global id (old behavior)
+                auto_name = None
+
+        # --- Create field ---
         field = FieldAOI.objects.create(
-            owner=request.user if request.user.is_authenticated else None,  # NEW
-            name=user_name,
+            owner=owner,
+            name=(user_name or auto_name or ""),  # may be blank for anonymous case
             geom=geom_geojson,
             area_ha=area_ha
         )
 
-        # if user didn't type a name, auto-assign
-        if not user_name:
+        # Final fallback for anonymous users with blank name → use global id
+        if not (user_name or auto_name):
             field.name = f"Field #{field.id}"
             field.save(update_fields=["name"])
 
-        # --- Export stack with FIELD ID in name ---
+        # --- Export stack (same as before) ---
         stacks_dir = Path(settings.MEDIA_ROOT) / "stacks"
         stacks_dir.mkdir(parents=True, exist_ok=True)
         tif_path = stacks_dir / f"stack_field_{field.id}_{ts}.tif"
@@ -103,7 +130,7 @@ def aoi_upload(request):
         job.result = {**(job.result or {}), "stack_path": (str(tif_path) if tif_exported else None)}
         job.save(update_fields=["result"])
 
-        # --- Export time-series (field-scoped filename) ---
+        # --- Export time-series (same as before) ---
         ts_dir = Path(settings.MEDIA_ROOT) / "timeseries"
         ts_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -119,7 +146,7 @@ def aoi_upload(request):
         }
         job.save(update_fields=["result"])
 
-        # --- Kick off analysis (sync in DEBUG, async otherwise) ---
+        # --- Kick off analysis (unchanged) ---
         if settings.DEBUG:
             run_waterlogging_analysis(job.id)
         else:
@@ -131,10 +158,10 @@ def aoi_upload(request):
             "aoi_file": aoi_path.name,
             "tif_file": tif_exported,
             "field_id": field.id,
-            "name": user_name,
+            "name": field.name,  # return the resolved name
             "job_id": job.id,
-            "timeseries_file": timeseries_file,   # <-- defined now
-            "timeseries_path": timeseries_path,   # <-- defined now
+            "timeseries_file": timeseries_file,
+            "timeseries_path": timeseries_path,
             "next_url": f"/fields/{field.id}/risk/",
         })
 
