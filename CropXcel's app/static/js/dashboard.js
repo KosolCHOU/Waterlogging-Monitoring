@@ -70,12 +70,26 @@ document.addEventListener('keyup', (e)=>{
 const REASON_FALLBACK = {
   "radar drop (water)": { emoji: "💧", explain: "Dark radar patch = standing water in field" },
   "vh/vv ratio change": { emoji: "🌱", explain: "Soil/water signal shift = possible saturation" },
-  "signal variability": { emoji: "⚡", explain: "Unstable radar = uneven wet/dry spots" }
+  "signal variability": { emoji: "⚡", explain: "Unstable radar = uneven wet/dry spots" },
+  "water detected": { emoji: "💧", explain: "Standing water detected in field" },
+  "high moisture": { emoji: "🌊", explain: "Soil moisture levels are elevated" },
+  "flooding risk": { emoji: "🚨", explain: "High risk of waterlogging detected" },
+  "drainage needed": { emoji: "🚰", explain: "Field drainage may be required" },
+  "unknown": { emoji: "❓", explain: "Reason for risk is unclear" }
 };
 const norm = s => String(s||"").toLowerCase().replace(/\s+/g," ").trim();
 function withFriendly(reason, emoji, explain){
-  const f = REASON_FALLBACK[norm(reason)];
-  return { emoji: emoji || (f ? f.emoji : "ℹ️"), explain: explain || (f ? f.explain : "") };
+  console.log("withFriendly called with:", {reason, emoji, explain}); // Debug log
+  const normalizedReason = norm(reason);
+  const f = REASON_FALLBACK[normalizedReason];
+  console.log("Normalized reason:", normalizedReason, "Found fallback:", f); // Debug log
+  
+  const result = { 
+    emoji: emoji || (f ? f.emoji : "ℹ️"), 
+    explain: explain || (f ? f.explain : "") 
+  };
+  console.log("withFriendly result:", result); // Debug log
+  return result;
 }
 
 
@@ -112,6 +126,14 @@ if (HOTSPOTS) {
   fetch(HOTSPOTS, { cache: 'no-store' })
     .then(r => r.json())
     .then(gj => {
+      console.log("Hotspots GeoJSON loaded:", gj); // Debug log
+      
+      // Log the first feature to see its structure
+      if (gj.features && gj.features.length > 0) {
+        console.log("First hotspot feature:", gj.features[0]);
+        console.log("Properties of first hotspot:", gj.features[0].properties);
+      }
+      
       const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
       const hotspotLayer = L.geoJSON(gj, {
@@ -120,8 +142,16 @@ if (HOTSPOTS) {
           const riskPercent = clamp((riskRaw <= 1 ? Math.round(riskRaw * 100) : Math.round(riskRaw)), 0, 100);
           const level   = f.properties?.level || (riskPercent >= 70 ? 'Alert' : (riskPercent >= 40 ? 'Watch' : 'Healthy'));
           const areaHa  = f.properties?.area_ha;
-          const reason  = f.properties?.reason || '—';
+          const reason  = f.properties?.reason || 'Unknown risk detected';
           const action  = f.properties?.action || '';
+          
+          // Debug log the properties
+          console.log("Hotspot properties:", {
+            reason: f.properties?.reason,
+            reason_emoji: f.properties?.reason_emoji,
+            reason_explain: f.properties?.reason_explain
+          });
+          
           const friendly = withFriendly(
             reason,
             f.properties?.reason_emoji,
@@ -168,10 +198,10 @@ if (HOTSPOTS) {
                 <div style="margin-bottom:12px">
                   <div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#64748b;font-weight:700">Why risky</div>
                   <div style="display:flex;gap:8px;align-items:flex-start;margin-top:4px">
-                    <div style="font-size:18px;line-height:1">${reasonEmoji}</div>
+                    <div style="font-size:18px;line-height:1">${reasonEmoji || "⚠️"}</div>
                     <div>
-                      <div style="font-size:13px;color:#0f172a;"><b>${reason}</b></div>
-                      ${reasonExplain ? `<div style="font-size:12px;color:#475569;margin-top:2px">${reasonExplain}</div>` : ``}
+                      <div style="font-size:13px;color:#0f172a;"><b>${reason || "Risk detected"}</b></div>
+                      ${reasonExplain ? `<div style="font-size:12px;color:#475569;margin-top:2px">${reasonExplain}</div>` : `<div style="font-size:12px;color:#475569;margin-top:2px">Risk analysis indicates potential waterlogging</div>`}
                     </div>
                   </div>
                 </div>
