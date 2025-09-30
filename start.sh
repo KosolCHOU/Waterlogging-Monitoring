@@ -8,7 +8,7 @@ echo "Current directory: $(pwd)"
 echo "Python version: $(python --version)"
 
 # Change to the Django app directory
-cd "CropXcel's app"
+cd "CropXcel-app"
 echo "Changed to directory: $(pwd)"
 
 # Start the Django application with Gunicorn
