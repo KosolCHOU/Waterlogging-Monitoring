@@ -1,0 +1,2 @@
+web: gunicorn cropxcel_project.wsgi --log-file -
+worker: celery -A cropxcel_project worker --loglevel=info
