@@ -1,0 +1,28 @@
+# Core Django (Essential) - Updated for Python 3.13
+Django>=4.2,<5.0
+django-environ>=0.10.0
+gunicorn>=20.1.0
+whitenoise>=6.4.0
+
+# Basic Data Processing (Minimal) - Python 3.13 compatible
+numpy>=1.24.0,<2.0
+pandas>=2.0.0,<3.0
+requests>=2.31.0
+
+# Image Processing (Basic)
+Pillow>=10.0.0
+
+# Authentication & Security
+cryptography>=41.0.0
+
+# Utilities
+python-dateutil>=2.8.2
+pytz>=2024.1
+python-dotenv>=1.0.0
+
+# Templates
+Jinja2>=3.1.2
+MarkupSafe>=2.1.5
+
+# Database support
+psycopg2-binary>=2.9.0
