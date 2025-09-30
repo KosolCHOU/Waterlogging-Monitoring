@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: cropxcel-demo
+    env: python
+    region: oregon
+    plan: free
+    rootDir: CropXcel's app
+    buildCommand: ./build.sh
+    startCommand: gunicorn cropxcel_project.wsgi:application --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DEBUG
+        value: False
+      - key: SECRET_KEY
+        value: TR0x8TXZ7hLuE1AoVZG6JC2asNmXsPwzvT2N5XgZf8DhbhdzEjtiOGh_E3Fach7jWyM
+      - key: DJANGO_SETTINGS_MODULE
+        value: cropxcel_project.settings_production
+      - key: ALLOWED_HOSTS
+        value: cropxcel-demo.onrender.com,localhost,127.0.0.1
+      - key: DATABASE_URL
+        value: sqlite:///./db.sqlite3
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+
+databases:
+  - name: cropxcel-db
+    databaseName: cropxcel
+    user: cropxcel
+    region: oregon
+    plan: free
