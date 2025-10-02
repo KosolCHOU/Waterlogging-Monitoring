@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: cropxcel-web
+    env: python
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate"
+    startCommand: "gunicorn cropxcel_project.wsgi:application --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "cropxcel_project.settings_production"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: USE_DEMO_MODE
+        value: "true"
+      - key: DISABLE_EARTH_ENGINE
+        value: "true"
+
+  - type: redis
+    name: cropxcel-redis
+    plan: free
+
+databases:
+  - name: cropxcel-db
+    plan: free
