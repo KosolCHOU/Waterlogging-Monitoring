@@ -1395,7 +1395,38 @@ def serve_probe_bin(request, filename):
             },
         )
         return response
-    except IOError:
+    except (IOError, PermissionError) as e:
+        # Try to fix permissions if it's a permission error
+        import subprocess
+        import os
+        
+        if isinstance(e, PermissionError):
+            try:
+                # Check if file exists but has wrong permissions
+                if file_path.exists():
+                    print(f"[PERMISSION FIX] Attempting to fix permissions for {filename}")
+                    # Try to fix ownership using the auto-fix script
+                    script_path = Path(settings.BASE_DIR) / "auto_fix_permissions.sh"
+                    if script_path.exists():
+                        subprocess.run([str(script_path)], check=False)
+                        # Try to open the file again
+                        response = FileResponse(
+                            open(file_path, "rb"),
+                            content_type="application/octet-stream",
+                            headers={
+                                "Cache-Control": "no-cache, no-store, must-revalidate",
+                                "Pragma": "no-cache",
+                                "Expires": "0",
+                                "Content-Disposition": "inline",
+                                "Access-Control-Allow-Origin": "*",
+                                "Access-Control-Allow-Methods": "GET",
+                                "Access-Control-Allow-Headers": "Content-Type",
+                            },
+                        )
+                        return response
+            except Exception as fix_error:
+                print(f"[PERMISSION FIX] Failed to fix permissions: {fix_error}")
+        
         raise Http404("File not found")
 
 

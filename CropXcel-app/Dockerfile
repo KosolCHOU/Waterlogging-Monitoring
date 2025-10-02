@@ -30,6 +30,10 @@ RUN sed -i 's/\r$//' start.sh
 
 RUN chmod +x start.sh
 
+# Create media directory structure
+RUN mkdir -p /app/media/probes /app/media/overlays /app/media/hotspots /app/media/insights \
+    /app/media/plots /app/media/stacks /app/media/timeseries /app/media/aoi /app/media/avatars
+
 # Expose port
 EXPOSE 8000
 
