@@ -47,6 +47,10 @@ def _media_rel_from_url(path_or_url: str) -> str:
     media_url = getattr(settings, "MEDIA_URL", "/media/")
     if rel.startswith(media_url):
         rel = rel[len(media_url) :]
+    elif rel.startswith("/probe-bin/"):
+        # Handle probe-bin URLs - map them to probes directory
+        filename = rel.replace("/probe-bin/", "")
+        return f"probes/{filename}"
 
     rel = rel.lstrip("/")
     while rel.startswith("media/"):
