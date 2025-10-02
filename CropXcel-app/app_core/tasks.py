@@ -49,12 +49,20 @@ def _media_rel_from_url(path_or_url: str) -> str:
         rel = rel[len(media_url) :]
     elif rel.startswith("/probe-bin/"):
         # Handle probe-bin URLs - map them to probes directory
-        filename = rel.replace("/probe-bin/", "")
+        filename = rel[len("/probe-bin/") :]
         return f"probes/{filename}"
 
     rel = rel.lstrip("/")
+
+    # Legacy alias: older jobs stored /media/probe-bin/... which should resolve to probes/
+    legacy_prefix = "probe-bin/"
+    if rel.startswith(legacy_prefix):
+        rel = f"probes/{rel[len(legacy_prefix):]}"
+
     while rel.startswith("media/"):
         rel = rel[6:]
+        if rel.startswith(legacy_prefix):
+            rel = f"probes/{rel[len(legacy_prefix):]}"
     return rel
 
 

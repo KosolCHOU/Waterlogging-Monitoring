@@ -713,6 +713,9 @@ media_url = getattr(settings, "MEDIA_URL", "/media/").rstrip("/")
 ov_dir = media_root / "overlays"
 ov_dir.mkdir(parents=True, exist_ok=True)
 
+probe_dir = media_root / "probes"
+probe_dir.mkdir(parents=True, exist_ok=True)
+
 overlay_name = f"overlay_{tag}.png"
 overlay_abs = ov_dir / overlay_name
 save_overlay_png(
@@ -730,8 +733,8 @@ overlay_png_url = f"{media_url}/overlays/{overlay_name}"
 # --- NEW: write probe data & meta for client hover ---
 probe_bin_name = f"probe_{tag}.bin"
 probe_meta_name = f"probe_{tag}.json"
-probe_bin_abs = ov_dir / probe_bin_name
-probe_meta_abs = ov_dir / probe_meta_name
+probe_bin_abs = probe_dir / probe_bin_name
+probe_meta_abs = probe_dir / probe_meta_name
 
 arr01 = np.clip(risk_web, 0, 1)
 arr_u16 = (arr01 * 1000.0).round().astype("uint16")  # scale 0..1000
@@ -749,8 +752,8 @@ probe_meta = {
     "layout": {"data_bytes": int(arr_u16.size * 2)},
 }
 probe_meta_abs.write_text(json.dumps(probe_meta), encoding="utf-8")
-probe_bin_url = f"{media_url}/overlays/{probe_bin_name}"
-probe_meta_url = f"{media_url}/overlays/{probe_meta_name}"
+probe_bin_url = f"{media_url}/probes/{probe_bin_name}"
+probe_meta_url = f"{media_url}/probes/{probe_meta_name}"
 
 # With colorbar
 save_overlay_png(
