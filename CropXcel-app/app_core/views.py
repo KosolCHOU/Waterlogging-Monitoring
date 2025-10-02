@@ -28,13 +28,35 @@ from .models import FieldAOI, AnalysisJob, Profile
 from app_core.ml.recommender import predict_crop
 
 from .models import FieldAOI, AnalysisJob, Profile
-from analysis.engine import export_stack_from_geom, export_s1_timeseries
-from analysis.insights import compute_temporal_engine_s1, build_insights_html, classify_and_area
+
+# Import Earth Engine functions conditionally to avoid blocking startup
+try:
+    from analysis.engine import export_stack_from_geom, export_s1_timeseries
+
+    EE_AVAILABLE = True
+except Exception as e:
+    print(f"[VIEWS] Earth Engine functions not available: {e}")
+    EE_AVAILABLE = False
+
+    # Create dummy functions for graceful fallback
+    def export_stack_from_geom(*args, **kwargs):
+        raise Exception("Earth Engine not configured")
+
+    def export_s1_timeseries(*args, **kwargs):
+        raise Exception("Earth Engine not configured")
+
+
+from analysis.insights import (
+    compute_temporal_engine_s1,
+    build_insights_html,
+    classify_and_area,
+)
 from analysis.weather import get_forecast_for_field
 from .forms import SignupForm
 
 # New: local geodesic area (no GEE)
-from shapely.geometry import shape as shp_shape  
+from shapely.geometry import shape as shp_shape
+
 
 # app_core/views.py
 @require_http_methods(["POST"])
@@ -53,11 +75,14 @@ def aoi_upload(request):
         if not feature:
             return HttpResponseBadRequest("Missing 'feature'")
 
-        geom_geojson = feature["geometry"] if feature.get("type") == "Feature" else feature
+        geom_geojson = (
+            feature["geometry"] if feature.get("type") == "Feature" else feature
+        )
 
         # --- area calc ---
         from shapely.geometry import shape
         from pyproj import Geod
+
         g = shape(geom_geojson)
         if g.is_empty:
             return HttpResponseBadRequest("Empty geometry")
@@ -70,10 +95,13 @@ def aoi_upload(request):
         media_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         aoi_path = media_dir / f"field_{ts}.geojson"
-        aoi_path.write_text(json.dumps(
-            {"type": "Feature", "geometry": geom_geojson, "properties": {}},
-            indent=2
-        ), encoding="utf-8")
+        aoi_path.write_text(
+            json.dumps(
+                {"type": "Feature", "geometry": geom_geojson, "properties": {}},
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
         # --- Owner (must be logged in for per-user numbering) ---
         owner = request.user if request.user.is_authenticated else None
@@ -104,7 +132,7 @@ def aoi_upload(request):
             owner=owner,
             name=(user_name or auto_name or ""),  # may be blank for anonymous case
             geom=geom_geojson,
-            area_ha=area_ha
+            area_ha=area_ha,
         )
 
         # Final fallback for anonymous users with blank name → use global id
@@ -125,8 +153,13 @@ def aoi_upload(request):
             print("⚠️ GEE export failed:", gee_err)
 
         # --- Create Job and store stack_path ---
-        job = AnalysisJob.objects.create(field=field, status="queued", message="Created from AOI upload")
-        job.result = {**(job.result or {}), "stack_path": (str(tif_path) if tif_exported else None)}
+        job = AnalysisJob.objects.create(
+            field=field, status="queued", message="Created from AOI upload"
+        )
+        job.result = {
+            **(job.result or {}),
+            "stack_path": (str(tif_path) if tif_exported else None),
+        }
         job.save(update_fields=["result"])
 
         # --- Export time-series (same as before) ---
@@ -134,9 +167,11 @@ def aoi_upload(request):
         ts_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         ts_csv = ts_dir / f"timeseries_field_{field.id}_{stamp}.csv"
-        export_s1_timeseries(geom_geojson=field.geom, out_csv=str(ts_csv), tz="Asia/Phnom_Penh")
+        export_s1_timeseries(
+            geom_geojson=field.geom, out_csv=str(ts_csv), tz="Asia/Phnom_Penh"
+        )
 
-        timeseries_file = (settings.MEDIA_URL.rstrip("/") + f"/timeseries/{ts_csv.name}")
+        timeseries_file = settings.MEDIA_URL.rstrip("/") + f"/timeseries/{ts_csv.name}"
         timeseries_path = str(ts_csv)
         job.result = {
             **(job.result or {}),
@@ -151,21 +186,24 @@ def aoi_upload(request):
         else:
             run_waterlogging_analysis.delay(job.id)
 
-        return JsonResponse({
-            "ok": True,
-            "area_ha": round(float(area_ha), 4),
-            "aoi_file": aoi_path.name,
-            "tif_file": tif_exported,
-            "field_id": field.id,
-            "name": field.name,  # return the resolved name
-            "job_id": job.id,
-            "timeseries_file": timeseries_file,
-            "timeseries_path": timeseries_path,
-            "next_url": f"/fields/{field.id}/risk/",
-        })
+        return JsonResponse(
+            {
+                "ok": True,
+                "area_ha": round(float(area_ha), 4),
+                "aoi_file": aoi_path.name,
+                "tif_file": tif_exported,
+                "field_id": field.id,
+                "name": field.name,  # return the resolved name
+                "job_id": job.id,
+                "timeseries_file": timeseries_file,
+                "timeseries_path": timeseries_path,
+                "next_url": f"/fields/{field.id}/risk/",
+            }
+        )
 
     except Exception as e:
         return HttpResponseBadRequest(f"Invalid payload: {e}")
+
 
 # ---------- Page: risk map ----------
 @login_required
@@ -173,17 +211,16 @@ def risk_map(request, field_id: int):
     field = get_object_or_404(FieldAOI, id=field_id, owner=request.user)
 
     # 1) Find latest job for this field (any status)
-    job = (AnalysisJob.objects
-           .filter(field=field)
-           .order_by("-id")
-           .first())
+    job = AnalysisJob.objects.filter(field=field).order_by("-id").first()
 
     # Optional: allow forcing a re-run with ?rerun=1
     force_rerun = request.GET.get("rerun") == "1"
 
     # 2) If no job yet, or force rerun → create one and kick it off
     if (job is None) and force_rerun:
-        job = AnalysisJob.objects.create(field=field, status="queued", message="Created from risk_map")
+        job = AnalysisJob.objects.create(
+            field=field, status="queued", message="Created from risk_map"
+        )
         if settings.DEBUG:
             # run synchronously during dev so the page can show quickly
             run_waterlogging_analysis(job.id)
@@ -209,10 +246,10 @@ def risk_map(request, field_id: int):
         return HttpResponse(html)
 
     # 4) When done → render your map as before
-    bounds = job.result.get("bounds") or [[field.geom["coordinates"][0][0][1],
-                                           field.geom["coordinates"][0][0][0]],
-                                          [field.geom["coordinates"][0][2][1],
-                                           field.geom["coordinates"][0][2][0]]]
+    bounds = job.result.get("bounds") or [
+        [field.geom["coordinates"][0][0][1], field.geom["coordinates"][0][0][0]],
+        [field.geom["coordinates"][0][2][1], field.geom["coordinates"][0][2][0]],
+    ]
     ctx = {
         "job_id": job.id,
         "bounds": json.dumps(bounds),
@@ -224,6 +261,7 @@ def risk_map(request, field_id: int):
         "probe_meta": job.result.get("probe_meta_url") or "",
     }
     return render(request, "risk_map.html", ctx)
+
 
 # ---------- API: probe (hover/click sampling) ----------
 @require_http_methods(["GET"])
@@ -263,7 +301,12 @@ def probe(request, job_id: int):
             R = 6371000.0
             dy = math.radians(y2 - y1)
             dx = math.radians(x2 - x1)
-            a = math.sin(dy / 2) ** 2 + math.cos(math.radians(y1)) * math.cos(math.radians(y2)) * math.sin(dx / 2) ** 2
+            a = (
+                math.sin(dy / 2) ** 2
+                + math.cos(math.radians(y1))
+                * math.cos(math.radians(y2))
+                * math.sin(dx / 2) ** 2
+            )
             return 2 * R * math.asin(math.sqrt(a))
 
         # find nearest hotspot
@@ -282,18 +325,23 @@ def probe(request, job_id: int):
             return JsonResponse({"value": None, "level": None, "source": "nohotspot"})
 
         props = best[1].get("properties", {})
-        return JsonResponse({
-            "value": round(float(props.get("risk_pct", 0)) / 100.0, 3),  # convert % back to 0–1
-            "level": props.get("level"),
-            "reason": props.get("reason"),
-            "action": props.get("action"),
-            "area_ha": props.get("area_ha"),
-            "source": "hotspots"
-        })
+        return JsonResponse(
+            {
+                "value": round(
+                    float(props.get("risk_pct", 0)) / 100.0, 3
+                ),  # convert % back to 0–1
+                "level": props.get("level"),
+                "reason": props.get("reason"),
+                "action": props.get("action"),
+                "area_ha": props.get("area_ha"),
+                "source": "hotspots",
+            }
+        )
 
     except Exception as e:
         return JsonResponse({"value": None, "level": None, "source": f"error: {e}"})
-    
+
+
 # ---------- DRF API ----------
 class FieldViewSet(viewsets.ModelViewSet):
     """
@@ -301,6 +349,7 @@ class FieldViewSet(viewsets.ModelViewSet):
     GET /api/fields/         → only my fields (newest first)
     POST /api/fields/        → owner auto-set to request.user
     """
+
     serializer_class = FieldSerializer
     permission_classes = [IsAuthenticated]
 
@@ -322,18 +371,25 @@ class FieldViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def latest_job(self, request, pk=None):
         field = self.get_object()  # scoped by get_queryset(), so already safe
-        job = (AnalysisJob.objects
-               .filter(field=field, status__in=["done", "running", "queued", "failed"])
-               .order_by("-id")
-               .first())
+        job = (
+            AnalysisJob.objects.filter(
+                field=field, status__in=["done", "running", "queued", "failed"]
+            )
+            .order_by("-id")
+            .first()
+        )
         if not job:
-            return Response({"detail": "No jobs yet."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "No jobs yet."}, status=status.HTTP_404_NOT_FOUND
+            )
         return Response(JobSerializer(job).data, status=200)
 
     @action(detail=True, methods=["post"])
     def analyze(self, request, pk=None):
         field = self.get_object()
-        job = AnalysisJob.objects.create(field=field, status="queued", message="Queued by API")
+        job = AnalysisJob.objects.create(
+            field=field, status="queued", message="Queued by API"
+        )
         run_waterlogging_analysis.delay(job.id)
         return Response({"ok": True, "job_id": job.id}, status=202)
 
@@ -348,7 +404,7 @@ class FieldViewSet(viewsets.ModelViewSet):
         step_days = int(request.data.get("step_days", 10))
         orbit = request.data.get("orbit")
         media_root = Path(getattr(settings, "MEDIA_ROOT", "media"))
-        media_url  = getattr(settings, "MEDIA_URL", "/media/")
+        media_url = getattr(settings, "MEDIA_URL", "/media/")
         ts_dir = media_root / "timeseries"
         ts_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -365,17 +421,22 @@ class FieldViewSet(viewsets.ModelViewSet):
                 tz="Asia/Phnom_Penh",
             )
         except Exception as e:
-            return Response({"ok": False, "error": f"GEE export failed: {e}"}, status=400)
+            return Response(
+                {"ok": False, "error": f"GEE export failed: {e}"}, status=400
+            )
         csv_rel = f"timeseries/{fname}"
         csv_url = (media_url.rstrip("/") + "/" + csv_rel).replace("//", "/")
         return Response({"ok": True, "csv_file": fname, "csv_url": csv_url}, status=200)
+
 
 @login_required
 def lands(request):
     # If you have a fields list page, redirect there instead.
     return render(request, "lands.html")
 
+
 from django.contrib.auth.decorators import login_required
+
 
 @login_required
 def dashboard_index(request):
@@ -405,12 +466,16 @@ def dashboard_index(request):
 
 @login_required
 def dashboard(request, field_id: int):
-    field = get_object_or_404(FieldAOI, id=field_id, owner=request.user)  # ✅ ownership check
-    job = (AnalysisJob.objects.filter(field=field).order_by("-id").first())
+    field = get_object_or_404(
+        FieldAOI, id=field_id, owner=request.user
+    )  # ✅ ownership check
+    job = AnalysisJob.objects.filter(field=field).order_by("-id").first()
 
     # --- always remember last viewed field ---
     def remember(resp):
-        resp.set_cookie("last_field", str(field_id), max_age=60*60*24*30, path="/")
+        resp.set_cookie(
+            "last_field", str(field_id), max_age=60 * 60 * 24 * 30, path="/"
+        )
         return resp
 
     if not job or job.status != "done" or not job.result:
@@ -434,12 +499,14 @@ def dashboard(request, field_id: int):
         """
         return remember(HttpResponse(html))
 
-    bounds = job.result.get("bounds") or [[...],[...]]
+    bounds = job.result.get("bounds") or [[...], [...]]
     # build insights HTML parts
     # Resolve insights CSV from the saved timeseries path (preferred) or fallbacks
-    insights_csv = job.result.get("timeseries_path") \
-        or job.result.get("insights_csv_path") \
-        or job.result.get("insights_csv_url")   # last resort if you ever store a URL
+    insights_csv = (
+        job.result.get("timeseries_path")
+        or job.result.get("insights_csv_path")
+        or job.result.get("insights_csv_url")
+    )  # last resort if you ever store a URL
 
     parts = build_insights_html(
         insights_csv=job.result.get("insights_csv_path"),  # ← use processed insights
@@ -449,17 +516,46 @@ def dashboard(request, field_id: int):
         plot_path=job.result.get("plot_path"),
     )
 
+    # Get hotspots URL with fallback for debugging
+    hotspots_url = job.result.get("hotspots_url") or ""
+
+    # TEMPORARY DEBUG: If hotspots_url is empty, try to find recent hotspot file
+    if not hotspots_url:
+        from pathlib import Path
+        import glob
+
+        media_root = Path(getattr(settings, "MEDIA_ROOT", "media"))
+        hotspots_dir = media_root / "hotspots"
+        if hotspots_dir.exists():
+            # Find the most recent hotspot file
+            pattern = str(hotspots_dir / "hotspots_*.geojson")
+            hotspot_files = glob.glob(pattern)
+            if hotspot_files:
+                # Sort by modification time, newest first
+                newest_file = max(hotspot_files, key=lambda x: Path(x).stat().st_mtime)
+                latest_file = Path(newest_file)
+                hotspots_url = f"/media/hotspots/{latest_file.name}"
+                print(f"🔧 DEBUG: Using fallback hotspots_url: {hotspots_url}")
+
+    # Convert old probe URLs to new format
+    probe_bin_url = job.result.get("probe_bin_url") or ""
+    if probe_bin_url and "/media/probes/" in probe_bin_url:
+        # Extract filename from old URL format
+        filename = probe_bin_url.split("/")[-1]
+        probe_bin_url = f"/probe-bin/{filename}"
+
     ctx = {
-    "job_id": job.id,
-    "bounds": json.dumps(bounds),
-    "overlay_png": job.result.get("overlay_png_url") or "",
-    "hotspots_url": job.result.get("hotspots_url") or "",
-    "probe_bin": job.result.get("probe_bin_url") or "",
-    "probe_meta": job.result.get("probe_meta_url") or "",
-    "field": field,  # <-- important for template
+        "job_id": job.id,
+        "bounds": json.dumps(bounds),
+        "overlay_png": job.result.get("overlay_png_url") or "",
+        "hotspots_url": hotspots_url,
+        "probe_bin": probe_bin_url,
+        "probe_meta": job.result.get("probe_meta_url") or "",
+        "field": field,  # <-- important for template
     }
     resp = render(request, "dashboard.html", ctx)
     return remember(resp)
+
 
 # app_core/views.py → field_insights_api()
 @require_http_methods(["GET"])
@@ -467,9 +563,11 @@ def dashboard(request, field_id: int):
 def field_insights_api(request, field_id: int):
     # enforce that the insights are for *my* field
     get_object_or_404(FieldAOI, id=field_id, owner=request.user)
-    job = (AnalysisJob.objects
-           .filter(field_id=field_id, status="done")
-           .order_by("-id").first())
+    job = (
+        AnalysisJob.objects.filter(field_id=field_id, status="done")
+        .order_by("-id")
+        .first()
+    )
     if not job or not job.result:
         raise Http404("No completed analysis for this field yet.")
 
@@ -490,6 +588,7 @@ def field_insights_api(request, field_id: int):
         ts_dir = os.path.join(settings.MEDIA_ROOT, "timeseries")
         if os.path.isdir(ts_dir):
             import glob
+
             pattern = os.path.join(ts_dir, f"timeseries_field_{field_id}_*.csv")
             matches = sorted(glob.glob(pattern), reverse=True)
             if matches:
@@ -497,37 +596,43 @@ def field_insights_api(request, field_id: int):
 
     if not ts_path or not os.path.exists(ts_path):
         # return empty UI instead of 404, so the page stays usable
-        return JsonResponse({
-            "plot_png": None,
-            "insights_csv": None,
-            "alerts_count": 0,
-            "area_by_class": job.result.get("area_by_class") or {},
-            "total_ha": job.result.get("total_ha") or 0.0,
-            **build_insights_html(
-                insights_csv=None,
-                area_by_class=job.result.get("area_by_class") or {},
-                total_ha=job.result.get("total_ha"),
-                plot_path=None,
-            )
-        })
+        return JsonResponse(
+            {
+                "plot_png": None,
+                "insights_csv": None,
+                "alerts_count": 0,
+                "area_by_class": job.result.get("area_by_class") or {},
+                "total_ha": job.result.get("total_ha") or 0.0,
+                **build_insights_html(
+                    insights_csv=None,
+                    area_by_class=job.result.get("area_by_class") or {},
+                    total_ha=job.result.get("total_ha"),
+                    plot_path=None,
+                ),
+            }
+        )
 
     # --- compute/update scale if missing ---
     # --- inside field_insights_api, before classify_and_area() ---
     risk_tif = job.result.get("risk_tif_path")
 
     # Fallback 1: derive a local path from URL if present
-    if (not risk_tif or not os.path.exists(risk_tif)):
+    if not risk_tif or not os.path.exists(risk_tif):
         url = (job.result.get("risk_tif_url") or "").lstrip("/")
         if url.startswith("media/"):  # convert /media/... → MEDIA_ROOT/...
-            candidate = os.path.join(settings.MEDIA_ROOT, url.split("media/",1)[-1])
+            candidate = os.path.join(settings.MEDIA_ROOT, url.split("media/", 1)[-1])
             if os.path.exists(candidate):
                 risk_tif = candidate
 
     # Fallback 2: pick newest risk_*.tif under MEDIA_ROOT/overlays
     if (not risk_tif) or (not os.path.exists(risk_tif)):
         import glob
+
         ov_dir = os.path.join(settings.MEDIA_ROOT, "overlays")
-        matches = sorted(glob.glob(os.path.join(ov_dir, f"risk_field_{field_id}_*.tif")), reverse=True)
+        matches = sorted(
+            glob.glob(os.path.join(ov_dir, f"risk_field_{field_id}_*.tif")),
+            reverse=True,
+        )
         if matches:
             risk_tif = matches[0]
 
@@ -536,22 +641,28 @@ def field_insights_api(request, field_id: int):
         # compute geodesic px area from the GeoTIFF footprint (EPSG:4326 expected)
         import rasterio
         from pyproj import Geod
+
         with rasterio.open(risk_tif) as ds:
             rows, cols = ds.height, ds.width
             left, bottom, right, top = ds.bounds
         g = Geod(ellps="WGS84")
-        area_m2, _ = g.polygon_area_perimeter([left,right,right,left,left],
-                                            [bottom,bottom,top,top,bottom])[:2]
+        area_m2, _ = g.polygon_area_perimeter(
+            [left, right, right, left, left], [bottom, bottom, top, top, bottom]
+        )[:2]
         px_area_m2 = abs(area_m2) / float(rows * cols)
 
         abc, tot = classify_and_area(
             risk_tif,
             thresholds=(0.20, 0.40, 0.60),
-            scale_from=None,                 # risk tif is already 0–1
-            default_pixel_area_m2=px_area_m2
+            scale_from=None,  # risk tif is already 0–1
+            default_pixel_area_m2=px_area_m2,
         )
-        job.result = {**(job.result or {}), "area_by_class": abc, "total_ha": tot,
-                    "risk_tif_path": risk_tif}
+        job.result = {
+            **(job.result or {}),
+            "area_by_class": abc,
+            "total_ha": tot,
+            "risk_tif_path": risk_tif,
+        }
         job.save(update_fields=["result"])
     else:
         abc = job.result.get("area_by_class") or {}
@@ -568,16 +679,36 @@ def field_insights_api(request, field_id: int):
     job.result = {
         **(job.result or {}),
         "plot_path": plot_png,
-        "plot_url": (settings.MEDIA_URL.rstrip("/") + "/plots/" + os.path.basename(plot_png)).replace("//","/") if plot_png else None,
+        "plot_url": (
+            settings.MEDIA_URL.rstrip("/") + "/plots/" + os.path.basename(plot_png)
+        ).replace("//", "/")
+        if plot_png
+        else None,
         "insights_csv_path": insights_csv,
-        "insights_csv_url": (settings.MEDIA_URL.rstrip("/") + "/insights/" + os.path.basename(insights_csv)).replace("//","/") if insights_csv else None,
+        "insights_csv_url": (
+            settings.MEDIA_URL.rstrip("/")
+            + "/insights/"
+            + os.path.basename(insights_csv)
+        ).replace("//", "/")
+        if insights_csv
+        else None,
         "area_by_class": abc,
         "total_ha": tot,
-
         # WRITE BACK THE RESOLVED risk_tif (if valid), not the old one
-        "risk_tif_path": (risk_tif if risk_tif and os.path.exists(risk_tif) else job.result.get("risk_tif_path")),
-        "risk_tif_url":  ((settings.MEDIA_URL.rstrip("/") + "/overlays/" + os.path.basename(risk_tif)).replace("//","/")
-                        if risk_tif and os.path.exists(risk_tif) else job.result.get("risk_tif_url")),
+        "risk_tif_path": (
+            risk_tif
+            if risk_tif and os.path.exists(risk_tif)
+            else job.result.get("risk_tif_path")
+        ),
+        "risk_tif_url": (
+            (
+                settings.MEDIA_URL.rstrip("/")
+                + "/overlays/"
+                + os.path.basename(risk_tif)
+            ).replace("//", "/")
+            if risk_tif and os.path.exists(risk_tif)
+            else job.result.get("risk_tif_url")
+        ),
     }
     job.save(update_fields=["result"])
 
@@ -588,17 +719,21 @@ def field_insights_api(request, field_id: int):
         plot_path=plot_png,
     )
 
-    return JsonResponse({
-        "plot_png": plot_png,
-        "insights_csv": insights_csv,
-        "alerts_count": int(getattr(alerts_df, "shape", [0, 0])[0]),
-        "area_by_class": abc,
-        "total_ha": tot,
-        **html
-    })
+    return JsonResponse(
+        {
+            "plot_png": plot_png,
+            "insights_csv": insights_csv,
+            "alerts_count": int(getattr(alerts_df, "shape", [0, 0])[0]),
+            "area_by_class": abc,
+            "total_ha": tot,
+            **html,
+        }
+    )
+
 
 def about(request):
     return render(request, "about.html")
+
 
 @login_required
 def analytics(request, field_id: int | None = None):
@@ -615,11 +750,12 @@ def analytics(request, field_id: int | None = None):
             except FieldAOI.DoesNotExist:
                 pass
         # Fallback: my latest field (not global)
-        latest_field = FieldAOI.objects.filter(owner=request.user).order_by("-id").first()
+        latest_field = (
+            FieldAOI.objects.filter(owner=request.user).order_by("-id").first()
+        )
         if latest_field:
             return redirect("analytics", field_id=latest_field.id)
-        return redirect("lands")   # no fields
-
+        return redirect("lands")  # no fields
 
     # 2) Normal analytics rendering (unchanged logic you already have)
     field = get_object_or_404(FieldAOI, id=field_id, owner=request.user)
@@ -634,10 +770,12 @@ def analytics(request, field_id: int | None = None):
         bounds = [[miny, minx], [maxy, maxx]]
     except Exception:
         if isinstance(field.geom, dict):
-            g = shp_shape(field.geom); c = g.centroid
+            g = shp_shape(field.geom)
+            c = g.centroid
             lat, lon = float(c.y), float(c.x)
         else:
-            c = field.geom.centroid; lat, lon = float(c.y), float(c.x)
+            c = field.geom.centroid
+            lat, lon = float(c.y), float(c.x)
         eps = 1e-3
         bounds = [[lat - eps, lon - eps], [lat + eps, lon + eps]]
 
@@ -653,9 +791,12 @@ def analytics(request, field_id: int | None = None):
 
     # 3) ✅ Remember this field (same cookie name used by Dashboard)
     #    Your dashboard() already sets: resp.set_cookie("last_field", ...)
-    resp.set_cookie("last_field", str(field_id), max_age=60*60*24*30, path="/", samesite="Lax")
+    resp.set_cookie(
+        "last_field", str(field_id), max_age=60 * 60 * 24 * 30, path="/", samesite="Lax"
+    )
 
     return resp
+
 
 @require_http_methods(["GET"])
 def forecast_json(request, field_id: int):
@@ -669,6 +810,7 @@ def forecast_json(request, field_id: int):
         return JsonResponse({"ok": True, **data}, status=200)
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
 
 def _age_from_dob(dob):
     if not dob:
@@ -692,8 +834,9 @@ def profile(request):
 
     # initials fallback for avatar
     display_name = (user_obj.get_full_name() or user_obj.get_username() or "").strip()
-    initials = "".join([p[0] for p in display_name.split() if p][:2]).upper() \
-               or (user_obj.username[:2].upper() if user_obj.username else "U")
+    initials = "".join([p[0] for p in display_name.split() if p][:2]).upper() or (
+        user_obj.username[:2].upper() if user_obj.username else "U"
+    )
 
     if request.method == "POST":
         # remove avatar (if you later add a button named="remove_avatar")
@@ -722,7 +865,9 @@ def profile(request):
                 err_list = []
                 for _, errs in form.errors.items():
                     err_list.extend(errs)
-                return JsonResponse({"ok": False, "error": "; ".join(err_list)}, status=400)
+                return JsonResponse(
+                    {"ok": False, "error": "; ".join(err_list)}, status=400
+                )
             messages.error(request, "Upload failed. Please fix the errors below.")
             # fall-through to re-render page with errors below
     else:
@@ -742,8 +887,11 @@ def profile(request):
     }
     return render(request, "profile.html", ctx)
 
+
 class LogoutViewAllowGet(View):
-    template_name = "registration/logout.html"  # you said logout.html is inside registration/
+    template_name = (
+        "registration/logout.html"  # you said logout.html is inside registration/
+    )
 
     # Handle both GET and POST (and HEAD just in case)
     def get(self, request, *args, **kwargs):
@@ -757,6 +905,7 @@ class LogoutViewAllowGet(View):
         # If you ever want to support ?next=... later, you could redirect here instead.
         return render(request, self.template_name)
 
+
 def signup(request):
     """
     Signup with optional profile fields. Only username/password are required.
@@ -765,13 +914,15 @@ def signup(request):
     if request.method == "POST":
         form = SignupForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=True)  # creates user AND writes profile via form.save()
+            user = form.save(
+                commit=True
+            )  # creates user AND writes profile via form.save()
 
             # --- DEFENSIVE: also persist optional fields here ---
             cd = form.cleaned_data
             prof = getattr(user, "profile", None) or Profile.objects.create(user=user)
-            prof.full_name     = (cd.get("full_name") or "").strip()
-            prof.phone         = (cd.get("phone") or "").strip()
+            prof.full_name = (cd.get("full_name") or "").strip()
+            prof.phone = (cd.get("phone") or "").strip()
             prof.date_of_birth = cd.get("date_of_birth") or None
             if cd.get("main_crop"):
                 prof.main_crop = cd["main_crop"]
@@ -792,12 +943,13 @@ def signup(request):
                         error_list.append(err)  # e.g. password mismatch
                     else:
                         error_list.append(f"{field.capitalize()}: {err}")
-            
+
             # show them all in one friendly message
             messages.error(request, "⚠️ " + " | ".join(error_list))
     else:
         form = SignupForm()
     return render(request, "registration/signup.html", {"form": form})
+
 
 @login_required
 def edit_profile(request):
@@ -812,9 +964,59 @@ def edit_profile(request):
         form = ProfileForm(instance=prof)
     return render(request, "edit_profile.html", {"form": form})
 
+
 def support(request):
     # super simple support page; replace with your real flow later
     return render(request, "support.html", {})
+
+
+# TEMPORARY DEBUG VIEW - Remove after testing
+def debug_hotspots(request):
+    """Debug view to test hotspots functionality without authentication"""
+    from pathlib import Path
+    import glob
+
+    # Find any field and job for testing
+    field = FieldAOI.objects.first()
+    if not field:
+        return HttpResponse("No fields found in database")
+
+    job = AnalysisJob.objects.filter(field=field).order_by("-id").first()
+    if not job:
+        return HttpResponse("No analysis jobs found")
+
+    # Use fallback hotspots logic
+    hotspots_url = job.result.get("hotspots_url") or "" if job.result else ""
+
+    if not hotspots_url:
+        media_root = Path(getattr(settings, "MEDIA_ROOT", "media"))
+        hotspots_dir = media_root / "hotspots"
+        if hotspots_dir.exists():
+            pattern = str(hotspots_dir / "hotspots_*.geojson")
+            hotspot_files = glob.glob(pattern)
+            if hotspot_files:
+                newest_file = max(hotspot_files, key=lambda x: Path(x).stat().st_mtime)
+                latest_file = Path(newest_file)
+                hotspots_url = f"/media/hotspots/{latest_file.name}"
+                print(f"🔧 DEBUG: Using fallback hotspots_url: {hotspots_url}")
+
+    bounds = (
+        job.result.get("bounds") or [[11.445, 105.413], [11.451, 105.419]]
+        if job.result
+        else [[11.445, 105.413], [11.451, 105.419]]
+    )
+
+    ctx = {
+        "job_id": job.id,
+        "bounds": json.dumps(bounds),
+        "overlay_png": job.result.get("overlay_png_url") or "" if job.result else "",
+        "hotspots_url": hotspots_url,
+        "probe_bin": job.result.get("probe_bin_url") or "" if job.result else "",
+        "probe_meta": job.result.get("probe_meta_url") or "" if job.result else "",
+        "field": field,
+    }
+    return render(request, "dashboard.html", ctx)
+
 
 @login_required
 def crop_recommend_simple(request):
@@ -836,14 +1038,20 @@ def crop_recommend_simple(request):
     else:
         form = CropRecForm()
 
-    return render(request, "crop_recommend_simple.html", {
-        "form": form,
-        "result_label": result_label,
-        "probs": prob_map,
-    })
+    return render(
+        request,
+        "crop_recommend_simple.html",
+        {
+            "form": form,
+            "result_label": result_label,
+            "probs": prob_map,
+        },
+    )
+
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+
 
 @login_required
 def crop_recommend_simple(request):
@@ -853,7 +1061,7 @@ def crop_recommend_simple(request):
     Output: best result + table of top 3.
     """
     result_label = None
-    top3 = []   # list of dicts: [{"crop": str, "prob": float, "pct": int}, ...]
+    top3 = []  # list of dicts: [{"crop": str, "prob": float, "pct": int}, ...]
     if request.method == "POST":
         form = CropRecForm(request.POST)
         if form.is_valid():
@@ -885,8 +1093,47 @@ def crop_recommend_simple(request):
     else:
         form = CropRecForm()
 
-    return render(request, "crop_recommend_simple.html", {
-        "form": form,
-        "result_label": result_label,
-        "top3": top3,
-    })
+    return render(
+        request,
+        "crop_recommend_simple.html",
+        {
+            "form": form,
+            "result_label": result_label,
+            "top3": top3,
+        },
+    )
+
+
+def serve_probe_bin(request, filename):
+    """
+    Serve probe binary files with correct MIME type to prevent downloads
+    """
+    from django.http import FileResponse, Http404
+    from pathlib import Path
+
+    # Security: only allow probe_*.bin files
+    if not filename.startswith("probe_") or not filename.endswith(".bin"):
+        raise Http404("File not found")
+
+    file_path = Path(settings.MEDIA_ROOT) / "probes" / filename
+
+    if not file_path.exists():
+        raise Http404("File not found")
+
+    try:
+        response = FileResponse(
+            open(file_path, "rb"),
+            content_type="application/octet-stream",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+                "Content-Disposition": "inline",  # Prevent download dialog
+                "Access-Control-Allow-Origin": "*",  # Allow CORS
+                "Access-Control-Allow-Methods": "GET",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+        )
+        return response
+    except IOError:
+        raise Http404("File not found")

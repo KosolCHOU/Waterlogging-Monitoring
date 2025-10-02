@@ -1,14 +1,16 @@
-version: '3.8'
-
 services:
   web:
     build: .
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
-      - DEBUG=False
+      - DEBUG=True
       - DATABASE_URL=postgres://postgres:postgres@db:5432/cropxcel
       - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_HOSTS=127.0.0.1,localhost,web,testserver,0.0.0.0,*
+      - SECRET_KEY=dev-only-secret-change-me
+      - WEB_CONCURRENCY=1
+      - USE_DEMO_MODE=true
     depends_on:
       - db
       - redis
@@ -36,6 +38,9 @@ services:
       - DEBUG=False
       - DATABASE_URL=postgres://postgres:postgres@db:5432/cropxcel
       - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_HOSTS=127.0.0.1,localhost,web
+      - SECRET_KEY=dev-only-secret-change-me
+      - DISABLE_EARTH_ENGINE=true
     depends_on:
       - db
       - redis

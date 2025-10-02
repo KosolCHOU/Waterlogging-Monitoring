@@ -8,8 +8,12 @@ from matplotlib.colors import ListedColormap
 
 import rasterio
 from rasterio.transform import xy, array_bounds, from_bounds
-from rasterio.warp import (calculate_default_transform, reproject,
-                           Resampling, transform as crs_transform)
+from rasterio.warp import (
+    calculate_default_transform,
+    reproject,
+    Resampling,
+    transform as crs_transform,
+)
 
 from skimage.measure import label, regionprops
 import folium
@@ -19,31 +23,32 @@ from shapely.geometry import Point
 import pandas as pd
 
 import uuid, os
+
 tag = uuid.uuid4().hex[:8]
 
-# ------- Inputs -------
-MULTIBAND_PATH = tif_path                 # 11-band S1 stack you exported earlier
-TIME_SERIES_CSV = OUTPUT_CSV              # AOI mean time series csv
+# ------- Inputs (set dynamically when functions are called) -------
+# MULTIBAND_PATH will be passed as parameter to functions
+# TIME_SERIES_CSV will be passed as parameter to functions
 
 # Band indices (1-based) matching your exported order
 BANDS = {
-    "S1_VV_CURR":        1,   # linear power
-    "S1_VH_CURR":        2,   # linear power
-    "S1_VH_VV_CURR":     3,   # unitless ratio (VH/VV)
-    "S1_VV_BASE":        4,   # linear power
-    "S1_VH_BASE":        5,   # linear power
-    "S1_VH_VV_BASE":     6,   # unitless ratio
-    "S1_VV_LOGRATIO_DB": 7,   # dB
-    "S1_VH_LOGRATIO_DB": 8,   # dB
-    "S1_VH_VV_DIFF":     9,   # unitless (ratio diff)
-    "S1_VV_STD":         10,  # linear σ
-    "S1_VH_STD":         11,  # linear σ
+    "S1_VV_CURR": 1,  # linear power
+    "S1_VH_CURR": 2,  # linear power
+    "S1_VH_VV_CURR": 3,  # unitless ratio (VH/VV)
+    "S1_VV_BASE": 4,  # linear power
+    "S1_VH_BASE": 5,  # linear power
+    "S1_VH_VV_BASE": 6,  # unitless ratio
+    "S1_VV_LOGRATIO_DB": 7,  # dB
+    "S1_VH_LOGRATIO_DB": 8,  # dB
+    "S1_VH_VV_DIFF": 9,  # unitless (ratio diff)
+    "S1_VV_STD": 10,  # linear σ
+    "S1_VH_STD": 11,  # linear σ
 }
 BAND_COUNT_EXPECTED = 11
 
 # Optional field boundary overlay (one path is enough)
 FIELD_GEOJSON = r""
-FIELD_SHP     = r""
+FIELD_SHP = r""
 
 # Contributor weights (set to 0.0 if layer not present)
 WEIGHTS = {
@@ -55,40 +60,40 @@ WEIGHTS = {
 }
 
 # Hotspot extraction
-HOTSPOT_PERCENTILE   = 80      # higher → fewer, stronger hotspots
+HOTSPOT_PERCENTILE = 80  # higher → fewer, stronger hotspots
 MIN_HOTSPOT_AREA_PIX = 30
-MAX_HOTSPOTS         = 30
+MAX_HOTSPOTS = 30
 
 # Web layout
 MAX_WEB_WIDTH = 1400
 
 # Outputs (consistent naming)
 _base = os.path.splitext(os.path.basename(MULTIBAND_PATH))[0]
-OUT_TIF     = f"waterlogging_monitoring_{_base}.tif"
-OUT_PNG_NC  = f"waterlogging_monitoring_nolegend_{_base}.png"
-OUT_PNG_CB  = f"waterlogging_monitoring_colorbar_{_base}.png"
-OUT_HTML    = f"waterlogging_monitoring_{_base}.html"
+OUT_TIF = f"waterlogging_monitoring_{_base}.tif"
+OUT_PNG_NC = f"waterlogging_monitoring_nolegend_{_base}.png"
+OUT_PNG_CB = f"waterlogging_monitoring_colorbar_{_base}.png"
+OUT_HTML = f"waterlogging_monitoring_{_base}.html"
 OUT_GEOJSON = f"hotspots_{_base}.geojson"
 
 
 # Temporal/alert products (if your temporal engine writes them)
-ALERTS_CSV      = f"alerts_{_base}.csv"
+ALERTS_CSV = f"alerts_{_base}.csv"
 ALERTS_PLOT_PNG = f"S1_alerts_plot_{_base}.png"
-RECS_CSV        = f"recommendations_{_base}.csv"
+RECS_CSV = f"recommendations_{_base}.csv"
 
 # Optional temporal knobs (used by your separate time engine)
-ROLL_WINDOW_DAYS       = 60
-BASELINE_WINDOWS_DAYS  = [12, 24, 36]
+ROLL_WINDOW_DAYS = 60
+BASELINE_WINDOWS_DAYS = [12, 24, 36]
 
 # Thresholds for change logic (sign conventions)
-MAX_DROP_DB_VH   = -1.5   # flag if VV/VH logratio (dB) <= this
-MAX_DROP_DB_VV   = -1.0
-MIN_PCT_DROP_LIN = 0.15   # 15% linear drop (if you also test linear deltas)
-Z_THRESHOLD      = -1.5
-MIN_CONSECUTIVE  = 2
+MAX_DROP_DB_VH = -1.5  # flag if VV/VH logratio (dB) <= this
+MAX_DROP_DB_VV = -1.0
+MIN_PCT_DROP_LIN = 0.15  # 15% linear drop (if you also test linear deltas)
+Z_THRESHOLD = -1.5
+MIN_CONSECUTIVE = 2
 
 INTERPOLATE_TIME = True
-INTERP_LIMIT     = 1
+INTERP_LIMIT = 1
 
 # Panel side
 PANEL_ANCHOR = "right"
@@ -102,8 +107,11 @@ if not os.path.exists(TIME_SERIES_CSV):
 # Optional: band count check
 with rasterio.open(MULTIBAND_PATH) as _src_chk:
     if _src_chk.count != BAND_COUNT_EXPECTED:
-        print(f"[WARN] Found {_src_chk.count} bands (expected {BAND_COUNT_EXPECTED}). "
-              "Make sure BANDS indices match actual order.")
+        print(
+            f"[WARN] Found {_src_chk.count} bands (expected {BAND_COUNT_EXPECTED}). "
+            "Make sure BANDS indices match actual order."
+        )
+
 
 def pct_stretch(a, pmin=2, pmax=98):
     """Percentile stretch to 0..1 on finite values; returns float32."""
@@ -113,20 +121,24 @@ def pct_stretch(a, pmin=2, pmax=98):
     # Use nanpercentile so NaNs are ignored automatically
     lo, hi = np.nanpercentile(a, [pmin, pmax])
     if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
-        return np.clip(a*0, 0, 1).astype("float32")
+        return np.clip(a * 0, 0, 1).astype("float32")
     return np.clip((a - lo) / (hi - lo), 0, 1).astype("float32")
+
 
 # Keep these thin wrappers if you like the names:
 def flood_anomaly_index(a, pmin=5, pmax=95):
     return pct_stretch(a, pmin, pmax)
 
+
 def z_to_01(a, invert=False):
     s = pct_stretch(a)
     return None if s is None else (1 - s if invert else s)
 
+
 def dual_tail_risk(a):
     s = pct_stretch(a)
     return None if s is None else (np.abs(s - 0.5) * 2).astype("float32")
+
 
 def finite_percentiles(a, lo=2, hi=98):
     if a is None:
@@ -140,6 +152,7 @@ def finite_percentiles(a, lo=2, hi=98):
         return float(np.nanmin(a[finite])), float(np.nanmax(a[finite]))
     return float(lo_v), float(hi_v)
 
+
 def _is_db(x):
     # heuristic: SAR dB typically ~[-30, +5]
     finite = x[np.isfinite(x)]
@@ -147,9 +160,11 @@ def _is_db(x):
         return False
     return (np.nanmin(finite) < -10.0) or (np.nanmedian(finite) < 0.0)
 
+
 def _to_linear(x):
     # 10^(x/10)
     return np.power(10.0, x / 10.0).astype(np.float32)
+
 
 with rasterio.open(MULTIBAND_PATH) as src:
     profile = src.profile
@@ -164,6 +179,7 @@ with rasterio.open(MULTIBAND_PATH) as src:
         band = src.read(idx, masked=True)
         arrays[name] = band.filled(np.nan).astype("float32")
 
+
 # Derive current and/or baseline VH/VV ratios if missing
 def _safe_ratio(numer, denom):
     out = np.full_like(numer, np.nan, dtype=np.float32)
@@ -171,19 +187,21 @@ def _safe_ratio(numer, denom):
     out[mask] = (numer[mask] / denom[mask]).astype(np.float32)
     return out
 
+
 # Current ratio
-if "S1_VH_VV_CURR" not in arrays and {"S1_VH_CURR","S1_VV_CURR"}.issubset(arrays):
+if "S1_VH_VV_CURR" not in arrays and {"S1_VH_CURR", "S1_VV_CURR"}.issubset(arrays):
     vh, vv = arrays["S1_VH_CURR"], arrays["S1_VV_CURR"]
     if _is_db(vh) or _is_db(vv):
         vh, vv = _to_linear(vh), _to_linear(vv)
     arrays["S1_VH_VV_CURR"] = _safe_ratio(vh, vv)
 
 # Baseline ratio
-if "S1_VH_VV_BASE" not in arrays and {"S1_VH_BASE","S1_VV_BASE"}.issubset(arrays):
+if "S1_VH_VV_BASE" not in arrays and {"S1_VH_BASE", "S1_VV_BASE"}.issubset(arrays):
     vhb, vvb = arrays["S1_VH_BASE"], arrays["S1_VV_BASE"]
     if _is_db(vhb) or _is_db(vvb):
         vhb, vvb = _to_linear(vhb), _to_linear(vvb)
     arrays["S1_VH_VV_BASE"] = _safe_ratio(vhb, vvb)
+
 
 def save_geotiff(path, data, profile, nodata_val=-9999.0):
     p = profile.copy()
@@ -191,28 +209,52 @@ def save_geotiff(path, data, profile, nodata_val=-9999.0):
     with rasterio.open(path, "w", **p) as dst:
         dst.write(np.nan_to_num(data, nan=nodata_val).astype("float32"), 1)
 
+
 def top_reason_label(key: str):
     return {
-        "sar_water_drop":  "Sharp drop in radar backscatter (possible inundation).",
-        "sar_ratio_change":"Change in VH/VV ratio (flooded vegetation vs. dry).",
-        "sar_variability":"High temporal variability (speckle/patchy water).",
-        "water_extent":    "Surface water extent (from MNDWI when available).",
-        "veg_signal":      "Low greenness (NDVI/VARI)—possible stress."
+        "sar_water_drop": "Sharp drop in radar backscatter (possible inundation).",
+        "sar_ratio_change": "Change in VH/VV ratio (flooded vegetation vs. dry).",
+        "sar_variability": "High temporal variability (speckle/patchy water).",
+        "water_extent": "Surface water extent (from MNDWI when available).",
+        "veg_signal": "Low greenness (NDVI/VARI)—possible stress.",
     }.get(key, "Inspect this zone.")
 
 
 def risk_cmap_redgreen():
     # green = low risk, red = high risk
-    return ListedColormap([
-        "#006400",  # dark green
-        "#228B22",  # medium green
-        "#ADFF2F",  # yellow-green
-        "#FFFF00",  # yellow
-        "#FFA500",  # orange
-        "#FF4500",  # orange-red
-        "#B22222",  # firebrick
-        "#8B0000"   # dark red
-    ])
+    return ListedColormap(
+        [
+            "#006400",  # dark green
+            "#228B22",  # medium green
+            "#ADFF2F",  # yellow-green
+            "#FFFF00",  # yellow
+            "#FFA500",  # orange
+            "#FF4500",  # orange-red
+            "#B22222",  # firebrick
+            "#8B0000",  # dark red
+        ]
+    )
+
+
+def ndvi_cmap():
+    # NDVI-style colormap: red (low 0.18-0.78) to green (high 0.89-0.93)
+    return ListedColormap(
+        [
+            "#8B0000",  # dark red (lowest NDVI ~0.18)
+            "#B22222",  # firebrick
+            "#FF4500",  # orange-red
+            "#FF6347",  # tomato
+            "#FFA500",  # orange
+            "#FFD700",  # gold
+            "#FFFF00",  # yellow
+            "#ADFF2F",  # yellow-green
+            "#7FFF00",  # chartreuse
+            "#32CD32",  # lime green
+            "#228B22",  # forest green
+            "#006400",  # dark green (highest NDVI ~0.93)
+        ]
+    )
+
 
 def tiny_bar_png(values, labels, title="Contributors"):
     fig, ax = plt.subplots(figsize=(2.8, 1.8), dpi=150)
@@ -221,18 +263,21 @@ def tiny_bar_png(values, labels, title="Contributors"):
     ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=7)
     ax.set_ylim(0, 1)
     ax.set_title(title, fontsize=9)
-    ax.grid(axis='y', alpha=0.2)
+    ax.grid(axis="y", alpha=0.2)
     fig.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
+
 def embed_image_base64(path):
-    if not os.path.exists(path): return ""
+    if not os.path.exists(path):
+        return ""
     with open(path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode("utf-8")
     return f"data:image/png;base64,{b64}"
+
 
 def lin_to_db_vis(arr, vmin=-25, vmax=-5):
     """
@@ -247,6 +292,7 @@ def lin_to_db_vis(arr, vmin=-25, vmax=-5):
     db = 10.0 * np.log10(np.maximum(arr, 1e-9)).astype("float32")  # safe dB
     return np.clip(db, vmin, vmax)
 
+
 # Read the raster data first (masked→NaN)
 with rasterio.open(MULTIBAND_PATH) as src:
     profile = src.profile
@@ -254,11 +300,12 @@ with rasterio.open(MULTIBAND_PATH) as src:
     src_crs = src.crs
     src_transform = src.transform
     src_bounds = src.bounds
-    
+
     arrays = {}
     for name, idx in BANDS.items():
-        band = src.read(idx, masked=True)              # <- respect mask
+        band = src.read(idx, masked=True)  # <- respect mask
         arrays[name] = band.filled(np.nan).astype("float32")
+
 
 def _is_db(x: np.ndarray) -> bool:
     # crude but effective: S1 backscatter dB usually ~[-30, +5]
@@ -267,9 +314,11 @@ def _is_db(x: np.ndarray) -> bool:
         return False
     return (np.nanmin(finite) < -10.0) or (np.nanmedian(finite) < 0.0)
 
+
 def _to_linear(x: np.ndarray) -> np.ndarray:
     # 10^(x/10) — cast after; np.power has no dtype kwarg
     return np.power(10.0, x / 10.0).astype(np.float32)
+
 
 def _safe_ratio(numer: np.ndarray, denom: np.ndarray) -> np.ndarray:
     out = np.full_like(numer, np.nan, dtype=np.float32)
@@ -277,20 +326,22 @@ def _safe_ratio(numer: np.ndarray, denom: np.ndarray) -> np.ndarray:
     out[m] = (numer[m] / denom[m]).astype(np.float32)
     return out
 
+
 # --- derive VH/VV ratios for CURRENT/BASE if missing ---
 # Current
-if ("S1_VH_VV_CURR" not in arrays) and {"S1_VH_CURR","S1_VV_CURR"}.issubset(arrays):
+if ("S1_VH_VV_CURR" not in arrays) and {"S1_VH_CURR", "S1_VV_CURR"}.issubset(arrays):
     vh, vv = arrays["S1_VH_CURR"], arrays["S1_VV_CURR"]
     if _is_db(vh) or _is_db(vv):
         vh, vv = _to_linear(vh), _to_linear(vv)
     arrays["S1_VH_VV_CURR"] = _safe_ratio(vh, vv)
 
 # Baseline
-if ("S1_VH_VV_BASE" not in arrays) and {"S1_VH_BASE","S1_VV_BASE"}.issubset(arrays):
+if ("S1_VH_VV_BASE" not in arrays) and {"S1_VH_BASE", "S1_VV_BASE"}.issubset(arrays):
     vhb, vvb = arrays["S1_VH_BASE"], arrays["S1_VV_BASE"]
     if _is_db(vhb) or _is_db(vvb):
         vhb, vvb = _to_linear(vhb), _to_linear(vvb)
     arrays["S1_VH_VV_BASE"] = _safe_ratio(vhb, vvb)
+
 
 def pct_stretch(a, pmin=2, pmax=98):
     """Percentile stretch to 0..1 on finite values; returns float32."""
@@ -299,21 +350,26 @@ def pct_stretch(a, pmin=2, pmax=98):
     a = a.astype("float32")
     lo, hi = np.nanpercentile(a, [pmin, pmax])
     if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
-        return np.clip(a*0, 0, 1).astype("float32")
+        return np.clip(a * 0, 0, 1).astype("float32")
     return np.clip((a - lo) / (hi - lo), 0, 1).astype("float32")
 
+
 # ----- SAR-first contributors (robust to missing bands) -----
+
 
 def stretch01(x, invert=False):
     s = pct_stretch(x)
     return None if s is None else (1 - s if invert else s)
+
 
 contributors = []
 
 # 1) SAR water drop (prefer VH; use VV too). More negative logratio dB = riskier
 drop_parts = []
 if "S1_VH_LOGRATIO_DB" in arrays:
-    drop_parts.append((-arrays["S1_VH_LOGRATIO_DB"]).astype("float32"))  # negate: drop -> high
+    drop_parts.append(
+        (-arrays["S1_VH_LOGRATIO_DB"]).astype("float32")
+    )  # negate: drop -> high
 if "S1_VV_LOGRATIO_DB" in arrays:
     drop_parts.append((-arrays["S1_VV_LOGRATIO_DB"]).astype("float32"))
 
@@ -321,7 +377,9 @@ if drop_parts:
     # combine VH/VV then stretch once
     sar_water_drop = pct_stretch(np.nanmax(np.dstack(drop_parts), axis=2))
     if sar_water_drop is not None and np.any(np.isfinite(sar_water_drop)):
-        contributors.append(("sar_water_drop", WEIGHTS.get("sar_water_drop", 0.40), sar_water_drop))
+        contributors.append(
+            ("sar_water_drop", WEIGHTS.get("sar_water_drop", 0.40), sar_water_drop)
+        )
 
 # 2) SAR ratio change (flooded veg alters VH/VV). Prefer diff vs baseline; else anomaly of current ratio
 sar_ratio_change = None
@@ -335,16 +393,22 @@ else:
             sar_ratio_change = pct_stretch(np.abs(rr - np.nanmedian(rr)))
             break
 if sar_ratio_change is not None and np.any(np.isfinite(sar_ratio_change)):
-    contributors.append(("sar_ratio_change", WEIGHTS.get("sar_ratio_change", 0.25), sar_ratio_change))
+    contributors.append(
+        ("sar_ratio_change", WEIGHTS.get("sar_ratio_change", 0.25), sar_ratio_change)
+    )
 
 # 3) SAR variability (patchy/unstable wetness)
 var_parts = []
-if "S1_VH_STD" in arrays: var_parts.append(arrays["S1_VH_STD"].astype("float32"))
-if "S1_VV_STD" in arrays: var_parts.append(arrays["S1_VV_STD"].astype("float32"))
+if "S1_VH_STD" in arrays:
+    var_parts.append(arrays["S1_VH_STD"].astype("float32"))
+if "S1_VV_STD" in arrays:
+    var_parts.append(arrays["S1_VV_STD"].astype("float32"))
 if var_parts:
     sar_variability = pct_stretch(np.nanmax(np.dstack(var_parts), axis=2))
     if sar_variability is not None and np.any(np.isfinite(sar_variability)):
-        contributors.append(("sar_variability", WEIGHTS.get("sar_variability", 0.15), sar_variability))
+        contributors.append(
+            ("sar_variability", WEIGHTS.get("sar_variability", 0.15), sar_variability)
+        )
 
 # 4) Optional: water extent (optical fallback when available)
 water_extent = None
@@ -353,7 +417,9 @@ for opt_key in ("MNDWI", "NDWI"):
         water_extent = stretch01(arrays[opt_key])  # high = more water
         break
 if water_extent is not None and np.any(np.isfinite(water_extent)):
-    contributors.append(("water_extent", WEIGHTS.get("water_extent", 0.15), water_extent))
+    contributors.append(
+        ("water_extent", WEIGHTS.get("water_extent", 0.15), water_extent)
+    )
 
 # 5) Optional: veg signal (only if NDVI available)
 if "NDVI" in arrays:
@@ -363,7 +429,9 @@ if "NDVI" in arrays:
 
 # Safety check
 if not contributors:
-    raise RuntimeError("No valid contributors found for SAR waterlogging. Check band list & weights.")
+    raise RuntimeError(
+        "No valid contributors found for SAR waterlogging. Check band list & weights."
+    )
 
 # ----- Weighted blend (normalize weights safely) -----
 labels, weights_raw, comps = zip(*contributors)
@@ -371,16 +439,18 @@ weights = np.asarray(weights_raw, dtype="float32")
 w_sum = float(np.nansum(weights))
 if w_sum <= 0:
     # fallback: equal weights
-    weights = np.full(len(comps), 1.0/len(comps), dtype="float32")
+    weights = np.full(len(comps), 1.0 / len(comps), dtype="float32")
 else:
     weights /= w_sum
 
 stack = np.dstack(comps)  # H x W x K
 mask = np.isfinite(stack)
-w_b  = weights.reshape((1,1,-1)) * mask
-num  = np.nansum(stack * w_b, axis=2)
-den  = np.sum(w_b, axis=2)
-risk = np.divide(num, den, out=np.full_like(num, np.nan, dtype="float32"), where=den>0)
+w_b = weights.reshape((1, 1, -1)) * mask
+num = np.nansum(stack * w_b, axis=2)
+den = np.sum(w_b, axis=2)
+risk = np.divide(
+    num, den, out=np.full_like(num, np.nan, dtype="float32"), where=den > 0
+)
 risk = np.clip(risk, 0, 1).astype("float32")
 
 save_geotiff(OUT_TIF, risk, profile)
@@ -390,25 +460,34 @@ dst_crs = rasterio.crs.CRS.from_epsg(4326)
 
 # Build target grid (4326) from source bounds
 dst_transform, dst_w, dst_h = calculate_default_transform(
-    src_crs, dst_crs, W, H, *src_bounds  # src_bounds=(left,bottom,right,top)
+    src_crs,
+    dst_crs,
+    W,
+    H,
+    *src_bounds,  # src_bounds=(left,bottom,right,top)
 )
+
 
 def _as_masked(a: np.ndarray) -> np.ma.MaskedArray:
     # mask non-finite values so resamplers ignore them
     return np.ma.array(a, mask=~np.isfinite(a))
 
+
 def reproj(src_arr, resampling=Resampling.bilinear):
     out = np.full((dst_h, dst_w), np.nan, dtype="float32")
     reproject(
-        source=_as_masked(src_arr),            # <-- masked source
+        source=_as_masked(src_arr),  # <-- masked source
         destination=out,
-        src_transform=src_transform, src_crs=src_crs,
-        dst_transform=dst_transform, dst_crs=dst_crs,
+        src_transform=src_transform,
+        src_crs=src_crs,
+        dst_transform=dst_transform,
+        dst_crs=dst_crs,
         # let mask drive nodata handling; don't pass src_nodata=np.nan
         dst_nodata=np.nan,
-        resampling=resampling
+        resampling=resampling,
     )
     return out
+
 
 # Skip reproj if already 4326
 if src_crs == dst_crs:
@@ -423,7 +502,7 @@ if dst_w > MAX_WEB_WIDTH:
     web_w = MAX_WEB_WIDTH
     web_h = max(1, int(round(dst_h * scale)))  # guard >=1
     # choose downsample method for risk
-    DOWNSAMPLE = Resampling.max   # or Resampling.average if you prefer smoothing
+    DOWNSAMPLE = Resampling.max  # or Resampling.average if you prefer smoothing
 else:
     web_w, web_h = dst_w, dst_h
     DOWNSAMPLE = Resampling.bilinear
@@ -433,22 +512,54 @@ web_transform = from_bounds(*bounds4326, width=web_w, height=web_h)
 
 risk_web = np.full((web_h, web_w), np.nan, dtype="float32")
 reproject(
-    source=_as_masked(risk4326),               # <-- masked source again
+    source=_as_masked(risk4326),  # <-- masked source again
     destination=risk_web,
-    src_transform=dst_transform, src_crs=dst_crs,
-    dst_transform=web_transform, dst_crs=dst_crs,
+    src_transform=dst_transform,
+    src_crs=dst_crs,
+    dst_transform=web_transform,
+    dst_crs=dst_crs,
     dst_nodata=np.nan,
-    resampling=DOWNSAMPLE
+    resampling=DOWNSAMPLE,
 )
 
 from matplotlib.colors import ListedColormap
 
+
 def risk_cmap_redgreen():
     # green (low) → yellow → orange → red (high)
-    return ListedColormap([
-        "#006400", "#228B22", "#7FFF00", "#FFFF00",
-        "#FFA500", "#FF7F50", "#FF4500", "#8B0000"
-    ])
+    return ListedColormap(
+        [
+            "#006400",
+            "#228B22",
+            "#7FFF00",
+            "#FFFF00",
+            "#FFA500",
+            "#FF7F50",
+            "#FF4500",
+            "#8B0000",
+        ]
+    )
+
+
+def ndvi_cmap_alt():
+    # Alternative NDVI-style colormap for consistency
+    return ListedColormap(
+        [
+            "#8B0000",  # dark red (lowest NDVI)
+            "#B22222",  # firebrick
+            "#FF4500",  # orange-red
+            "#FF6347",  # tomato
+            "#FFA500",  # orange
+            "#FFD700",  # gold
+            "#FFFF00",  # yellow
+            "#ADFF2F",  # yellow-green
+            "#7FFF00",  # chartreuse
+            "#32CD32",  # lime green
+            "#228B22",  # forest green
+            "#006400",  # dark green (highest NDVI)
+        ]
+    )
+
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -456,15 +567,26 @@ import matplotlib.cm as cm
 import numpy as np
 import imageio
 
-def save_overlay_png(arr, out_png, *, aoi_mask=None, fixed01=True,
-                     with_colorbar=False, title=None, outside_mode="transparent",
-                     red_rgba=(220, 73, 47, 255), feather_px=0, cmap=None):
+
+def save_overlay_png(
+    arr,
+    out_png,
+    *,
+    aoi_mask=None,
+    fixed01=True,
+    with_colorbar=False,
+    title=None,
+    outside_mode="transparent",
+    red_rgba=(220, 73, 47, 255),
+    feather_px=0,
+    cmap=None,
+):
     """
     Save array as PNG overlay. If aoi_mask is provided (bool array), pixels
     outside are transparent or tinted red.
     """
     if cmap is None:
-        cmap = risk_cmap_redgreen()
+        cmap = ndvi_cmap()
 
     # --- normalize ---
     finite = np.isfinite(arr)
@@ -493,13 +615,16 @@ def save_overlay_png(arr, out_png, *, aoi_mask=None, fixed01=True,
             rgba[outside, 3] = 0
         elif outside_mode == "red":
             rr, gg, bb, aa = red_rgba
-            rgba[outside, 0] = rr; rgba[outside, 1] = gg
-            rgba[outside, 2] = bb; rgba[outside, 3] = aa
+            rgba[outside, 0] = rr
+            rgba[outside, 1] = gg
+            rgba[outside, 2] = bb
+            rgba[outside, 3] = aa
 
         # optional feather only if we have a mask
         if feather_px and feather_px > 0:
             try:
                 from scipy.ndimage import distance_transform_edt
+
                 # distance to outside (edge softening)
                 dist_in = distance_transform_edt(aoi_mask)
                 edge_band = np.clip(dist_in / float(feather_px), 0.0, 1.0)
@@ -511,23 +636,31 @@ def save_overlay_png(arr, out_png, *, aoi_mask=None, fixed01=True,
         fig, ax = plt.subplots(figsize=(6, 6), dpi=200)
         ax.imshow(rgba)
         ax.axis("off")
-        cb = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax,
-                          orientation="horizontal", fraction=0.046, pad=0.04)
-        if title: cb.set_label(title)
+        cb = plt.colorbar(
+            cm.ScalarMappable(norm=norm, cmap=cmap),
+            ax=ax,
+            orientation="horizontal",
+            fraction=0.046,
+            pad=0.04,
+        )
+        if title:
+            cb.set_label(title)
         fig.savefig(out_png, bbox_inches="tight", transparent=True)
         plt.close(fig)
     else:
         imageio.imwrite(out_png, rgba)
 
+
 from rasterio.features import rasterize
 import geopandas as gpd
 from shapely.geometry import Polygon
+
 
 def build_aoi_mask(field_gdf, transform, out_shape, target_crs):
     """
     Rasterize AOI polygon onto the same grid as the array you will overlay.
     """
-    gdf = field_gdf.to_crs(target_crs)   # reproject to raster CRS
+    gdf = field_gdf.to_crs(target_crs)  # reproject to raster CRS
     geom = gdf.unary_union
     geoms = list(geom.geoms) if hasattr(geom, "geoms") else [geom]
     return rasterize(
@@ -536,8 +669,9 @@ def build_aoi_mask(field_gdf, transform, out_shape, target_crs):
         transform=transform,
         fill=0,
         all_touched=True,
-        dtype="uint8"
+        dtype="uint8",
     ).astype(bool)
+
 
 # Build field_gdf (robust to MultiPolygon)
 field_info = ee.Geometry(field).getInfo()
@@ -558,36 +692,45 @@ aoi_mask_web = build_aoi_mask(field_gdf, web_transform, risk_web.shape, dst_crs)
 
 from rasterio.transform import xy
 
+
 def latlon_from_transform(t, row, col):
     x, y = xy(t, row, col)  # x=lon, y=lat in EPSG:4326
     return y, x
 
-top_lat, left_lon  = latlon_from_transform(web_transform, 0, 0)
-bot_lat, right_lon = latlon_from_transform(web_transform, risk_web.shape[0]-1, risk_web.shape[1]-1)
+
+top_lat, left_lon = latlon_from_transform(web_transform, 0, 0)
+bot_lat, right_lon = latlon_from_transform(
+    web_transform, risk_web.shape[0] - 1, risk_web.shape[1] - 1
+)
 bounds = [[bot_lat, left_lon], [top_lat, right_lon]]
 
 # --- NEW: save a web overlay PNG into MEDIA_ROOT/overlays and expose URL ---
 from pathlib import Path
+
 media_root = Path(getattr(settings, "MEDIA_ROOT", "media"))
-media_url  = getattr(settings, "MEDIA_URL", "/media/").rstrip("/")
+media_url = getattr(settings, "MEDIA_URL", "/media/").rstrip("/")
 
 ov_dir = media_root / "overlays"
 ov_dir.mkdir(parents=True, exist_ok=True)
 
 overlay_name = f"overlay_{tag}.png"
-overlay_abs  = ov_dir / overlay_name
+overlay_abs = ov_dir / overlay_name
 save_overlay_png(
-    risk_web, str(overlay_abs),
-    aoi_mask=aoi_mask_web, fixed01=True,
-    with_colorbar=False, outside_mode="transparent", feather_px=2,
-    cmap=risk_cmap_redgreen()
+    risk_web,
+    str(overlay_abs),
+    aoi_mask=aoi_mask_web,
+    fixed01=True,
+    with_colorbar=False,
+    outside_mode="transparent",
+    feather_px=2,
+    cmap=ndvi_cmap(),
 )
 overlay_png_url = f"{media_url}/overlays/{overlay_name}"
 
 # --- NEW: write probe data & meta for client hover ---
 probe_bin_name = f"probe_{tag}.bin"
-probe_meta_name= f"probe_{tag}.json"
-probe_bin_abs  = ov_dir / probe_bin_name
+probe_meta_name = f"probe_{tag}.json"
+probe_bin_abs = ov_dir / probe_bin_name
 probe_meta_abs = ov_dir / probe_meta_name
 
 arr01 = np.clip(risk_web, 0, 1)
@@ -603,28 +746,35 @@ probe_meta = {
     "cols": int(risk_web.shape[1]),
     "scale": 1000,
     "web_bounds": [[S, W], [N, E]],
-    "layout": {"data_bytes": int(arr_u16.size * 2)}
+    "layout": {"data_bytes": int(arr_u16.size * 2)},
 }
 probe_meta_abs.write_text(json.dumps(probe_meta), encoding="utf-8")
-probe_bin_url  = f"{media_url}/overlays/{probe_bin_name}"
+probe_bin_url = f"{media_url}/overlays/{probe_bin_name}"
 probe_meta_url = f"{media_url}/overlays/{probe_meta_name}"
 
 # With colorbar
 save_overlay_png(
-    risk_web, OUT_PNG_CB,
-    aoi_mask=aoi_mask_web, fixed01=True,
-    with_colorbar=True, title="Waterlogging Risk (0–1)",
-    outside_mode="transparent", feather_px=2,
-    cmap=risk_cmap_redgreen()
+    risk_web,
+    OUT_PNG_CB,
+    aoi_mask=aoi_mask_web,
+    fixed01=True,
+    with_colorbar=True,
+    title="NDVI-Style Risk (0–1)",
+    outside_mode="transparent",
+    feather_px=2,
+    cmap=ndvi_cmap(),
 )
 
 # No colorbar
 save_overlay_png(
-    risk_web, OUT_PNG_NC,
-    aoi_mask=aoi_mask_web, fixed01=True,
+    risk_web,
+    OUT_PNG_NC,
+    aoi_mask=aoi_mask_web,
+    fixed01=True,
     with_colorbar=False,
-    outside_mode="transparent", feather_px=2,
-    cmap=risk_cmap_redgreen()
+    outside_mode="transparent",
+    feather_px=2,
+    cmap=ndvi_cmap(),
 )
 
 profile_web = profile.copy()
@@ -633,7 +783,7 @@ profile_web.update(
     dtype="float32",
     nodata=-9999.0,
     crs=rasterio.crs.CRS.from_epsg(4326),
-    transform=web_transform,           # NOTE: web_transform, not web_tr
+    transform=web_transform,  # NOTE: web_transform, not web_tr
     width=risk_web.shape[1],
     height=risk_web.shape[0],
 )
@@ -649,7 +799,8 @@ if m:
 
 # Always include field id when we have it
 risk_tif_name = (
-    f"risk_field_{field_id_for_name}_{tag}.tif" if field_id_for_name
+    f"risk_field_{field_id_for_name}_{tag}.tif"
+    if field_id_for_name
     else f"risk_{tag}.tif"
 )
 risk_tif_abs = os.path.join(settings.MEDIA_ROOT, "overlays", risk_tif_name)
@@ -658,4 +809,6 @@ os.makedirs(os.path.dirname(risk_tif_abs), exist_ok=True)
 # Save the web-projected (0..1) risk raster with correct georeferencing
 save_geotiff(str(risk_tif_abs), risk_web, profile_web)
 
-risk_tif_url = (settings.MEDIA_URL.rstrip("/") + "/overlays/" + risk_tif_name).replace("//","/")
+risk_tif_url = (settings.MEDIA_URL.rstrip("/") + "/overlays/" + risk_tif_name).replace(
+    "//", "/"
+)

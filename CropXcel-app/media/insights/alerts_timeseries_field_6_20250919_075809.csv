@@ -1,0 +1,5 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,severity_0_100,confidence_0_1,status,reasons,actions
+2025-05-29 07:00:00,0.01974,0.153462,1.431925,3.878258,0.17275,-0.061837,,29,0.7,Alert,VH/VV drop ≥ 8% vs base,Check field now. Drain standing water if possible (open outlets/pump).
+2025-06-08 07:00:00,0.006756,0.052368,-3.822344,-1.213689,0.154027,-0.079616,,74,0.8,Alert,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base",Check field now. Drain standing water if possible (open outlets/pump).
+2025-09-06 07:00:00,0.016087,0.154179,0.852793,1.02464,0.11391,-0.00107,-1.6426892746944541,35,0.55,Alert,z = -1.6,Check field now. Drain standing water if possible (open outlets/pump).
+2025-09-16 07:00:00,0.015792,0.119709,0.220258,-0.617676,0.15608,0.034367,-2.243389817675719,44,0.55,Alert,z = -2.2,Check field now. Drain standing water if possible (open outlets/pump).

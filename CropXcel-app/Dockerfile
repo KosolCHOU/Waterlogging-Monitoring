@@ -2,8 +2,8 @@
 FROM python:3.11-slim
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=cropxcel_project.settings_production
 
 # Set work directory
@@ -25,12 +25,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
 COPY . /app/
+# Normalize line endings for shell script on Windows checkouts
+RUN sed -i 's/\r$//' start.sh
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
+RUN chmod +x start.sh
 
 # Expose port
 EXPOSE 8000
 
-# Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "cropxcel_project.wsgi:application"]
+# Default command starts migrations, collectstatic, and gunicorn (honors $PORT)
+CMD ["./start.sh"]

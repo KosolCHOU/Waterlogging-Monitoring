@@ -1,12 +1,7 @@
-{% extends "base.html" %}
-{% load static %}
-{% block title %}Analytics – CropXcel{% endblock %}
-
-{% block head %}
-  <link rel="stylesheet" href="{% static 'css/analytics.css' %}">
-{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% load static %} {% block title %}Analytics –
+CropXcel{% endblock %} {% block head %}
+<link rel="stylesheet" href="{% static 'css/analytics.css' %}" />
+{% endblock %} {% block content %}
 <div class="wrap" data-field-id="{{ field.id }}">
   <!-- ===== LEFT: Weather today + 72h ===== -->
   <div class="card">
@@ -16,17 +11,22 @@
         <div>
           <div class="title">
             Weather today
-            <span class="hint" data-tip="See today’s weather at your field. Use it to decide if it’s safe to spray, fertilize, or harvest. If rain is high, wait until it clears."></span>
+            <span
+              class="hint"
+              data-tip="See today’s weather at your field. Use it to decide if it’s safe to spray, fertilize, or harvest. If rain is high, wait until it clears."
+            ></span>
           </div>
           <div class="todayMeta" id="when"></div>
-          <div class="todayMeta"><span id="where" data-id="{{ field_label }}">{{ field.name }}</span></div>
+          <div class="todayMeta">
+            <span id="where" data-id="{{ field_label }}">{{ field.name }}</span>
+          </div>
         </div>
         <div class="icon" id="icon">☀️</div>
       </div>
 
       <div class="todayBody">
         <div class="todayLeft">
-          <div class="icon" id="iconBig" style="font-size:64px">☀️</div>
+          <div class="icon" id="iconBig" style="font-size: 64px">☀️</div>
           <div>
             <div class="temp" id="temp">—</div>
             <div class="desc" id="desc">—</div>
@@ -34,27 +34,43 @@
         </div>
         <div class="vbar"></div>
         <div class="aside">
-          <div class="rightInfo"><i>☁️</i> <span id="rightCloud">Mostly Cloudy</span></div>
-          <div class="rightInfo"><i>🌧️</i> <span id="rightRain">Rain – 0%</span></div>
+          <div class="rightInfo">
+            <i>☁️</i> <span id="rightCloud">Mostly Cloudy</span>
+          </div>
+          <div class="rightInfo">
+            <i>🌧️</i> <span id="rightRain">Rain – 0%</span>
+          </div>
         </div>
       </div>
 
       <div class="todayFoot">
-        <div class="miniStat"><div class="lbl">Prob. max</div><div class="val" id="chipProb">—%</div></div>
-        <div class="miniStat"><div class="lbl">Wind max</div><div class="val" id="chipWind">— km/h</div></div>
-        <div class="miniStat"><div class="lbl">Rain today</div><div class="val" id="chipRain">— mm</div></div>
+        <div class="miniStat">
+          <div class="lbl">Prob. max</div>
+          <div class="val" id="chipProb">—%</div>
+        </div>
+        <div class="miniStat">
+          <div class="lbl">Wind max</div>
+          <div class="val" id="chipWind">— km/h</div>
+        </div>
+        <div class="miniStat">
+          <div class="lbl">Rain today</div>
+          <div class="val" id="chipRain">— mm</div>
+        </div>
       </div>
     </div>
 
     <!-- 72h Rain signal -->
-    <div class="panel72" style="margin-top:12px">
+    <div class="panel72" style="margin-top: 12px">
       <h4>
         Next 72h · Rain signal
-        <span class="hint" data-tip="This shows both the chance of rain and the amount in the next 3 days. 
+        <span
+          class="hint"
+          data-tip="This shows both the chance of rain and the amount in the next 3 days. 
         Blue bars = chance (probability), green bars = rain (mm). 
         High chance but low mm means a light drizzle is likely. 
         High mm with high chance means heavy rain is almost certain. 
-        Use this to plan work: harvest or fertilize when chance is low; prepare drains if heavy rain is likely."></span>
+        Use this to plan work: harvest or fertilize when chance is low; prepare drains if heavy rain is likely."
+        ></span>
       </h4>
       <div class="p72">
         <div class="p72-left">
@@ -64,19 +80,30 @@
           </div>
           <div class="legend72" id="legend72">
             <button class="chip" data-series="prob" aria-pressed="true">
-              <span class="swatch" style="background:#60a5fa"></span> Probability %
+              <span class="swatch" style="background: #60a5fa"></span>
+              Probability %
             </button>
             <button class="chip" data-series="rain" aria-pressed="true">
-              <span class="swatch" style="background:#34d399"></span> Rain (mm)
+              <span class="swatch" style="background: #34d399"></span> Rain (mm)
             </button>
-            <span style="font-size:12px;color:#64748b">Tip: click to show/hide series.</span>
+            <span style="font-size: 12px; color: #64748b"
+              >Tip: click to show/hide series.</span
+            >
           </div>
         </div>
         <div class="p72-right">
-          <div class="kpi"><span>🌧️</span> Total rain 72h:&nbsp;<b id="kpiRain">— mm</b></div>
-          <div class="kpi"><span>📈</span> Peak probability:&nbsp;<b id="kpiPeak">—%</b></div>
-          <div class="kpi"><span>⏰</span> Peak time:&nbsp;<b id="kpiTime">--:--</b></div>
-          <div class="kpi"><span>⚠️</span> Risk:&nbsp;<b id="kpiRisk">—</b></div>
+          <div class="kpi">
+            <span>🌧️</span> Total rain 72h:&nbsp;<b id="kpiRain">— mm</b>
+          </div>
+          <div class="kpi">
+            <span>📈</span> Peak probability:&nbsp;<b id="kpiPeak">—%</b>
+          </div>
+          <div class="kpi">
+            <span>⏰</span> Peak time:&nbsp;<b id="kpiTime">--:--</b>
+          </div>
+          <div class="kpi">
+            <span>⚠️</span> Risk:&nbsp;<b id="kpiRisk">—</b>
+          </div>
         </div>
       </div>
     </div>
@@ -86,33 +113,44 @@
   <div class="card">
     <h3 class="pretty">
       7-day Forecast
-      <span class="hint" data-tip="See 1-week weather ahead. Spot days with heavy rain, strong wind, or heat. Helps plan irrigation, hire labor, or protect crops early. Tap column names to sort."></span>
+      <span
+        class="hint"
+        data-tip="See 1-week weather ahead. Spot days with heavy rain, strong wind, or heat. Helps plan irrigation, hire labor, or protect crops early. Tap column names to sort."
+      ></span>
     </h3>
-    <table class="mini" id="dailyTbl">
-      <thead>
-        <tr>
-          <th data-k="date">Date</th>
-          <th data-k="rain_mm">Rain (mm)</th>
-          <th data-k="prob_max">Prob.max</th>
-          <th data-k="t">Tmin–Tmax</th>
-          <th data-k="wind_max">Wind max</th>
-          <th>Risk</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="todayMeta" style="margin-top:6px">Tip: tap a column header to sort; hover a row for details.</div>
+    <div class="table-responsive">
+      <table class="mini" id="dailyTbl">
+        <thead>
+          <tr>
+            <th data-k="date">Date</th>
+            <th data-k="rain_mm" class="mobile-hide">Rain (mm)</th>
+            <th data-k="prob_max" class="mobile-hide">Prob.max</th>
+            <th data-k="t">Temp</th>
+            <th data-k="wind_max" class="tablet-hidden">Wind max</th>
+            <th>Risk</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="todayMeta" style="margin-top: 6px">
+      Tip: tap a column header to sort; hover a row for details.
+    </div>
 
-    <h4 style="margin:14px 0 6px 0;font-weight:800;color:var(--ink)">
+    <h4 style="margin: 14px 0 6px 0; font-weight: 800; color: var(--ink)">
       Recommendations
-      <span class="hint" data-tip="Practical advice for your field. Example: delay fertilizer if rain is coming, open drains if water may stay, or water crops if dry days ahead. Simple steps to protect yield."></span>
+      <span
+        class="hint"
+        data-tip="Practical advice for your field. Example: delay fertilizer if rain is coming, open drains if water may stay, or water crops if dry days ahead. Simple steps to protect yield."
+      ></span>
     </h4>
-    <div id="adviceWrap" style="display:grid;grid-template-columns:1fr;gap:10px"></div>
+    <div
+      id="adviceWrap"
+      style="display: grid; grid-template-columns: 1fr; gap: 10px"
+    ></div>
   </div>
 </div>
 
-{% endblock %}
-
-{% block extra_scripts %}
-  <script src="{% static 'js/analytics.js' %}"></script>
+{% endblock %} {% block extra_scripts %}
+<script src="{% static 'js/analytics.js' %}"></script>
 {% endblock %}
