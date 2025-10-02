@@ -64,4 +64,5 @@ urlpatterns = [
         login_required_with_message(views.crop_recommend_simple),
         name="crop_recommend_simple",
     ),
+    path("api/job-status/<int:job_id>/", views.job_status_api, name="job_status_api"),
 ]

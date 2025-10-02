@@ -481,21 +481,281 @@ def dashboard(request, field_id: int):
     if not job or job.status != "done" or not job.result:
         status_txt = (job and job.status) or "queued"
         msg = (job and (job.message or "")) or ""
+        
+        # Enhanced progress tracking
+        progress_steps = [
+            ("queued", "📋 Analysis Queued", "Your request is in the processing queue"),
+            ("running", "🛰️ Processing Satellite Data", "Analyzing Sentinel-1 radar imagery"),
+            ("processing", "🔍 Detecting Risk Areas", "Identifying waterlogging hotspots"),
+            ("generating", "📊 Creating Visualizations", "Generating maps and insights"),
+            ("done", "✅ Analysis Complete", "Ready to view results"),
+            ("failed", "❌ Analysis Failed", "An error occurred during processing")
+        ]
+        
+        current_step = next((i for i, (s, _, _) in enumerate(progress_steps) if s == status_txt), 0)
+        
         html = f"""
-        <!doctype html><meta charset="utf-8">
-        <title>Analyzing…</title>
-        <meta http-equiv="refresh" content="3">
-        <style>
-        body {{ font-family: system-ui, Arial; margin: 24px; }}
-        .pill {{ display:inline-block; padding:.25rem .5rem; border-radius:999px; background:#eef7f3; }}
-        .err {{ background:#fee2e2; color:#991b1b; padding:10px; border-radius:8px; }}
-        a.btn {{ display:inline-block; margin-top:10px; padding:8px 12px; background:#0ea5e9; color:#fff; border-radius:8px; text-decoration:none; }}
-        </style>
-        <h1>Analysis pending…</h1>
-        <p>Status: <span class="pill">{status_txt}</span></p>
-        {"<div class='err'><b>Reason:</b> " + msg + "</div>" if status_txt == "failed" and msg else ""}
-        {"<a class='btn' href='?rerun=1'>↻ Re-run analysis</a>" if job else ""}
-        <p>This page will refresh automatically.</p>
+        <!doctype html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>🌾 Waterlogging Analysis - CropXcel</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+                body {{ 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh; padding: 20px; color: #333;
+                }}
+                .container {{
+                    max-width: 800px; margin: 0 auto; background: white;
+                    border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                }}
+                .header {{
+                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+                    color: white; padding: 2rem; text-align: center;
+                }}
+                .header h1 {{ font-size: 2rem; margin-bottom: 0.5rem; }}
+                .header p {{ opacity: 0.9; font-size: 1.1rem; }}
+                .content {{ padding: 2rem; }}
+                
+                .progress-container {{
+                    background: #f8fafc; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;
+                }}
+                .progress-bar {{
+                    background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 1rem;
+                }}
+                .progress-fill {{
+                    background: linear-gradient(90deg, #22c55e, #16a34a);
+                    height: 100%; border-radius: 4px; transition: width 0.5s ease;
+                    width: {min(100, (current_step + 1) * 20)}%;
+                }}
+                
+                .steps {{
+                    display: grid; gap: 1rem; margin-bottom: 2rem;
+                }}
+                .step {{
+                    display: flex; align-items: center; padding: 1rem;
+                    border-radius: 8px; transition: all 0.3s ease;
+                }}
+                .step.active {{ background: #dcfce7; border-left: 4px solid #22c55e; }}
+                .step.completed {{ background: #f0f9ff; opacity: 0.7; }}
+                .step.pending {{ background: #f8fafc; opacity: 0.5; }}
+                
+                .step-icon {{ font-size: 1.5rem; margin-right: 1rem; }}
+                .step-content h3 {{ font-size: 1.1rem; margin-bottom: 0.25rem; }}
+                .step-content p {{ color: #64748b; font-size: 0.9rem; }}
+                
+                .status-card {{
+                    background: #f1f5f9; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;
+                    border-left: 4px solid #3b82f6;
+                }}
+                .status-current {{ font-size: 1.2rem; font-weight: 600; color: #1e40af; }}
+                
+                .error-card {{
+                    background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+                    padding: 1.5rem; margin-bottom: 2rem;
+                }}
+                .error-title {{ color: #dc2626; font-weight: 600; margin-bottom: 0.5rem; }}
+                .error-message {{ color: #7f1d1d; }}
+                
+                .actions {{
+                    display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;
+                }}
+                .btn {{
+                    padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none;
+                    font-weight: 500; transition: all 0.2s; border: none; cursor: pointer;
+                    font-size: 1rem;
+                }}
+                .btn-primary {{ background: #3b82f6; color: white; }}
+                .btn-primary:hover {{ background: #2563eb; }}
+                .btn-secondary {{ background: #f1f5f9; color: #334155; }}
+                .btn-secondary:hover {{ background: #e2e8f0; }}
+                
+                .auto-refresh {{
+                    text-align: center; color: #64748b; font-size: 0.9rem;
+                    margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;
+                }}
+                
+                .field-info {{
+                    background: #fafafa; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;
+                }}
+                .field-info h4 {{ margin-bottom: 0.5rem; color: #334155; }}
+                .field-info p {{ color: #64748b; font-size: 0.9rem; }}
+                
+                @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+                .spinner {{ animation: spin 1s linear infinite; display: inline-block; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🌾 Waterlogging Analysis</h1>
+                    <p>Analyzing your field using Sentinel-1 satellite data</p>
+                </div>
+                
+                <div class="content">
+                    {"" if not job else f'''
+                    <div class="field-info">
+                        <h4>📍 Field Information</h4>
+                        <p><strong>Job ID:</strong> {job.id}</p>
+                        <p><strong>Started:</strong> {job.created_at.strftime("%B %d, %Y at %I:%M %p")}</p>
+                        <p><strong>Field:</strong> {job.field.name if hasattr(job, 'field') and job.field else 'Unknown'}</p>
+                    </div>
+                    '''}
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <p style="text-align: center; color: #64748b; font-size: 0.9rem;">
+                            Step {current_step + 1} of {len(progress_steps) - 1}
+                        </p>
+                    </div>
+                    
+                    <div class="steps">
+                        {''.join([
+                            f'''<div class="step {'active' if i == current_step else 'completed' if i < current_step else 'pending'}">
+                                <div class="step-icon">{'🔄' if i == current_step and status_txt != 'failed' else step[1].split()[0]}</div>
+                                <div class="step-content">
+                                    <h3>{step[1]}</h3>
+                                    <p>{step[2]}</p>
+                                </div>
+                            </div>'''
+                            for i, step in enumerate(progress_steps[:-1])  # Exclude failed step unless it's the current status
+                        ])}
+                    </div>
+                    
+                    <div class="status-card">
+                        <div class="status-current">
+                            {"🔄" if status_txt not in ['failed', 'done'] else "❌" if status_txt == 'failed' else "✅"} 
+                            Current Status: {status_txt.title()}
+                        </div>
+                    </div>
+                    
+                    {f'''
+                    <div class="error-card">
+                        <div class="error-title">⚠️ Analysis Failed</div>
+                        <div class="error-message">{msg}</div>
+                        <div style="margin-top: 1rem;">
+                            <strong>Common Solutions:</strong>
+                            <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+                                <li>Check if the field boundary is valid</li>
+                                <li>Ensure the field is not too large (max 50 hectares)</li>
+                                <li>Try drawing the field boundary again</li>
+                                <li>Contact support if the issue persists</li>
+                            </ul>
+                        </div>
+                    </div>
+                    ''' if status_txt == "failed" and msg else ""}
+                    
+                    <div class="actions">
+                        {"<a class='btn btn-primary' href='?rerun=1'>🔄 Re-run Analysis</a>" if job and status_txt == "failed" else ""}
+                        <a class="btn btn-secondary" href="/dashboard">🏠 Back to Dashboard</a>
+                        {"<a class='btn btn-secondary' href='/lands'>📍 My Fields</a>" if job else ""}
+                    </div>
+                    
+                    <div class="auto-refresh">
+                        {"🔄 Checking status automatically..." if status_txt not in ['failed', 'done'] else ""}
+                        {"⏰ Page will redirect when analysis completes" if status_txt not in ['failed', 'done'] else ""}
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                let jobId = {job.id if job else 'null'};
+                let updateInterval;
+                let retryCount = 0;
+                const maxRetries = 30; // 30 attempts = 5 minutes
+                
+                function updateProgress(data) {{
+                    // Update progress bar
+                    const progressFill = document.querySelector('.progress-fill');
+                    if (progressFill) {{
+                        progressFill.style.width = data.progress + '%';
+                    }}
+                    
+                    // Update status
+                    const statusCurrent = document.querySelector('.status-current');
+                    if (statusCurrent) {{
+                        const icon = data.has_error ? '❌' : data.is_complete ? '✅' : '🔄';
+                        statusCurrent.innerHTML = `${{icon}} Current Status: ${{data.status.charAt(0).toUpperCase() + data.status.slice(1)}}`;
+                    }}
+                    
+                    // Update page title
+                    document.title = `🌾 Analysis ${{data.status.charAt(0).toUpperCase() + data.status.slice(1)}} - CropXcel`;
+                    
+                    // Handle completion or error
+                    if (data.is_complete) {{
+                        clearInterval(updateInterval);
+                        setTimeout(() => {{
+                            window.location.reload();
+                        }}, 2000);
+                    }} else if (data.has_error) {{
+                        clearInterval(updateInterval);
+                        // Show error message if not already shown
+                        const errorCard = document.querySelector('.error-card');
+                        if (!errorCard && data.message) {{
+                            const content = document.querySelector('.content');
+                            const errorHtml = `
+                                <div class="error-card">
+                                    <div class="error-title">⚠️ Analysis Failed</div>
+                                    <div class="error-message">${{data.message}}</div>
+                                </div>
+                            `;
+                            content.insertAdjacentHTML('beforeend', errorHtml);
+                        }}
+                    }}
+                }}
+                
+                function checkJobStatus() {{
+                    if (!jobId) return;
+                    
+                    fetch(`/api/job-status/${{jobId}}/`)
+                        .then(response => response.json())
+                        .then(data => {{
+                            if (data.error) {{
+                                console.error('Job status error:', data.error);
+                                retryCount++;
+                                if (retryCount >= maxRetries) {{
+                                    clearInterval(updateInterval);
+                                    console.log('Max retries reached, stopping updates');
+                                }}
+                                return;
+                            }}
+                            
+                            updateProgress(data);
+                            retryCount = 0; // Reset retry count on success
+                        }})
+                        .catch(error => {{
+                            console.error('Network error:', error);
+                            retryCount++;
+                            if (retryCount >= maxRetries) {{
+                                clearInterval(updateInterval);
+                                console.log('Max retries reached, stopping updates');
+                            }}
+                        }});
+                }}
+                
+                // Add some dynamic effects
+                document.addEventListener('DOMContentLoaded', function() {{
+                    const activeStep = document.querySelector('.step.active');
+                    if (activeStep && !activeStep.querySelector('.error-card')) {{
+                        const icon = activeStep.querySelector('.step-icon');
+                        icon.classList.add('spinner');
+                    }}
+                    
+                    // Start real-time updates if job is running
+                    if (jobId && {'"failed"' not in status_txt and '"done"' not in status_txt}) {{
+                        updateInterval = setInterval(checkJobStatus, 3000); // Check every 3 seconds
+                        checkJobStatus(); // Initial check
+                    }}
+                }});
+            </script>
+        </body>
+        </html>
         """
         return remember(HttpResponse(html))
 
@@ -1137,3 +1397,38 @@ def serve_probe_bin(request, filename):
         return response
     except IOError:
         raise Http404("File not found")
+
+
+def job_status_api(request, job_id):
+    """
+    AJAX endpoint to get real-time job status updates
+    """
+    try:
+        job = AnalysisJob.objects.get(id=job_id)
+        
+        # Calculate progress percentage
+        status_progress = {
+            "queued": 10,
+            "running": 30,
+            "processing": 60,
+            "generating": 80,
+            "done": 100,
+            "failed": 0
+        }
+        
+        progress = status_progress.get(job.status, 10)
+        
+        return JsonResponse({
+            "status": job.status,
+            "message": job.message or "",
+            "progress": progress,
+            "created_at": job.created_at.isoformat(),
+            "updated_at": job.updated_at.isoformat() if hasattr(job, 'updated_at') else job.created_at.isoformat(),
+            "field_name": job.field.name if hasattr(job, 'field') and job.field else "Unknown",
+            "is_complete": job.status == "done",
+            "has_error": job.status == "failed"
+        })
+    except AnalysisJob.DoesNotExist:
+        return JsonResponse({"error": "Job not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
