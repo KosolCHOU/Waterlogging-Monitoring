@@ -9,13 +9,104 @@
 {% endblock %}
 
 {% block content %}
+<!-- Top Stats Bar -->
+<div class="stats-bar">
+  {% if field.area_ha %}
+  <div class="stat-card">
+    <div class="stat-icon">
+      <i class="fas fa-expand-arrows-alt"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value" id="fieldAreaStat">{{ field.area_ha|floatformat:1 }}</div>
+      <div class="stat-label">Field Area (ha)</div>
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if latest_risk and latest_risk != "Unknown" %}
+  <div class="stat-card">
+    <div class="stat-icon risk-icon risk-{{ latest_risk|lower }}">
+      <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value risk-{{ latest_risk|lower }}" id="riskLevelStat">{{ latest_risk }}</div>
+      <div class="stat-label">Risk Level</div>
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if last_updated and last_updated != "Never" %}
+  <div class="stat-card">
+    <div class="stat-icon">
+      <i class="fas fa-clock"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value" id="lastUpdatedStat">{{ last_updated }}</div>
+      <div class="stat-label">Last Updated</div>
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if alert_zones_count is not None %}
+  <div class="stat-card">
+    <div class="stat-icon">
+      <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value" id="alertZonesStat">{{ alert_zones_count }}</div>
+      <div class="stat-label">Problem Areas</div>
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if satellite_capture_date %}
+  <div class="stat-card">
+    <div class="stat-icon">
+      <i class="fas fa-satellite"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value" id="satelliteCaptureStat">{{ satellite_capture_date }}</div>
+      <div class="stat-label">
+        Satellite Data{% if satellite_event_count %} ({{ satellite_event_count }} images){% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- Show field name if no other stats available -->
+  {% if not field.area_ha and not latest_risk and not last_updated %}
+  <div class="stat-card">
+    <div class="stat-icon">
+      <i class="fas fa-leaf"></i>
+    </div>
+    <div class="stat-content">
+      <div class="stat-value">{{ field.name|default:"Field Analysis" }}</div>
+      <div class="stat-label">Field Name</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
 <div class="dash">
   <!-- LEFT: MAP -->
   <div class="mapCard">
+    <div class="card-header">
+      <h3><i class="fas fa-map"></i> Field Map</h3>
+      <div class="map-controls">
+        <button 
+          class="btn btn-ghost" 
+          id="fullscreenBtn" 
+          title="Enter Fullscreen Mode (F)"
+          aria-label="Enter fullscreen mode for the map"
+          tabindex="0"
+          role="button"
+        >
+          <i class="fas fa-expand" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
     <div id="map"></div>
     <div id="hoverpill"></div>
-    <!-- Button required by JS to exit map-only mode; previously removed caused JS error -->
-    <button class="btn btn-brand exit-maponly" id="exitMapOnlyBtn" title="Exit Map Only">Exit Map Only</button>
   </div>  
 
   <!-- RIGHT: Insights, Scale, Plot -->
@@ -27,8 +118,7 @@
           <span class="hint" data-tip="Each row comes from a Sentinel-1 satellite pass. It shows the date, your field’s risk level, and what you should do. Farmers can use this to decide when to irrigate, drain, or simply monitor."></span>
         </h3>
         <div class="head-actions">
-          <button class="btn btn-brand" id="techBtn">Show Technical Details</button>
-          <button class="btn btn-brand" id="mapOnlyBtn">Map Only</button>
+          <button class="btn btn-brand" id="techBtn">Show Technical Details</button>  
         </div>
       </div>
 
@@ -84,11 +174,19 @@
     <div class="card">
       <h3 class="pretty">
         Plot
-        <span class="hint" data-tip="A 4-month history of waterlogging risk. Farmers can spot trends: if risk is climbing, prepare drainage; if it’s falling, you’re safe to irrigate. Helps you plan day-to-day decisions."></span>
+        <span class="hint" data-tip="A 4-month history of waterlogging ris
+        k. Farmers can spot trends: if risk is climbing, prepare drainage; if it’s falling, you’re safe to irrigate. Helps you plan day-to-day decisions."></span>
       </h3>
       <div id="plotSection"></div>
     </div>
   </div>
+</div>
+
+<!-- Floating Action Button -->
+<div class="fab">
+  <button class="fab-btn" id="refreshDashboard" title="Refresh Dashboard (Ctrl+R)">
+    <i class="fas fa-sync-alt"></i>
+  </button>
 </div>
 
   <!-- JSON blob for the external JS -->

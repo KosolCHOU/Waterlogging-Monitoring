@@ -393,7 +393,6 @@ const tableWrap = document.getElementById('insightsTable');
 const title     = document.getElementById('insTitle');
 const moreBtn   = document.getElementById('toggleInsights');
 const techBtn   = document.getElementById('techBtn');
-const mapBtn    = document.getElementById('mapOnlyBtn');
 const exitBtn   = document.getElementById('exitMapOnlyBtn');
 const legendDiv = document.getElementById('legendRows');
 const donutCtr  = document.getElementById('donutCenter');
@@ -668,20 +667,78 @@ techBtn.onclick = ()=>{ window.__techMode__ = !window.__techMode__; renderTables
 function setMapOnly(on){
   document.body.classList.toggle('map-only', !!on);
   const isOn = document.body.classList.contains('map-only');
-  // Leave the Map Only button label static; the dedicated exit button appears in map-only mode
   
   // Show helpful toast messages
   if (isOn) {
-    showToast('🗺️ Map only mode • Use the top-right button or press Escape to exit');
+    showToast('🗺️ Map only mode • Use the Exit button or press Escape to exit');
   } else {
     showToast('📊 Back to full dashboard');
   }
   
-  setTimeout(()=> map.invalidateSize(true), 200);
+  // Invalidate map size after layout changes with multiple attempts
+  setTimeout(() => {
+    if (typeof map !== 'undefined' && map.invalidateSize) {
+      map.invalidateSize(true);
+    }
+  }, 100);
+  
+  setTimeout(() => {
+    if (typeof map !== 'undefined' && map.invalidateSize) {
+      map.invalidateSize(true);
+    }
+  }, 300);
 }
-mapBtn.onclick  = ()=> setMapOnly(!document.body.classList.contains('map-only'));
-if (exitBtn) exitBtn.onclick = ()=> setMapOnly(false);
-document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') setMapOnly(false); });
+if (exitBtn) {
+  exitBtn.onclick = () => {
+    setMapOnly(false);
+    
+    // Update fullscreen button to reflect normal mode
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    if (fullscreenBtn) {
+      const icon = fullscreenBtn.querySelector('i');
+      if (icon) {
+        icon.className = 'fas fa-expand';
+        fullscreenBtn.title = 'Enter Fullscreen Mode (F)';
+        fullscreenBtn.setAttribute('aria-label', 'Enter fullscreen mode');
+      }
+    }
+    showToast('📍 Returned to dashboard view');
+  };
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // Escape to exit map-only mode
+  if (e.key === 'Escape') {
+    const isCurrentlyMapOnly = document.body.classList.contains('map-only');
+    if (isCurrentlyMapOnly) {
+      setMapOnly(false);
+      
+      // Update fullscreen button to reflect normal mode
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      if (fullscreenBtn) {
+        const icon = fullscreenBtn.querySelector('i');
+        if (icon) {
+          icon.className = 'fas fa-expand';
+          fullscreenBtn.title = 'Enter Fullscreen Mode (F)';
+          fullscreenBtn.setAttribute('aria-label', 'Enter fullscreen mode');
+        }
+      }
+      showToast('📍 Exited fullscreen mode');
+    }
+  }
+  
+  // 'F' key to toggle fullscreen (when not in an input field)
+  if (e.key === 'f' || e.key === 'F') {
+    if (!e.target.matches('input, textarea, [contenteditable]')) {
+      e.preventDefault();
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      if (fullscreenBtn && !fullscreenBtn.disabled) {
+        fullscreenBtn.click();
+      }
+    }
+  }
+});
 
 // Function to load insights data
 async function loadInsights() {
@@ -880,21 +937,6 @@ function hideLoadingState(container) {
   }
 }
 
-// Map fullscreen toggle
-const fullscreenBtn = document.getElementById('fullscreenBtn');
-if (fullscreenBtn) {
-  fullscreenBtn.addEventListener('click', () => {
-    document.body.classList.toggle('map-only');
-    const isFullscreen = document.body.classList.contains('map-only');
-    showToast(isFullscreen ? '🗺️ Map fullscreen mode' : '📊 Normal view');
-    
-    // Invalidate map size after layout change
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 300);
-  });
-}
-
 // Exit button handled above via setMapOnly(false) on #exitMapOnlyBtn
 
 // Responsive table handling
@@ -910,20 +952,13 @@ function makeTablesResponsive() {
 window.addEventListener('load', makeTablesResponsive);
 window.addEventListener('resize', makeTablesResponsive);
 
-// Add keyboard shortcuts
+// Add keyboard shortcuts for refresh only (F key is handled above)
 document.addEventListener('keydown', (e) => {
-  // F key - fullscreen map
-  if (e.key === 'f' || e.key === 'F') {
-    if (!e.target.matches('input, textarea')) {
-      e.preventDefault();
-      fullscreenBtn?.click();
-    }
-  }
-  
   // R key - refresh
   if (e.key === 'r' || e.key === 'R') {
     if (!e.target.matches('input, textarea') && e.ctrlKey) {
       e.preventDefault();
+      const fab = document.getElementById('refreshDashboard');
       fab?.click();
     }
   }
@@ -940,3 +975,177 @@ console.log("%c  Ctrl+R - Refresh dashboard", "color: #94a3b8;");
 console.log("%c  Escape - Exit fullscreen", "color: #94a3b8;");
 
 console.log("✅ Dashboard enhancements loaded successfully");
+
+// === Enhanced Dashboard Features ===
+
+// FAB functionality
+document.addEventListener('DOMContentLoaded', function() {
+  const fab = document.getElementById('refreshDashboard');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const refreshMapBtn = document.getElementById('refreshMapBtn');
+  
+  // Map fullscreen toggle
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', () => {
+      try {
+        const isCurrentlyMapOnly = document.body.classList.contains('map-only');
+        const icon = fullscreenBtn.querySelector('i');
+        
+        // Add loading state
+        fullscreenBtn.classList.add('loading');
+        fullscreenBtn.disabled = true;
+        
+        // Add animation class based on current state
+        if (isCurrentlyMapOnly) {
+          fullscreenBtn.classList.add('compressing');
+        } else {
+          fullscreenBtn.classList.add('expanding');
+        }
+        
+        // Trigger the mode change after a short delay for visual feedback
+        setTimeout(() => {
+          setMapOnly(!isCurrentlyMapOnly);
+          
+          // Update button icon and tooltip to indicate current state
+          if (icon) {
+            if (isCurrentlyMapOnly) {
+              icon.className = 'fas fa-expand';
+              fullscreenBtn.title = 'Enter Fullscreen Mode (F)';
+              fullscreenBtn.setAttribute('aria-label', 'Enter fullscreen mode');
+            } else {
+              icon.className = 'fas fa-compress';
+              fullscreenBtn.title = 'Exit Fullscreen Mode (Esc or F)';
+              fullscreenBtn.setAttribute('aria-label', 'Exit fullscreen mode');
+            }
+          }
+          
+          // Remove loading and animation states
+          setTimeout(() => {
+            fullscreenBtn.classList.remove('loading', 'expanding', 'compressing');
+            fullscreenBtn.disabled = false;
+            
+            // Brief success state
+            fullscreenBtn.classList.add('success');
+            setTimeout(() => {
+              fullscreenBtn.classList.remove('success');
+            }, 600);
+            
+            // Show success feedback
+            showToast(isCurrentlyMapOnly ? 
+              '📍 Normal view restored' : 
+              '🗺️ Fullscreen map activated'
+            );
+          }, 100);
+          
+        }, 200);
+        
+      } catch (error) {
+        console.error('Error toggling fullscreen:', error);
+        fullscreenBtn.classList.remove('loading', 'expanding', 'compressing');
+        fullscreenBtn.disabled = false;
+        showToast('❌ Error toggling fullscreen mode');
+      }
+    });
+    
+    // Add keyboard navigation support
+    fullscreenBtn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fullscreenBtn.click();
+      }
+    });
+  }
+  
+  // FAB refresh with animation
+  if (fab) {
+    fab.addEventListener('click', function() {
+      this.classList.add('spinning');
+      showToast('Refreshing dashboard...');
+      
+      // Remove spinning class after animation
+      setTimeout(() => {
+        this.classList.remove('spinning');
+        showToast('Dashboard refreshed');
+      }, 1000);
+      
+      // Trigger page refresh or data reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    });
+  }
+  
+  // Map controls (fullscreen button handler is defined earlier in the file)
+  
+  if (refreshMapBtn) {
+    refreshMapBtn.addEventListener('click', function() {
+      const icon = this.querySelector('i');
+      icon.style.transform = 'rotate(360deg)';
+      
+      // Reset rotation after animation
+      setTimeout(() => {
+        icon.style.transform = '';
+      }, 500);
+      
+      // Refresh map overlay
+      if (overlayLayer) {
+        overlayLayer.redraw();
+      }
+      showToast('Map refreshed');
+    });
+  }
+  
+  // Animate stats on load
+  animateStats();
+});
+
+// Animate stats values
+function animateStats() {
+  const statValues = document.querySelectorAll('.stat-value');
+  
+  statValues.forEach((stat, index) => {
+    // Add entrance animation delay
+    const card = stat.closest('.stat-card');
+    if (card) {
+      card.style.animationDelay = `${index * 0.1}s`;
+    }
+    
+    // Animate numeric values only
+    const text = stat.textContent.trim();
+    const number = parseFloat(text);
+    
+    if (!isNaN(number) && number > 0) {
+      stat.textContent = '0';
+      animateValue(stat, 0, number, 800 + (index * 150));
+    }
+  });
+}
+
+// Animate numeric values with easing
+function animateValue(element, start, end, duration) {
+  const startTime = performance.now();
+  const isDecimal = (end % 1 !== 0);
+  
+  function update(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    // Easing function (ease-out)
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = start + (end - start) * eased;
+    
+    if (isDecimal) {
+      element.textContent = current.toFixed(1);
+    } else {
+      element.textContent = Math.floor(current);
+    }
+    
+    if (progress < 1) {
+      requestAnimationFrame(update);
+    } else {
+      element.textContent = isDecimal ? end.toFixed(1) : end;
+    }
+  }
+  
+  requestAnimationFrame(update);
+}

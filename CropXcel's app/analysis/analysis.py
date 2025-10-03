@@ -62,7 +62,7 @@ def run_analysis_from_notebook(
     aoi_geojson: dict,
     *,
     stack_tif_path: str | Path,     # ← path to the exported S1 stack (your notebook export)
-    max_web_width: int = 2000,      # downsample for web
+    max_web_width: int = 4000,      # downsample for web
 ) -> dict:
     """
     Returns:
@@ -262,14 +262,16 @@ def run_analysis_from_notebook(
         print("⚠️ Hotspot extraction failed:", e)
         hs = {}
 
-    # Safely build hotspots_url
+    # Safely build hotspots_url and count
     from pathlib import Path as _P
     hs_path = _P(hs.get("geojson_path") or hs.get("filename", ""))
     hotspots_url = f"/media/hotspots/{hs_path.name}" if hs_path.name else ""
+    hotspots_count = len(hs.get("hotspots", []))
 
     return {
         "overlay_png_url": f"/media/overlays/{out_png.name}",
         "hotspots_url": hotspots_url,
+        "hotspots_count": hotspots_count,
         "bounds": _bounds_from_geom(aoi_geojson),
         "probe_bin_url": f"/media/probes/{probe_bin.name}",
         "probe_meta_url": f"/media/probes/{probe_json.name}",

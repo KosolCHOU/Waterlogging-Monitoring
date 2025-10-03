@@ -4,211 +4,368 @@
   <meta charset="utf-8" />
   <title>{% block title %}CropXcel{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="{% block description %}CropXcel - Advanced agricultural monitoring and analytics platform for waterlogging detection and crop management{% endblock %}" />
+  <meta name="author" content="CropXcel Team" />
+  <meta name="theme-color" content="#10b981" />
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="{% block og_title %}CropXcel{% endblock %}" />
+  <meta property="og:description" content="{% block og_description %}Advanced agricultural monitoring and analytics platform{% endblock %}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="CropXcel" />
+  
+  <!-- Performance and Security -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
   {% load static %}
-  <!-- Poppins ExtraBold for premium wordmark -->
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap" rel="stylesheet">
+  <!-- Optimized font loading -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+  
   {% block head %}{% endblock %}
   <style>
-    /* ===== Design tokens (easy to tweak) ===== */
+    /* ===== CSS Custom Properties (Design Tokens) ===== */
     :root{
-      --sbw: 240px;                 /* sidebar width (desktop) */
+      /* Layout */
+      --navbar-height: 64px;        /* navbar height */
+      --navbar-height-mobile: 56px; /* mobile navbar height */
       --radius: 16px;               /* global rounding */
+      --radius-sm: 8px;             /* small rounding */
+      --radius-lg: 20px;            /* large rounding */
       --pad: 20px;                  /* global padding */
       --gap: 16px;                  /* gaps */
+      --gap-sm: 8px;                /* small gaps */
+      --gap-lg: 24px;               /* large gaps */
+      
+      /* Colors */
       --bg: #eef6f1;                /* app background */
       --surface: #0f172a;           /* sidebar surface */
       --surface-2: #111827;         /* deeper tone for header */
+      --surface-light: #f8fafc;     /* light surface */
       --border: rgba(255,255,255,.08);
+      --border-light: rgba(17,24,39,.06);
       --card: #ffffff;
-      --text-muted: #9ca3af;
-      --accent: #10b981;            /* emerald */
-      --accent-2:#2dd4bf;           /* teal */
+      --text: #111827;              /* primary text */
+      --text-muted: #9ca3af;        /* muted text */
+      --text-light: #6b7280;        /* light text */
+      
+      /* Brand colors */
+      --accent: #10b981;            /* emerald primary */
+      --accent-2: #2dd4bf;          /* teal secondary */
+      --accent-light: #6ee7b7;      /* light accent */
+      --accent-dark: #047857;       /* dark accent */
+      
+      /* Status colors */
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --info: #3b82f6;
+      
+      /* Shadows */
       --shadow-lg: 0 18px 50px rgba(0,0,0,.12);
       --shadow-md: 0 10px 30px rgba(0,0,0,.10);
       --shadow-sm: 0 6px 14px rgba(0,0,0,.08);
+      --shadow-xs: 0 2px 8px rgba(0,0,0,.06);
 
-      /* keep logo vertically consistent in both states */
-      --logo-offset: 8px;           /* top padding inside sidebar + top when floating */
-      --logo-left: 14px;            /* left when floating */
+      /* Logo positioning */
+      --logo-size: 20px;            /* logo font size */
+      --logo-size-mobile: 18px;     /* mobile logo size */
+      
+      /* Animation */
+      --transition-fast: 0.15s ease;
+      --transition: 0.3s ease;
+      --transition-slow: 0.5s ease;
     }
 
-    /* ===== Base ===== */
-    html, body { height:100%; }
-    body{
-      margin:0;
+    /* ===== CSS Reset & Base Styles ===== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    
+    html, body { 
+      height: 100%; 
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
       background:
         radial-gradient(1200px 800px at 10% -10%, rgba(45,212,191,.10), transparent 60%),
         radial-gradient(1200px 800px at 110% 10%, rgba(16,185,129,.10), transparent 60%),
         var(--bg);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      color:#111827;
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* ===== Sidebar ===== */
-    .sidebar{
-      position:fixed; inset:0 auto 0 0;
-      width:var(--sbw);
-      background: linear-gradient(180deg, var(--surface-2), var(--surface));
-      color:#fff;
-      display:flex; flex-direction:column;
-      border-right:1px solid var(--border);
-      box-shadow: var(--shadow-lg);
-      transform: translateX(0);
-      transition: transform .3s ease;
-      z-index:1000;
+    /* ===== Accessibility & Focus Management ===== */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 6px;
+      background: var(--accent);
+      color: white;
+      padding: var(--gap-sm);
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      z-index: 10000;
+      font-weight: 600;
+      transition: top var(--transition);
     }
-    .sidebar.hidden{ transform: translateX(-100%); }
-
-    /* Sidebar brand SLOT (empty container; logo will be moved here when open) */
-    .brand{
-      display:flex; align-items:center; gap:12px;
-      padding: var(--logo-offset) 16px; /* vertical offset controlled via --logo-offset */
-      border-bottom:1px solid var(--border);
-      font-weight:800; letter-spacing:.2px; font-size:18px;
-      min-height: 44px; /* keeps row height stable */
+    .skip-link:focus {
+      top: 6px;
     }
 
-    .menu{ padding:8px; }
-    .menu a{
-      display:flex; align-items:center; gap:10px;
-      padding:12px 14px;
-      color:#e5e7eb; text-decoration:none;
-      border-radius:12px;
-      margin:6px 6px;
-      line-height:1;
-      border:1px solid transparent;
-      transition: background .2s ease, border-color .2s ease, transform .05s ease;
+    *:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
-    .menu a:hover{
+
+    /* Remove focus outline for mouse users */
+    .no-focus-outline *:focus {
+      outline: none;
+    }
+
+    /* ===== Layout Components ===== */
+
+    /* ===== Navbar Navigation ===== */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--navbar-height);
+      background: linear-gradient(135deg, var(--surface-2), var(--surface));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--gap-lg);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+      z-index: 1000;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Brand/Logo in navbar */
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+      font-weight: 800;
+      font-size: var(--logo-size);
+      text-decoration: none;
+      color: inherit;
+    }
+
+    /* Desktop Navigation Menu */
+    .navbar-nav {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .navbar-nav a {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+      padding: 8px 16px;
+      color: #e5e7eb;
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      transition: all var(--transition-fast);
+      border: 1px solid transparent;
+    }
+
+    .navbar-nav a:hover {
       background: rgba(255,255,255,.06);
       border-color: rgba(255,255,255,.10);
+      transform: translateY(-1px);
     }
-    .menu a:active{ transform: translateY(1px); }
-    .menu a.active{
+
+    .navbar-nav a.active {
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      color:#0b1220;
-      font-weight:700;
-      border-color: transparent;
+      color: #0b1220;
+      font-weight: 700;
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
     }
 
-    .sidebar-footer{
-      margin-top:auto; padding:14px 16px;
-      border-top:1px solid var(--border);
-      font-size:14px;
+    /* Mobile menu toggle button */
+    .navbar-toggle {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      transition: background var(--transition-fast);
+      position: relative;
+      z-index: 1002;
+      min-width: 40px;
+      min-height: 40px;
+      justify-content: center;
+      align-items: center;
     }
-    .sidebar-footer a{
-      display:flex; align-items:center; gap:8px;
-      color:#9ca3af; text-decoration:none; margin-bottom:8px;
-    }
-    .sidebar-footer a:hover{ color:#fff; }
-    .sidebar-footer .copy{ font-size:12px; color:#6b7280; }
 
-    /* ===== Main content ===== */
-    .content{
-      min-height:100vh;
-      margin-left:var(--sbw);
-      transition: margin-left .3s ease;
-      padding:24px clamp(12px, 2.2vw, 28px);
-      display:block;
+    .navbar-toggle:hover {
+      background: rgba(255,255,255,.06);
     }
-    .sidebar.hidden ~ .content{ margin-left:0; }
 
-    /* “Premium” content container */
-    .container{
+    .navbar-toggle:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .navbar-toggle span {
+      width: 24px;
+      height: 2px;
+      background: #fff;
+      border-radius: 1px;
+      transition: all var(--transition);
+      display: block;
+    }
+
+    /* Hamburger animation */
+    .navbar-toggle.active span:nth-child(1) {
+      transform: rotate(45deg) translate(6px, 6px);
+    }
+    .navbar-toggle.active span:nth-child(2) {
+      opacity: 0;
+    }
+    .navbar-toggle.active span:nth-child(3) {
+      transform: rotate(-45deg) translate(6px, -6px);
+    }
+
+    /* Mobile dropdown menu */
+    .navbar-collapse {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(10px);
+      transform: translateY(-100%);
+      opacity: 0;
+      visibility: hidden;
+      transition: all var(--transition);
+      z-index: 999;
+    }
+
+    .navbar-collapse.show {
+      transform: translateY(0);
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .navbar-collapse .navbar-nav {
+      flex-direction: column;
+      padding: var(--gap);
+      gap: 4px;
+      margin: 0;
+    }
+
+    .navbar-collapse .navbar-nav a {
+      width: 100%;
+      padding: 12px 16px;
+      justify-content: flex-start;
+      margin: 2px 0;
+      border-radius: var(--radius-sm);
+    }
+
+    /* ===== Main Content Area ===== */
+    .content {
+      min-height: 100vh;
+      margin-top: var(--navbar-height);
+      padding: var(--gap-lg) clamp(12px, 2.2vw, 28px);
+      display: block;
+    }
+
+    /* Content container */
+    .container {
       max-width: 1360px;
       margin: 0 auto;
+      width: 100%;
     }
 
-    /* Optional: card baseline */
-    .card{
-      background:var(--card);
-      border-radius:var(--radius);
+    /* ===== Card Components ===== */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
       box-shadow: var(--shadow-sm);
-      border: 1px solid rgba(17,24,39,.06);
+      border: 1px solid var(--border-light);
+      transition: box-shadow var(--transition-fast);
+    }
+    .card:hover {
+      box-shadow: var(--shadow-md);
     }
 
-    /* ===== Mobile ===== */
-    @media (max-width: 1024px){
-      :root{ --sbw: 86vw; }
+    /* ===== Brand Logo Components ===== */
+    
+    /* Logo text styling */
+    .logo-text {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 800;
+      font-size: var(--logo-size);
+      letter-spacing: .2px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      line-height: 1;
+    }
+    .logo-text .word {
+      display: inline-block;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
     }
 
-    /* Nice thin scrollbar for desktop */
-    @media (pointer: fine){
-      *{ scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-      *::-webkit-scrollbar{ height:10px; width:10px; }
-      *::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:999px; }
-      *::-webkit-scrollbar-track{ background:transparent; }
-    }
-
-    /* ===== Movable Logo ===== */
-    /* Floating state (sidebar hidden) */
-    .brand-float{
-      position:fixed;
-      top: var(--logo-offset);
-      left: var(--logo-left);
-      display:flex; align-items:center; gap:8px;
-      /* remove pill background & shadow per request */
-      padding:0;
-      background:transparent;
-      color:inherit;
-      box-shadow:none;
-      border-radius:0;
-      cursor:pointer; user-select:none;
-      z-index:1200;
-    }
-    /* Inside-sidebar state (sidebar open) */
-    .brand-in{
-      position:static;                  /* lives inside .brand slot */
-      display:flex; align-items:center; gap:12px;
-      padding:0; background:transparent;
-      box-shadow:none; border-radius:0;
-      color:#fff; cursor:pointer;
-    }
-
-    /* Logo sizes */
-    .brand-float .logo-mark{ display:none; } /* emoji removed */
-    .brand-in   .logo-mark{ display:none; }
-
-    /* ===== Wordmark styles ===== */
-    .logo-text{
-      font-family:'Poppins',sans-serif;
-      font-weight:800;
-      font-size:20px;
-      letter-spacing:.2px;
-      display:inline-flex;
-      align-items:center;
-      gap:0;
-      line-height:1;
-    }
-    .logo-text .word{
-      display:inline-block;
-      background-clip:text;
-      -webkit-background-clip:text;
-      color:transparent;
-      -webkit-text-fill-color:transparent;
-    }
-
-    /* White "silk" gradient (great on dark sidebar) */
-    .logo-text .white{
+    /* White gradient for "Crop" and "cel" */
+    .logo-text .white {
       background-image: linear-gradient(180deg, #ffffff 0%, #f3f4f6 55%, #e5e7eb 100%);
-      /* keep visible when sidebar is hidden (white on light bg): add subtle text-outline */
       text-shadow: 0 1px 2px rgba(0,0,0,.35);
     }
 
-    /* Emerald "X" highlight (top-light to rich base) */
-    .logo-text .green{
-      background-image: linear-gradient(180deg, #6ee7b7 0%, #34d399 45%, #10b981 100%);
+    /* Green gradient for "X" */
+    .logo-text .green {
+      background-image: linear-gradient(180deg, var(--accent-light) 0%, var(--accent-2) 45%, var(--accent) 100%);
       text-shadow: 0 1px 2px rgba(0,0,0,.30);
-      margin:0 1px; /* micro breathing room */
+      margin: 0 1px;
     }
 
-    /* Optional: hide text on very tiny screens when floating */
-    @media (max-width:560px){
-      .brand-float .logo-text{ font-size:18px; }
+    /* Navbar footer/about link */
+    .navbar-footer {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-lg);
     }
 
-    /* ===== Floating Alerts ===== */
+    .navbar-footer a {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color var(--transition-fast);
+    }
+
+    .navbar-footer a:hover {
+      color: #fff;
+    }
+
+    /* ===== Message Notifications ===== */
     .messages {
       position: fixed;
       top: 16px;
@@ -216,162 +373,444 @@
       z-index: 2000;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: var(--gap-sm);
+      max-width: 400px;
     }
 
-    /* Scope alert styles to the messages (toast) container only to avoid
-       affecting any other element that uses a generic `.alert` class
-       elsewhere in the app (e.g., status badges in tables). */
     .messages .alert {
       padding: 12px 16px;
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       font-weight: 500;
-      box-shadow: 0 4px 12px rgba(0,0,0,.15);
-      animation: fadein .3s ease, fadeout .3s ease 4.7s forwards;
+      box-shadow: var(--shadow-md);
+      animation: messageFadeIn var(--transition) ease, messageFadeOut var(--transition) ease 4.7s forwards;
+      border: 1px solid;
     }
 
-    .messages .alert-info    { background:#e0f2fe; color:#075985; }
-    .messages .alert-warning { background:#fef9c3; color:#854d0e; }
-    .messages .alert-error   { background:#fee2e2; color:#991b1b; }
-    .messages .alert-success { background:#dcfce7; color:#166534; }
+    .messages .alert-info { 
+      background: #e0f2fe; 
+      color: #075985; 
+      border-color: #0891b2;
+    }
+    .messages .alert-warning { 
+      background: #fef9c3; 
+      color: #854d0e; 
+      border-color: #f59e0b;
+    }
+    .messages .alert-error { 
+      background: #fee2e2; 
+      color: #991b1b; 
+      border-color: #ef4444;
+    }
+    .messages .alert-success { 
+      background: #dcfce7; 
+      color: #166534; 
+      border-color: var(--success);
+    }
 
-    @keyframes fadein  { from{opacity:0; transform:translateY(-10px);} to{opacity:1; transform:translateY(0);} }
-    @keyframes fadeout { to{opacity:0; transform:translateY(-10px);} }
+    @keyframes messageFadeIn { 
+      from { opacity: 0; transform: translateY(-10px); } 
+      to { opacity: 1; transform: translateY(0); } 
+    }
+    @keyframes messageFadeOut { 
+      to { opacity: 0; transform: translateY(-10px); } 
+    }
+
+    /* ===== Responsive Design ===== */
+    
+    /* Tablets and mobile */
+    @media (max-width: 1024px) {
+      .navbar-nav:not(.navbar-collapse .navbar-nav) {
+        display: none; /* Hide desktop nav on mobile */
+      }
+      
+      .navbar-toggle {
+        display: flex; /* Show hamburger menu */
+      }
+      
+      .navbar-footer {
+        display: none; /* Hide footer links on mobile nav */
+      }
+      
+      /* Ensure mobile menu has proper z-index */
+      .navbar-collapse {
+        z-index: 1001;
+      }
+    }
+    
+    /* Mobile phones */
+    @media (max-width: 768px) {
+      :root {
+        --navbar-height: var(--navbar-height-mobile);
+        --logo-size: var(--logo-size-mobile);
+        --pad: 12px;
+        --gap: 12px;
+      }
+      
+      .navbar {
+        padding: 0 var(--gap);
+        height: var(--navbar-height-mobile);
+      }
+      
+      .content {
+        padding: 16px 12px;
+        margin-top: var(--navbar-height-mobile);
+      }
+      
+      .messages {
+        top: calc(var(--navbar-height-mobile) + 12px);
+        right: 12px;
+        left: 12px;
+        max-width: none;
+      }
+      
+      .navbar-collapse .navbar-nav a {
+        padding: 14px 16px;
+        font-size: 16px;
+        min-height: 48px; /* Better touch targets */
+      }
+    }
+
+    /* Small mobile phones */
+    @media (max-width: 480px) {
+      .navbar {
+        padding: 0 var(--gap-sm);
+      }
+      
+      .messages .alert {
+        padding: 10px 12px;
+        font-size: 14px;
+      }
+      
+      .navbar-collapse .navbar-nav a {
+        padding: 12px 14px;
+        font-size: 15px;
+      }
+    }
+
+    /* Touch device optimizations */
+    @media (hover: none) and (pointer: coarse) {
+      .navbar-nav a:hover {
+        transform: none; /* Remove hover effects on touch */
+      }
+      
+      .navbar-toggle:hover {
+        background: rgba(255,255,255,.06); /* Keep touch feedback */
+      }
+      
+      .card:hover {
+        box-shadow: var(--shadow-sm); /* Remove hover effects */
+      }
+    }
+
+    /* ===== Scrollbar Styling ===== */
+    @media (pointer: fine) {
+      * { 
+        scrollbar-width: thin; 
+        scrollbar-color: #cbd5e1 transparent; 
+      }
+      *::-webkit-scrollbar { 
+        height: 10px; 
+        width: 10px; 
+      }
+      *::-webkit-scrollbar-thumb { 
+        background: #cbd5e1; 
+        border-radius: 999px; 
+      }
+      *::-webkit-scrollbar-track { 
+        background: transparent; 
+      }
+    }
+
+    /* ===== Utility Classes ===== */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .no-focus-outline *:focus {
+      outline: none;
+    }
 
   </style>
 </head>
 <body>
-  <!-- Sidebar -->
-  <aside class="sidebar" id="sidebar">
-    <!-- EMPTY SLOT for the logo when sidebar is open -->
-    <div class="brand" id="brandSlot"></div>
+  <!-- Skip navigation for accessibility -->
+  <a href="#main-content" class="skip-link" tabindex="1">Skip to main content</a>
+  
+  <!-- Top Navigation Bar -->
+  <nav class="navbar" id="navbar" role="navigation" aria-label="Main navigation">
+    <!-- Brand/Logo -->
+    <a href="{% url 'dashboard_index' %}" class="navbar-brand" aria-label="CropXcel - Go to dashboard">
+      <span class="logo-text">
+        <span class="word white">Crop</span>
+        <span class="word green">X</span>
+        <span class="word white">cel</span>
+      </span>
+    </a>
 
-    <nav class="menu">
-      <a href="{% url 'dashboard_index' %}"
-        class="{% if request.resolver_match and request.resolver_match.url_name == 'dashboard' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}">
-        <span>🏠</span><span>Dashboard</span>
+    <!-- Desktop Navigation -->
+    <div class="navbar-nav" role="menubar">
+      <a href="{% url 'dashboard_index' %}" role="menuitem"
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'dashboard' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}"
+        aria-label="Dashboard - View your agricultural overview">
+        <span aria-hidden="true">🏠</span><span>Dashboard</span>
       </a>
 
-      <a href="{% url 'lands' %}"
-        class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}">
-        <span>🗺️</span><span>Land</span>
+      <a href="{% url 'lands' %}" role="menuitem"
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}"
+        aria-label="Land Management - Manage your agricultural areas">
+        <span aria-hidden="true">🗺️</span><span>Land</span>
       </a>
 
-      <a href="{% url 'analytics_no_field' %}"
-        class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'analytics_no_field' %}active{% endif %}">
-        <span>📈</span><span>Analytics</span>
+      <a href="{% url 'analytics_no_field' %}" role="menuitem"
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'analytics_no_field' %}active{% endif %}"
+        aria-label="Analytics - View detailed crop and field analytics">
+        <span aria-hidden="true">📈</span><span>Analytics</span>
       </a>
 
-      <a href="{% url 'profile' %}"
-        class="{% if request.resolver_match and request.resolver_match.url_name == 'profile' %}active{% endif %}">
-        <span>👤</span><span>Profile</span>
+      <a href="{% url 'profile' %}" role="menuitem"
+        class="{% if request.resolver_match and request.resolver_match.url_name == 'profile' %}active{% endif %}"
+        aria-label="Profile - Manage your account settings">
+        <span aria-hidden="true">👤</span><span>Profile</span>
       </a>
-    </nav>
-
-    <div class="sidebar-footer">
-      <a href="{% url 'about' %}">
-        <span class="info-icon"></span><span class="lbl">About</span>
-      </a>
-      <div class="copy">© CropXcel</div>
     </div>
-  </aside>
 
-  <!-- Floating messages -->
+    <!-- Desktop Footer Links -->
+    <div class="navbar-footer">
+      <a href="{% url 'about' %}" aria-label="About CropXcel">
+        <span aria-hidden="true">ℹ️</span><span>About</span>
+      </a>
+      <span style="font-size: 12px; color: #6b7280;">© CropXcel</span>
+    </div>
+
+    <!-- Mobile Menu Toggle -->
+    <button class="navbar-toggle" id="navbarToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="navbarCollapse">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <!-- Mobile Menu Dropdown -->
+    <div class="navbar-collapse" id="navbarCollapse">
+      <div class="navbar-nav" role="menubar">
+        <a href="{% url 'dashboard_index' %}" role="menuitem"
+          class="{% if request.resolver_match and request.resolver_match.url_name == 'dashboard' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'dashboard_index' %}active{% endif %}">
+          <span aria-hidden="true">🏠</span><span>Dashboard</span>
+        </a>
+
+        <a href="{% url 'lands' %}" role="menuitem"
+          class="{% if request.resolver_match and request.resolver_match.url_name == 'lands' %}active{% endif %}">
+          <span aria-hidden="true">🗺️</span><span>Land</span>
+        </a>
+
+        <a href="{% url 'analytics_no_field' %}" role="menuitem"
+          class="{% if request.resolver_match and request.resolver_match.url_name == 'analytics' %}active{% elif request.resolver_match and request.resolver_match.url_name == 'analytics_no_field' %}active{% endif %}">
+          <span aria-hidden="true">📈</span><span>Analytics</span>
+        </a>
+
+        <a href="{% url 'profile' %}" role="menuitem"
+          class="{% if request.resolver_match and request.resolver_match.url_name == 'profile' %}active{% endif %}">
+          <span aria-hidden="true">👤</span><span>Profile</span>
+        </a>
+
+        <a href="{% url 'about' %}" role="menuitem">
+          <span aria-hidden="true">ℹ️</span><span>About</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Notification messages -->
   {% if messages %}
-    <div class="messages">
+    <div class="messages" role="alert" aria-live="polite">
       {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        <div class="alert alert-{{ message.tags }}" role="alert">{{ message }}</div>
       {% endfor %}
     </div>
   {% endif %}
 
-  <!-- The only logo element; we move it between body and #brandSlot -->
-  <div id="brandToggle" class="brand-float" aria-label="Toggle sidebar" role="button">
-    <span class="logo-text">
-      <span class="word white">Crop</span>
-      <span class="word green">X</span>
-      <span class="word white">cel</span>
-    </span>
-  </div>
-
-  <!-- Main -->
-  <main class="content">
+  <!-- Main content area -->
+  <main class="content" id="main-content" role="main">
     <div class="container">
       {% block content %}{% endblock %}
     </div>
   </main>
 
   <script>
-    const sidebar     = document.getElementById('sidebar');
-    const content     = document.querySelector('.content');
-    const brandSlot   = document.getElementById('brandSlot');   // header slot inside sidebar
-    const brandToggle = document.getElementById('brandToggle'); // the only logo element
-
-    // Helpers: move logo in/out of sidebar and update class
-    function mountLogoInside(){
-      if (brandToggle.classList.contains('brand-in')) return;
-      brandSlot.innerHTML = '';                // ensure slot empty
-      brandSlot.appendChild(brandToggle);      // move node INTO sidebar header
-      brandToggle.classList.remove('brand-float');
-      brandToggle.classList.add('brand-in');
-    }
-    function mountLogoFloat(){
-      if (brandToggle.classList.contains('brand-float')) return;
-      document.body.appendChild(brandToggle);  // move node OUT to body
-      brandToggle.classList.remove('brand-in');
-      brandToggle.classList.add('brand-float');
-    }
-
-    // Restore UI state from localStorage
-    const hidden = localStorage.getItem('sb_hidden') === '1';
-    if (hidden){
-      sidebar.classList.add('hidden');
-      content.style.marginLeft = '0';
-      mountLogoFloat();
-    }else{
-      sidebar.classList.remove('hidden');
-      content.style.marginLeft = getComputedStyle(document.documentElement)
-        .getPropertyValue('--sbw');
-      mountLogoInside();
-    }
-
-    // Keyboard shortcut: press "S" to toggle sidebar
-    document.addEventListener('keydown', (e) => {
-      // ignore typing inside input/textarea
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-      // Press "s" or "S"
-      if (e.key === 's' || e.key === 'S') {
-        e.preventDefault();
-        toggleSidebar();
+    (function() {
+      'use strict';
+      
+      // DOM elements
+      const navbar = document.getElementById('navbar');
+      const navbarToggle = document.getElementById('navbarToggle');
+      const navbarCollapse = document.getElementById('navbarCollapse');
+      
+      // Early exit if essential elements are missing
+      if (!navbar || !navbarToggle || !navbarCollapse) {
+        console.warn('CropXcel: Essential navigation elements not found');
+        return;
       }
 
-      // Alternative: Ctrl + B (uncomment if you prefer this)
-      // if (e.ctrlKey && e.key.toLowerCase() === 'b') {
-      //   e.preventDefault();
-      //   toggleSidebar();
-      // }
-    });
+      // State management
+      const STORAGE_KEY = 'cropxcel_mobile_menu_open';
+      let isMobileMenuOpen = false;
 
-    // Toggle behavior when clicking the logo itself
-    function toggleSidebar(){
-      const willHide = !sidebar.classList.contains('hidden');
-      sidebar.classList.toggle('hidden', willHide);
-      localStorage.setItem('sb_hidden', willHide ? '1' : '0');
+      // Check if we're on mobile/tablet
+      function isMobile() {
+        return window.innerWidth <= 1024;
+      }
 
-      requestAnimationFrame(() => {
-        content.style.marginLeft = willHide ? '0'
-          : getComputedStyle(document.documentElement).getPropertyValue('--sbw');
+      function updateAriaExpanded() {
+        navbarToggle.setAttribute('aria-expanded', isMobileMenuOpen.toString());
+      }
+
+      function updateToggleIcon() {
+        navbarToggle.classList.toggle('active', isMobileMenuOpen);
+      }
+
+      // Main toggle function for mobile menu
+      function toggleMobileMenu() {
+        isMobileMenuOpen = !isMobileMenuOpen;
+        
+        console.log('Toggling mobile menu:', isMobileMenuOpen); // Debug log
+        
+        navbarCollapse.classList.toggle('show', isMobileMenuOpen);
+        updateAriaExpanded();
+        updateToggleIcon();
+        
+        // Save state
+        localStorage.setItem(STORAGE_KEY, isMobileMenuOpen.toString());
+        
+        // Announce state change to screen readers
+        const announcement = isMobileMenuOpen ? 'Mobile menu opened' : 'Mobile menu closed';
+        announceToScreenReader(announcement);
+      }
+
+      // Close mobile menu when clicking on nav links
+      function closeMobileMenu() {
+        if (isMobileMenuOpen) {
+          isMobileMenuOpen = false;
+          navbarCollapse.classList.remove('show');
+          updateAriaExpanded();
+          updateToggleIcon();
+          localStorage.setItem(STORAGE_KEY, 'false');
+        }
+      }
+
+      // Screen reader announcements
+      function announceToScreenReader(message) {
+        const announcement = document.createElement('div');
+        announcement.setAttribute('aria-live', 'polite');
+        announcement.setAttribute('aria-atomic', 'true');
+        announcement.className = 'sr-only';
+        announcement.textContent = message;
+        
+        document.body.appendChild(announcement);
+        setTimeout(() => document.body.removeChild(announcement), 1000);
+      }
+
+      // Initialize UI state
+      function initializeUI() {
+        // Reset mobile menu state on load
+        isMobileMenuOpen = false;
+        navbarCollapse.classList.remove('show');
+        updateAriaExpanded();
+        updateToggleIcon();
+      }
+
+      // Keyboard navigation
+      function handleKeyboardNavigation(event) {
+        // Ignore if user is typing in form elements
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) {
+          return;
+        }
+
+        // Toggle mobile menu with 'M' key
+        if (event.key.toLowerCase() === 'm' && isMobile()) {
+          event.preventDefault();
+          toggleMobileMenu();
+        }
+        
+        // Close mobile menu with Escape key
+        if (event.key === 'Escape' && isMobileMenuOpen) {
+          event.preventDefault();
+          closeMobileMenu();
+        }
+      }
+
+      // Close mobile menu when clicking outside
+      function handleClickOutside(event) {
+        if (isMobileMenuOpen && !navbar.contains(event.target)) {
+          closeMobileMenu();
+        }
+      }
+
+      // Event listeners
+      navbarToggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Toggle clicked'); // Debug log
+        toggleMobileMenu();
+      });
+      
+      // Fallback for touch devices
+      navbarToggle.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        console.log('Toggle touched'); // Debug log
+        toggleMobileMenu();
+      });
+      
+      document.addEventListener('keydown', handleKeyboardNavigation);
+      document.addEventListener('click', handleClickOutside);
+      
+      // Close mobile menu when clicking nav links
+      const navLinks = navbarCollapse.querySelectorAll('a');
+      navLinks.forEach(link => {
+        link.addEventListener('click', closeMobileMenu);
       });
 
-      // Move the logo to the right place
-      if (willHide) {
-        mountLogoFloat();
+      // Handle window resize for responsive behavior
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          // Close mobile menu when resizing to desktop
+          if (!isMobile() && isMobileMenuOpen) {
+            closeMobileMenu();
+          }
+        }, 150);
+      });
+
+      // Initialize on DOM ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeUI);
       } else {
-        mountLogoInside();
+        initializeUI();
       }
-    }
-    brandToggle.addEventListener('click', toggleSidebar);
+
+      // Automatically dismiss messages after timeout
+      const messages = document.querySelectorAll('.messages .alert');
+      messages.forEach((message, index) => {
+        setTimeout(() => {
+          if (message.parentNode) {
+            message.style.animation = 'messageFadeOut 0.3s ease forwards';
+            setTimeout(() => {
+              if (message.parentNode) {
+                message.remove();
+              }
+            }, 300);
+          }
+        }, 5000 + (index * 500)); // Stagger dismissals
+      });
+
+    })();
   </script>
 {% block extra_scripts %}{% endblock %}
 </body>

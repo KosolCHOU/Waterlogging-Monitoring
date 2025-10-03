@@ -7,8 +7,17 @@
     --bg:#eef7f2; --card:#ffffff; --ink:#111827; --muted:#6b7280;
     --line:rgba(17,24,39,.08); --ring:#10b981; --ring-2:#6ee7b7;
   }
-  html, body { background:var(--bg); }
-  .profile-wrap{ position:fixed; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; background:var(--bg); }
+  html, body { background:var(--bg); margin:0; }
+  .profile-wrap{ 
+    min-height:calc(100vh - 64px); /* Account for navbar */
+    display:flex; 
+    justify-content:center; 
+    align-items:center; 
+    overflow:auto; 
+    background:var(--bg); 
+    padding:20px;
+    box-sizing:border-box;
+  }
   .card{ width:min(720px, 92vw); background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.08); border:1px solid rgba(17,24,39,.06); }
   .pad{ padding:20px; }
   .title{ font-weight:800; margin:0 0 12px; display:flex; gap:8px; align-items:center; }

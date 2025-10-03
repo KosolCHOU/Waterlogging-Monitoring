@@ -9,6 +9,10 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from django.conf import settings
 import matplotlib as mpl
+from scipy import stats
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.stattools import adfuller
+import warnings
 
 def _default_media_root() -> str:
     try:
@@ -37,7 +41,27 @@ Z_THRESHOLD         = float(os.getenv("S1_Z_THRESHOLD", -1.5))
 MIN_ABS_DROP_DB_VH  = float(os.getenv("S1_MIN_ABS_DROP_DB_VH", -1.5))
 MIN_ABS_DROP_DB_VV  = float(os.getenv("S1_MIN_ABS_DROP_DB_VV", -1.0))
 MIN_PCT_DROP_LINEAR = float(os.getenv("S1_MIN_PCT_DROP_LINEAR", 0.08))
-MIN_CONSECUTIVE     = int(os.getenv("S1_MIN_CONSECUTIVE", 1))
+# Require persistence by default to reduce false positives
+MIN_CONSECUTIVE     = int(os.getenv("S1_MIN_CONSECUTIVE", 2))
+# Absolute low VH cutoff in dB (converted to linear for comparisons)
+VH_ABS_DB_CUTOFF    = float(os.getenv("S1_VH_ABS_DB_CUTOFF", -18.0))
+# Robust z safeguards
+MIN_Z_SAMPLES       = int(os.getenv("S1_MIN_Z_SAMPLES", 6))      # require at least N prior samples
+MAD_EPS             = float(os.getenv("S1_MAD_EPS", 1e-6))        # floor to avoid huge z from tiny MAD
+WATCH_Z_DEFAULT     = float(os.getenv("S1_WATCH_Z", -0.8))       # env-tunable watch band
+RATIO_EPS           = float(os.getenv("S1_RATIO_EPS", 1e-9))      # avoid div-by-zero in ratio drop
+WINSOR_PCT          = float(os.getenv("S1_WINSOR_PCT", 0.0))      # 0 disables; else e.g., 1.0 clips [p,100-p]
+# Enhanced robustness parameters
+ENABLE_SEASONAL_DECOMP = bool(os.getenv("S1_ENABLE_SEASONAL", "True").lower() in ("true", "1", "yes"))
+SEASONAL_PERIOD      = int(os.getenv("S1_SEASONAL_PERIOD", 365))   # days in agricultural cycle
+MIN_SEASONAL_SAMPLES = int(os.getenv("S1_MIN_SEASONAL_SAMPLES", 24)) # minimum samples for seasonal decomp
+ADAPTIVE_WINDOW      = bool(os.getenv("S1_ADAPTIVE_WINDOW", "True").lower() in ("true", "1", "yes"))
+MIN_WINDOW_DAYS      = int(os.getenv("S1_MIN_WINDOW_DAYS", 30))     # minimum adaptive window size
+MAX_WINDOW_DAYS      = int(os.getenv("S1_MAX_WINDOW_DAYS", 120))    # maximum adaptive window size
+STATIONARITY_TEST    = bool(os.getenv("S1_STATIONARITY_TEST", "True").lower() in ("true", "1", "yes"))
+ADF_PVALUE_THRESH    = float(os.getenv("S1_ADF_PVALUE", 0.05))      # p-value threshold for stationarity
+REGIME_DETECTION     = bool(os.getenv("S1_REGIME_DETECTION", "True").lower() in ("true", "1", "yes"))
+REGIME_WINDOW_RATIO  = float(os.getenv("S1_REGIME_WINDOW_RATIO", 0.3)) # fraction of data for regime test
 ALERTS_CSV          = os.getenv("S1_ALERTS_CSV", "alerts.csv")
 ALERTS_PLOT_PNG     = os.getenv("S1_PLOT_PNG", "s1_plot.png")
 
@@ -61,6 +85,180 @@ def df_safe_read_csv(path: str) -> pd.DataFrame:
 
 def _pct(val: float, tot: float) -> float:
     return (100.0 * float(val) / float(tot)) if (tot and tot > 0) else 0.0
+
+# ---------- Enhanced statistical functions ----------
+def seasonal_detrend(series: pd.Series, period: int = None) -> Tuple[pd.Series, bool]:
+    """
+    Apply seasonal decomposition to remove seasonal patterns.
+    Returns: (detrended_series, success_flag)
+    """
+    if not ENABLE_SEASONAL_DECOMP or len(series.dropna()) < MIN_SEASONAL_SAMPLES:
+        return series, False
+    
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            # Use automatic period detection if not specified
+            if period is None:
+                period = min(SEASONAL_PERIOD, len(series.dropna()) // 3)
+            
+            # Ensure we have enough data for decomposition
+            if len(series.dropna()) < 2 * period:
+                return series, False
+            
+            # Forward fill NaNs for decomposition, then restore them
+            series_filled = series.fillna(method='ffill').fillna(method='bfill')
+            
+            decomposition = seasonal_decompose(
+                series_filled, 
+                model='additive', 
+                period=period,
+                extrapolate_trend='freq'
+            )
+            
+            # Remove seasonal component but keep trend + residual
+            detrended = decomposition.trend + decomposition.resid
+            
+            # Restore original NaN positions
+            detrended[series.isna()] = np.nan
+            
+            return detrended, True
+            
+    except Exception as e:
+        # Fallback to original series if decomposition fails
+        return series, False
+
+def test_stationarity(series: pd.Series, max_diff: int = 2) -> Tuple[pd.Series, int, bool]:
+    """
+    Test for stationarity using ADF test and apply differencing if needed.
+    Returns: (stationary_series, num_differences, is_stationary)
+    """
+    if not STATIONARITY_TEST or len(series.dropna()) < MIN_Z_SAMPLES:
+        return series, 0, True  # Assume stationary if insufficient data
+    
+    try:
+        current_series = series.dropna()
+        differences = 0
+        
+        for diff_order in range(max_diff + 1):
+            if len(current_series) < MIN_Z_SAMPLES:
+                break
+                
+            # Perform ADF test
+            adf_result = adfuller(current_series, autolag='AIC')
+            p_value = adf_result[1]
+            
+            if p_value <= ADF_PVALUE_THRESH:
+                # Series is stationary
+                if diff_order == 0:
+                    return series, 0, True
+                else:
+                    # Return differenced series aligned with original index
+                    diff_series = series.copy()
+                    for i in range(differences):
+                        diff_series = diff_series.diff()
+                    return diff_series, differences, True
+            
+            # Apply differencing for next iteration
+            if diff_order < max_diff:
+                current_series = current_series.diff().dropna()
+                differences += 1
+        
+        # If still not stationary after max differences, return last attempt
+        diff_series = series.copy()
+        for i in range(differences):
+            diff_series = diff_series.diff()
+        return diff_series, differences, False
+        
+    except Exception:
+        return series, 0, True  # Fallback to original series
+
+def detect_regime_change(series: pd.Series, window_ratio: float = 0.3) -> bool:
+    """
+    Detect potential regime changes in the time series.
+    Returns True if a significant regime change is detected.
+    """
+    if not REGIME_DETECTION or len(series.dropna()) < MIN_Z_SAMPLES * 2:
+        return False
+    
+    try:
+        clean_series = series.dropna()
+        n = len(clean_series)
+        window_size = max(MIN_Z_SAMPLES, int(n * window_ratio))
+        
+        if n < 2 * window_size:
+            return False
+        
+        # Compare recent window with historical window
+        recent = clean_series.iloc[-window_size:]
+        historical = clean_series.iloc[:window_size]
+        
+        # Use Mann-Whitney U test for distribution change
+        statistic, p_value = stats.mannwhitneyu(
+            historical, recent, alternative='two-sided'
+        )
+        
+        return p_value < ADF_PVALUE_THRESH
+        
+    except Exception:
+        return False
+
+def adaptive_window_size(series: pd.Series, base_window: int) -> int:
+    """
+    Determine optimal window size based on data characteristics.
+    """
+    if not ADAPTIVE_WINDOW:
+        return base_window
+    
+    try:
+        clean_series = series.dropna()
+        n = len(clean_series)
+        
+        if n < MIN_WINDOW_DAYS:
+            return min(base_window, n)
+        
+        # Calculate data density (average time between observations)
+        if len(clean_series) > 1:
+            time_diff = clean_series.index.to_series().diff().dt.days.median()
+            if pd.notna(time_diff) and time_diff > 0:
+                # Adjust window based on data frequency
+                density_factor = min(2.0, max(0.5, 6.0 / time_diff))
+                adjusted_window = int(base_window * density_factor)
+                return max(MIN_WINDOW_DAYS, min(MAX_WINDOW_DAYS, adjusted_window))
+        
+        return base_window
+        
+    except Exception:
+        return base_window
+
+def enhanced_mad(series: pd.Series, c: float = 1.4826) -> float:
+    """
+    Enhanced MAD calculation with better outlier handling.
+    c = 1.4826 for normal distribution consistency, 0.6745 for robust z-score
+    """
+    try:
+        clean_data = series.dropna()
+        if len(clean_data) == 0:
+            return np.nan
+        
+        median = np.median(clean_data)
+        
+        # Use iterative MAD calculation to handle extreme outliers
+        deviations = np.abs(clean_data - median)
+        mad = np.median(deviations)
+        
+        # Apply additional outlier filtering if MAD is very small
+        if mad < MAD_EPS:
+            # Use interquartile range as backup
+            q75, q25 = np.percentile(clean_data, [75, 25])
+            iqr = q75 - q25
+            mad = max(mad, iqr / 2.0)
+        
+        return mad * c
+        
+    except Exception:
+        return np.nan
 
 # ---------- temporal engine ----------
 def compute_temporal_engine_s1(
@@ -114,26 +312,97 @@ def compute_temporal_engine_s1(
     if primary is None or primary.dropna().empty:
         return pd.DataFrame(), pd.DataFrame(), None, None
 
-    # ---------- robust z ----------
-    def robust_z(series, win_days: int):
-        r = series.rolling(f"{win_days}D", closed="left")
-        med = r.median()
-        mad = r.apply(lambda x: np.nanmedian(np.abs(x - np.nanmedian(x))), raw=False)
-        return 0.6745 * (series - med) / mad.replace(0, np.nan)
+    # Optional global winsorization to damp outliers before z (low-risk)
+    if WINSOR_PCT and WINSOR_PCT > 0:
+        try:
+            lo, hi = np.nanpercentile(primary.values, [WINSOR_PCT, 100.0 - WINSOR_PCT])
+            primary = primary.clip(lower=lo, upper=hi)
+        except Exception:
+            pass
 
-    z = robust_z(primary, ROLL_WINDOW_DAYS)
-    WATCH_Z, ALERT_Z = -0.8, Z_THRESHOLD
+    # ---------- robust z ----------
+    def robust_z(series, win_days: int, min_periods: int = 1, mad_eps: float = 1e-9):
+        """Enhanced time-based rolling robust z: 0.6745*(x - median)/MAD.
+        - closed='left' excludes the current sample -> only uses historical data
+        - min_periods ensures we have enough data to compute a stable median/MAD
+        - MAD below mad_eps is treated as NaN to avoid inflated z
+        - Integrates seasonal decomposition, stationarity testing, and regime detection
+        """
+        # Apply seasonal decomposition if enabled
+        working_series = series.copy()
+        seasonal_success = False
+        if ENABLE_SEASONAL_DECOMP:
+            working_series, seasonal_success = seasonal_detrend(working_series)
+        
+        # Test for stationarity and apply differencing if needed
+        stationarity_info = {'differences': 0, 'is_stationary': True}
+        if STATIONARITY_TEST:
+            working_series, stationarity_info['differences'], stationarity_info['is_stationary'] = test_stationarity(working_series)
+        
+        # Detect regime changes
+        regime_change = detect_regime_change(working_series) if REGIME_DETECTION else False
+        
+        # Adapt window size based on data characteristics and regime detection
+        adaptive_window = adaptive_window_size(working_series, win_days)
+        if regime_change:
+            # Use shorter window if regime change detected
+            adaptive_window = max(MIN_WINDOW_DAYS, adaptive_window // 2)
+        
+        # Calculate rolling statistics with enhanced methods
+        r = working_series.rolling(f"{adaptive_window}D", closed="left", min_periods=min_periods)
+        med = r.median()
+        
+        # Use enhanced MAD calculation
+        mad = r.apply(lambda x: enhanced_mad(pd.Series(x), c=0.6745) if len(x) > 0 else np.nan, raw=False)
+        
+        # Guard tiny/zero MAD with improved threshold
+        effective_mad_eps = max(mad_eps, MAD_EPS)
+        mad = mad.where(mad > effective_mad_eps, np.nan)
+        
+        z_scores = (working_series - med) / mad
+        
+        # Add metadata for diagnostics
+        z_scores.attrs = {
+            'seasonal_decomposed': seasonal_success,
+            'stationarity_info': stationarity_info,
+            'regime_change_detected': regime_change,
+            'adaptive_window_used': adaptive_window,
+            'original_window': win_days
+        }
+        
+        return z_scores
+
+    # Calculate adaptive window size for this dataset
+    effective_window = adaptive_window_size(primary, ROLL_WINDOW_DAYS)
+    z = robust_z(primary, effective_window, min_periods=max(2, MIN_Z_SAMPLES//2), mad_eps=MAD_EPS)
+    WATCH_Z, ALERT_Z = WATCH_Z_DEFAULT, Z_THRESHOLD
     WATCH_ANY_DROP = -0.5
-    z_ok = z.apply(lambda v: True if pd.isna(v) else bool(v <= Z_THRESHOLD))
+    # Require a sufficient history and valid z for gating - use adaptive window info
+    adaptive_window_used = getattr(z, 'attrs', {}).get('adaptive_window_used', effective_window)
+    z_count = primary.rolling(f"{adaptive_window_used}D", closed="left").count()
+    valid_z = (z_count >= MIN_Z_SAMPLES) & z.notna()
+    z_ok = (z <= Z_THRESHOLD) & valid_z
 
     # ---------- rules ----------
     rule_vh_vs_base = (vh_lrdb <= MIN_ABS_DROP_DB_VH) if vh_lrdb is not None else pd.Series(False, index=df.index)
     rule_vv_vs_base = (vv_lrdb <= MIN_ABS_DROP_DB_VV) if vv_lrdb is not None else pd.Series(False, index=df.index)
     if ratio is not None and ratio_b is not None:
-        rule_ratio_pct = ((ratio / ratio_b) - 1.0 <= -MIN_PCT_DROP_LINEAR)
+        safe = (ratio_b.astype(float).abs() > RATIO_EPS) & ratio.notna() & ratio_b.notna()
+        rule_ratio_pct = pd.Series(False, index=df.index)
+        rule_ratio_pct[safe] = ((ratio[safe] / ratio_b[safe]) - 1.0 <= -MIN_PCT_DROP_LINEAR)
     else:
         rule_ratio_pct = pd.Series(False, index=df.index)
-    rule_vh_low_abs = (vh <= -18.0) if vh is not None else pd.Series(False, index=df.index)
+    # Absolute low VH threshold: S1_VH_CURR is linear power, but the configured cutoff is in dB.
+    # Convert dB -> linear and compare to avoid log-of-zero issues.
+    if vh is not None:
+        try:
+            _VH_LIN_CUTOFF = float(10 ** (VH_ABS_DB_CUTOFF / 10.0))
+            # vh is already coerced to numeric above; comparison keeps NaNs -> False
+            rule_vh_low_abs = (vh <= _VH_LIN_CUTOFF)
+        except Exception:
+            rule_vh_low_abs = pd.Series(False, index=df.index)
+    else:
+        rule_vh_low_abs = pd.Series(False, index=df.index)
 
     if vh_std is not None:
         s_med = vh_std.rolling(f"{ROLL_WINDOW_DAYS}D", closed="left").median()
@@ -182,15 +451,42 @@ def compute_temporal_engine_s1(
         }
 
     def reasons_at(t):
-        r = _rules_at(t); rs = []
-        if r["vh_db_drop"] and vh_lrdb is not None: rs.append(f"VH logΔ ≤ {MIN_ABS_DROP_DB_VH:.1f} dB")
-        elif r["small_drop"]:                        rs.append("VH slightly lower vs base")
-        if r["vv_db_drop"] and vv_lrdb is not None: rs.append(f"VV logΔ ≤ {MIN_ABS_DROP_DB_VV:.1f} dB")
-        if r["ratio_pct_drop"] and ratio_b is not None: rs.append(f"VH/VV drop ≥ {int(MIN_PCT_DROP_LINEAR*100)}% vs base")
-        if r["vh_low_abs"]:                         rs.append("VH ≤ -18 dB")
-        if (t in z.index) and (not pd.isna(z.loc[t])): rs.append(f"z = {z.loc[t]:.1f}")
-        if r["vv_db_drop"] and r["smooth"]:         rs.append("VV logΔ low & smooth")
+        r = _rules_at(t)
+        rs = []
+        if r["vh_db_drop"] and vh_lrdb is not None:
+            rs.append(f"VH logΔ ≤ {MIN_ABS_DROP_DB_VH:.1f} dB")
+        elif r["small_drop"]:
+            rs.append("VH slightly lower vs base")
+        if r["vv_db_drop"] and vv_lrdb is not None:
+            rs.append(f"VV logΔ ≤ {MIN_ABS_DROP_DB_VV:.1f} dB")
+        if r["ratio_pct_drop"] and ratio_b is not None:
+            rs.append(f"VH/VV drop ≥ {int(MIN_PCT_DROP_LINEAR*100)}% vs base")
+        if r["vh_low_abs"]:
+            rs.append(f"VH ≤ {VH_ABS_DB_CUTOFF:.1f} dB")
+        if (t in z.index) and (not pd.isna(z.loc[t])):
+            z_val = z.loc[t]
+            rs.append(f"z = {z_val:.1f}")
+            
+            # Add enhanced diagnostic info
+            z_attrs = getattr(z, 'attrs', {})
+            if z_attrs.get('seasonal_decomposed', False):
+                rs.append("(seasonal-adjusted)")
+            if z_attrs.get('regime_change_detected', False):
+                rs.append("(regime-change)")
+            if z_attrs.get('adaptive_window_used', 0) != z_attrs.get('original_window', 0):
+                rs.append(f"(adaptive-window: {z_attrs.get('adaptive_window_used', 0)}d)")
+                
+        if r["vv_db_drop"] and r["smooth"]:
+            rs.append("VV logΔ low & smooth")
         return ", ".join(rs) if rs else "Signals normal vs baseline"
+
+    # Precompute rolling median of VH std for confidence once
+    med_std_series = None
+    if vh_std is not None:
+        try:
+            med_std_series = vh_std.rolling(f"{ROLL_WINDOW_DAYS}D", closed="left").median()
+        except Exception:
+            med_std_series = None
 
     def severity_confidence_at(t):
         z_t      = _nan0(z.loc[t])       if (t in z.index) else np.nan
@@ -223,13 +519,9 @@ def compute_temporal_engine_s1(
         conf += 0.15 * (1.0 if _bool_at(alerts_mask, t) else 0.0)
         
         # Simplified confidence calculation without rolling statistics that can vary
-        if vh_std is not None and t in vh_std.index and not pd.isna(vh_std.loc[t]):
-            try:
-                med_std = vh_std.rolling(f"{ROLL_WINDOW_DAYS}D", closed="left").median()
-                if (t in med_std.index) and (not pd.isna(med_std.loc[t])):
-                    conf += 0.10 * (1.0 if float(vh_std.loc[t]) <= 0.9 * float(med_std.loc[t]) else 0.0)
-            except:
-                pass  # Skip rolling calculation if it fails
+        if vh_std is not None and t in vh_std.index and not pd.isna(vh_std.loc[t]) and med_std_series is not None:
+            if (t in med_std_series.index) and (not pd.isna(med_std_series.loc[t])):
+                conf += 0.10 * (1.0 if float(vh_std.loc[t]) <= 0.9 * float(med_std_series.loc[t]) else 0.0)
                 
         key_ok = int(t in z.index and not pd.isna(z_t)) + int(vh_lrdb is not None and t in vh_lrdb.index and not pd.isna(vh_lr_t)) + int(vv_lrdb is not None and t in vv_lrdb.index and not pd.isna(vv_lr_t))
         conf += 0.10 * _clip01(key_ok / 3.0)
@@ -293,6 +585,42 @@ def compute_temporal_engine_s1(
             "actions": ACTIONS[status],  # Use the cached status instead of calling function again
         })
     insights_df = pd.DataFrame(rows).sort_values("date")
+
+    # --- Post-process to harden the insights table ---
+    def _postprocess_insights(d: pd.DataFrame) -> pd.DataFrame:
+        if d is None or d.empty:
+            return d
+        d = d.copy()
+        # Ensure datetime index/column correctness
+        d["date"] = pd.to_datetime(d.get("date"), errors="coerce")
+
+        # Clip numeric ranges and fix types
+        if "severity_0_100" in d.columns:
+            d["severity_0_100"] = pd.to_numeric(d["severity_0_100"], errors="coerce").fillna(0)
+            d["severity_0_100"] = d["severity_0_100"].clip(lower=0, upper=100).round().astype(int)
+        else:
+            d["severity_0_100"] = 0
+
+        if "confidence_0_1" in d.columns:
+            d["confidence_0_1"] = pd.to_numeric(d["confidence_0_1"], errors="coerce").fillna(0.0)
+            d["confidence_0_1"] = d["confidence_0_1"].clip(lower=0.0, upper=1.0)
+        else:
+            d["confidence_0_1"] = 0.0
+
+        # Normalize status to known set
+        valid = {"Alert": "Alert", "Watch": "Watch", "Healthy": "Healthy"}
+        d["status"] = d.get("status").map(lambda s: valid.get(str(s), "Healthy"))
+
+        # Deduplicate by date: prefer higher status, then higher severity, then higher confidence
+        pri = {"Healthy": 0, "Watch": 1, "Alert": 2}
+        d["_pri"] = d["status"].map(pri).fillna(0)
+        d = d.sort_values(["date", "_pri", "severity_0_100", "confidence_0_1"], ascending=[True, False, False, False])
+        d = d.drop_duplicates(subset=["date"], keep="first")
+        d = d.drop(columns=["_pri"], errors="ignore")
+        d = d.sort_values("date")
+        return d
+
+    insights_df = _postprocess_insights(insights_df)
 
     # ---------- output locations under MEDIA ----------
     mr = media_root or _default_media_root()
@@ -510,10 +838,11 @@ def format_total_badge(total_ha: Optional[float]) -> str:
 # ---------- Insights tables ----------
 def prepare_farmer_view(insights_df: Optional[pd.DataFrame],
                         recs_df: Optional[pd.DataFrame] = None) -> Optional[pd.DataFrame]:
-    if insights_df is None or insights_df.empty:
+    if insights_df is None or (hasattr(insights_df, "empty") and insights_df.empty):
         return None
     d = insights_df.copy()
-    d["date"] = pd.to_datetime(d.get("date"), errors="coerce")
+    if "date" in d.columns:
+        d["date"] = pd.to_datetime(d.get("date"), errors="coerce")
     if recs_df is not None and not recs_df.empty:
         r = recs_df.copy()
         r["date"] = pd.to_datetime(r.get("date"), errors="coerce")
@@ -539,21 +868,24 @@ def prepare_farmer_view(insights_df: Optional[pd.DataFrame],
         d["actions"] = d["actions"].apply(lambda a: f"<div>{a}</div>" if a else "")
 
     d = d.sort_values("date", ascending=False)
-    d["date"] = d["date"].dt.strftime("%Y-%m-%d")
+    if "date" in d.columns:
+        d["date"] = d["date"].dt.strftime("%Y-%m-%d")
 
     for col in ["severity_0_100","confidence_0_1"]:
         if col not in d.columns: d[col] = pd.NA
 
-    d["severity_0_100"] = (pd.to_numeric(d["severity_0_100"], errors="coerce")
-                             .round().astype("Int64").astype(str).replace("<NA>",""))
-    d["confidence_0_1"] = pd.to_numeric(d["confidence_0_1"], errors="coerce").map(
-        lambda x: (f"{x:.2f}" if pd.notna(x) else "")
-    )
+    if "severity_0_100" in d.columns:
+        d["severity_0_100"] = (pd.to_numeric(d["severity_0_100"], errors="coerce")
+                                 .round().astype("Int64").astype(str).replace("<NA>",""))
+    if "confidence_0_1" in d.columns:
+        d["confidence_0_1"] = pd.to_numeric(d["confidence_0_1"], errors="coerce").map(
+            lambda x: (f"{x:.2f}" if pd.notna(x) else "")
+        )
     cols = [c for c in ["date","status","actions"] if c in d.columns]
     return d[cols]
 
 def prepare_technical_view(insights_df: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
-    if insights_df is None or insights_df.empty:
+    if insights_df is None or (hasattr(insights_df, "empty") and insights_df.empty):
         return None
     d = insights_df.copy()
     d = d.drop(columns=[c for c in ["status","actions"] if c in d.columns], errors="ignore")
@@ -635,7 +967,7 @@ import numpy as np, rasterio
 
 def classify_and_area(
     risk_tif_path: str,
-    thresholds=(0.25, 0.45, 0.65),
+    thresholds=(0.25, 0.40, 0.5),
     scale_from: str | None = None,
     default_pixel_area_m2: float | None = None,
 ):

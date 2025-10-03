@@ -449,6 +449,98 @@ def dashboard(request, field_id: int):
         plot_path=job.result.get("plot_path"),
     )
 
+    # Build context for stats bar
+    latest_risk = "Unknown"
+    problem_areas_count = 0
+    last_updated = "Never"
+    
+    # Calculate latest risk from insights data
+    insights_csv = job.result.get("timeseries_path") or job.result.get("insights_csv_path")
+    if insights_csv and os.path.exists(insights_csv):
+        try:
+            import pandas as pd
+            df = pd.read_csv(insights_csv)
+            if not df.empty and 'level' in df.columns:
+                latest_risk = df.iloc[-1]['level'] if 'level' in df.columns else latest_risk
+        except Exception:
+            pass
+    
+    # Get problem areas count from job result (if available) or count from GeoJSON file
+    problem_areas_count = 0
+    
+    # First try to get from job result
+    if job.result and "hotspots_count" in job.result:
+        problem_areas_count = job.result.get("hotspots_count", 0)
+    
+    # If not available, try to read from GeoJSON file
+    if problem_areas_count == 0:
+        hotspots_url = job.result.get("hotspots_url") if job.result else None
+        if hotspots_url:
+            try:
+                import json
+                # Handle both /media/hotspots/file.geojson and media/hotspots/file.geojson
+                hotspots_path = hotspots_url.lstrip("/")
+                full_hotspots_path = os.path.join(settings.MEDIA_ROOT, hotspots_path)
+                
+                if os.path.exists(full_hotspots_path):
+                    with open(full_hotspots_path, 'r') as f:
+                        hotspots_data = json.load(f)
+                        if 'features' in hotspots_data:
+                            problem_areas_count = len(hotspots_data['features'])
+                else:
+                    # Try alternative path construction
+                    alt_path = os.path.join(settings.MEDIA_ROOT, hotspots_url.lstrip("/media/"))
+                    if os.path.exists(alt_path):
+                        with open(alt_path, 'r') as f:
+                            hotspots_data = json.load(f)
+                            if 'features' in hotspots_data:
+                                problem_areas_count = len(hotspots_data['features'])
+            except Exception as e:
+                # Try to find the most recent hotspots file as fallback
+                try:
+                    hotspots_dir = os.path.join(settings.MEDIA_ROOT, "hotspots")
+                    if os.path.exists(hotspots_dir):
+                        hotspot_files = [f for f in os.listdir(hotspots_dir) if f.startswith("hotspots_") and f.endswith(".geojson")]
+                        if hotspot_files:
+                            # Get the most recent file
+                            latest_file = max(hotspot_files, key=lambda f: os.path.getmtime(os.path.join(hotspots_dir, f)))
+                            with open(os.path.join(hotspots_dir, latest_file), 'r') as f:
+                                hotspots_data = json.load(f)
+                                if 'features' in hotspots_data:
+                                    problem_areas_count = len(hotspots_data['features'])
+                except Exception:
+                    pass
+    
+    # Get last updated time
+    if job.finished_at:
+        from django.utils.timesince import timesince
+        last_updated = timesince(job.finished_at) + " ago"
+
+    # Get satellite capture date from metadata
+    satellite_capture_date = None
+    satellite_event_count = None
+    if job.result and job.result.get("stack_path"):
+        stack_path = job.result.get("stack_path")
+        meta_path = str(stack_path) + ".meta.json"
+        try:
+            if os.path.exists(meta_path):
+                with open(meta_path, 'r') as f:
+                    meta_data = json.load(f)
+                    # Get the event end date as the latest satellite capture
+                    satellite_capture_date = meta_data.get("event_end")
+                    satellite_event_count = meta_data.get("event_count")
+                    
+                    # Format the date nicely if available
+                    if satellite_capture_date:
+                        from datetime import datetime
+                        try:
+                            capture_dt = datetime.strptime(satellite_capture_date, "%Y-%m-%d")
+                            satellite_capture_date = capture_dt.strftime("%b %d, %Y")
+                        except:
+                            pass  # Keep original format if parsing fails
+        except Exception as e:
+            print(f"Could not read satellite metadata: {e}")
+
     ctx = {
     "job_id": job.id,
     "bounds": json.dumps(bounds),
@@ -457,6 +549,12 @@ def dashboard(request, field_id: int):
     "probe_bin": job.result.get("probe_bin_url") or "",
     "probe_meta": job.result.get("probe_meta_url") or "",
     "field": field,  # <-- important for template
+    # Stats bar data
+    "latest_risk": latest_risk,
+    "alert_zones_count": problem_areas_count,
+    "last_updated": last_updated,
+    "satellite_capture_date": satellite_capture_date,
+    "satellite_event_count": satellite_event_count,
     }
     resp = render(request, "dashboard.html", ctx)
     return remember(resp)
@@ -546,7 +644,7 @@ def field_insights_api(request, field_id: int):
 
         abc, tot = classify_and_area(
             risk_tif,
-            thresholds=(0.20, 0.40, 0.60),
+            thresholds=(0.25, 0.40, 0.5),   # Better align with 8-color visual mapping
             scale_from=None,                 # risk tif is already 0–1
             default_pixel_area_m2=px_area_m2
         )

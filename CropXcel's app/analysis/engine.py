@@ -80,11 +80,19 @@ def std_band(ic_lin, band, geom):
 # Main Export Function
 # ---------------------------
 
-def export_stack_from_geom(geom_geojson: dict,
-                           out_tif: str,
-                           scale_m=10,
-                           orbit_pass=None,
-                           crs=None) -> str:
+def export_stack_from_geom(
+    geom_geojson: dict,
+    out_tif: str,
+    *,
+    scale_m: int = 10,
+    orbit_pass: str | None = None,
+    crs: str | None = None,
+    # Tunable time windows (kept backward compatible)
+    event_days: int = 15,
+    base_days: int = 45,
+    gap_days: int = 5,
+    end_date: str | None = None,   # ISO 'YYYY-MM-DD' (defaults to yesterday)
+) -> str:
     """
     Export Sentinel-1 stack for given AOI geometry.
     Args:
@@ -98,19 +106,44 @@ def export_stack_from_geom(geom_geojson: dict,
     """
     geom = ee.Geometry(geom_geojson)
 
-    # Define time windows
-    END        = (_py_date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    EVENT_DAYS = 15
-    BASE_DAYS  = 45
-    GAP_DAYS   = 5
+    # Define initial time windows for satellite data search
+    INITIAL_END = (end_date or (_py_date.today() - timedelta(days=1)).strftime("%Y-%m-%d"))
+    
+    # First, search for available satellite data in a wider window to find actual acquisition dates
+    search_end = ee.Date(INITIAL_END)
+    search_start = search_end.advance(-30, 'day')  # Look back 30 days for recent satellite data
+    
+    # Load satellite data to find actual acquisition dates
+    s1_search = load_s1_ic(search_start, search_end.advance(1, 'day'), geom, orbit_pass)
+    
+    # Get the actual end date from the most recent satellite pass
+    try:
+        times_list = s1_search.aggregate_array('system:time_start').getInfo()
+        if times_list and len(times_list) > 0:
+            # Use the most recent satellite acquisition as the actual end date
+            latest_ms = max(times_list)
+            actual_end = ee.Date(latest_ms)
+            ACTUAL_END = actual_end.format('YYYY-MM-dd').getInfo()
+            print(f"[INFO] Using actual satellite acquisition date: {ACTUAL_END}")
+        else:
+            # Fallback to theoretical date if no satellite data found
+            actual_end = search_end
+            ACTUAL_END = INITIAL_END
+            print(f"[WARN] No satellite data found, using theoretical date: {ACTUAL_END}")
+    except Exception as e:
+        # Fallback to theoretical date if query fails
+        actual_end = search_end
+        ACTUAL_END = INITIAL_END
+        print(f"[WARN] Failed to get actual satellite dates ({e}), using theoretical date: {ACTUAL_END}")
 
-    end   = ee.Date(END)
-    evt_s = end.advance(-EVENT_DAYS, 'day')
+    # Recalculate time windows based on actual satellite acquisition date
+    end   = actual_end
+    evt_s = end.advance(-int(event_days), 'day')
     evt_e = end
-    base_e = evt_s.advance(-GAP_DAYS, 'day')
-    base_s = base_e.advance(-BASE_DAYS, 'day')
+    base_e = evt_s.advance(-int(gap_days), 'day')
+    base_s = base_e.advance(-int(base_days), 'day')
 
-    # Load image collections
+    # Load image collections with adjusted time windows
     s1_evt_raw  = load_s1_ic(evt_s,  evt_e,  geom, orbit_pass).map(db_to_linear_keep)
     s1_base_raw = load_s1_ic(base_s, base_e, geom, orbit_pass).map(db_to_linear_keep)
 
@@ -161,6 +194,37 @@ def export_stack_from_geom(geom_geojson: dict,
         crs=crs
     )
     print("[OK] Exported:", out_tif)
+
+    # Write a small sidecar metadata JSON with window info and collection sizes
+    try:
+        evt_ct = int(s1_evt_raw.size().getInfo())
+        base_ct = int(s1_base_raw.size().getInfo())
+    except Exception:
+        evt_ct = None
+        base_ct = None
+
+    meta = {
+        "end": ACTUAL_END,
+        "theoretical_end": INITIAL_END,
+        "event_days": int(event_days),
+        "base_days": int(base_days),
+        "gap_days": int(gap_days),
+        "event_start": evt_s.format('YYYY-MM-dd').getInfo(),
+        "event_end": evt_e.format('YYYY-MM-dd').getInfo(),
+        "base_start": base_s.format('YYYY-MM-dd').getInfo(),
+        "base_end": base_e.format('YYYY-MM-dd').getInfo(),
+        "orbit_pass": orbit_pass,
+        "event_count": evt_ct,
+        "base_count": base_ct,
+        "uses_actual_satellite_date": True,
+        "date_synchronization": "aligned_with_timeseries"
+    }
+    try:
+        with open(str(out_tif) + ".meta.json", "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+        print(f"[OK] Wrote metadata: {out_tif}.meta.json")
+    except Exception as e:
+        print("[WARN] Could not write metadata JSON:", e)
 
     return out_tif
 
@@ -296,6 +360,12 @@ def export_s1_timeseries(geom_geojson: dict,
         evt_min_d, evt_max_d   = _minmax_day(ic_evt_raw)
         base_min_d, base_max_d = _minmax_day(ic_base_raw)
 
+        # Exact acquisition time (pick the latest pass within the event window)
+        times_evt   = ee.List(ic_evt_raw.aggregate_array('system:time_start'))
+        evt_last_ms = ee.Number(ee.Algorithms.If(times_evt.size().gt(0),
+                                                 ee.Number(times_evt.reduce(ee.Reducer.max())),
+                                                 step_end.millis()))
+
         props = stats.combine(ee.Dictionary({
             # Millis timestamps (authoritative)
             'date_ms': step_end.millis(),
@@ -304,8 +374,12 @@ def export_s1_timeseries(geom_geojson: dict,
             'base_start_ms': base_start.millis(),
             'base_end_ms':   base_end.millis(),
 
+            # Acquisition timestamp (latest image used in the event window)
+            'acq_ms': evt_last_ms,
+
             # Human-friendly labels (do not use for indexing)
             'date_local': step_end.format('YYYY-MM-dd', tz),
+            'acq_local':  ee.Date(evt_last_ms).format('YYYY-MM-dd', tz),
             'S1_EVENT_START_LOCAL': evt_start.format('YYYY-MM-dd', tz),
             'S1_EVENT_END_LOCAL':   step_end.format('YYYY-MM-dd', tz),
             'S1_BASE_START_LOCAL':  base_start.format('YYYY-MM-dd', tz),
@@ -355,30 +429,44 @@ def export_s1_timeseries(geom_geojson: dict,
             "S1_BASE_END_LOCAL":    p.get('S1_BASE_END_LOCAL'),
 
             "date_ms": p.get('date_ms'),
+            "acq_ms": p.get('acq_ms'),
             "evt_start_ms": p.get('evt_start_ms'),
             "evt_end_ms": p.get('evt_end_ms'),
             "base_start_ms": p.get('base_start_ms'),
             "base_end_ms": p.get('base_end_ms'),
+            "date_local": p.get('date_local'),
+            "acq_local": p.get('acq_local'),
         })
 
     if not rows:
         # Write an empty CSV with headers to keep downstream code simple
         _pd.DataFrame(columns=[
-            "date_local","S1_VV_CURR","S1_VH_CURR","S1_VH_VV_CURR",
+            "date_local","acq_local","S1_VV_CURR","S1_VH_CURR","S1_VH_VV_CURR",
             "S1_VV_BASE","S1_VH_BASE","S1_VH_VV_BASE",
             "S1_VV_LOGRATIO_DB","S1_VH_LOGRATIO_DB","S1_VH_VV_DIFF",
             "S1_VV_STD","S1_VH_STD",
             "S1_EVENT_COUNT","S1_BASE_COUNT",
             "S1_EVENT_START_LOCAL","S1_EVENT_END_LOCAL","S1_BASE_START_LOCAL","S1_BASE_END_LOCAL",
-            "date_ms","evt_start_ms","evt_end_ms","base_start_ms","base_end_ms"
+            "date_ms","acq_ms","evt_start_ms","evt_end_ms","base_start_ms","base_end_ms"
         ]).to_csv(out_csv, index=False)
         return out_csv
 
     df = _pd.DataFrame(rows)
 
-    # Convert ms → Cambodia-local naive datetime for indexing
-    ts = _pd.to_datetime(df['date_ms'], unit='ms', utc=True).dt.tz_convert(tz)
-    df['date'] = ts.dt.tz_localize(None)
+    # Build a clean local date (no time). Prefer the actual acquisition date, else step end date.
+    _acq_local  = _pd.to_datetime(df.get('acq_local'),  format='%Y-%m-%d', errors='coerce') if 'acq_local' in df.columns else None
+    _date_local = _pd.to_datetime(df.get('date_local'), format='%Y-%m-%d', errors='coerce') if 'date_local' in df.columns else None
+
+    if _acq_local is not None and not _acq_local.isna().all():
+        df['date'] = _acq_local.dt.normalize()
+    elif _date_local is not None and not _date_local.isna().all():
+        df['date'] = _date_local.dt.normalize()
+    elif 'acq_ms' in df.columns and df['acq_ms'].notna().any():
+        ts = _pd.to_datetime(df['acq_ms'], unit='ms', utc=True).dt.tz_convert(tz)
+        df['date'] = ts.dt.normalize().dt.tz_localize(None)
+    else:
+        ts = _pd.to_datetime(df['date_ms'], unit='ms', utc=True).dt.tz_convert(tz)
+        df['date'] = ts.dt.normalize().dt.tz_localize(None)
     df = df.sort_values('date').set_index('date')
 
     metric_cols = [
