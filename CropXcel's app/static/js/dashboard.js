@@ -103,7 +103,7 @@ function showToast(msg){
   el.style.top='12px';
   el.innerHTML = `<b>${msg}</b>`;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>{ el.style.display='none'; }, 900);
+  toastTimer = setTimeout(()=>{ el.style.display='none'; }, 3000);
 }
 const clamp01 = (x)=> Math.max(0, Math.min(1, x));
 const pct = (x)=> Math.round(clamp01(x)*100);
@@ -418,16 +418,19 @@ function applyRowLimit(t, max){
       else if (statusSpan.classList.contains('alert')) status = 'Alert';
     }
     
-    const willHide = i >= max;
+    const willShow = i < max;
     
-    console.log(`🚨 Row ${i}: status="${status}", willHide=${willHide}`);
+    console.log(`🚨 Row ${i}: status="${status}", willShow=${willShow}`);
     
-    r.style.display = (i < max) ? '' : 'none';
+    // Explicitly set display to table-row for visible rows
+    r.style.display = willShow ? 'table-row' : 'none';
     
-    if (willHide && status === 'Alert') {
-      console.log("🔥 HIDING ALERT ROW! This is the bug!");
+    if (!willShow && status === 'Alert') {
+      console.log("🔥 HIDING ALERT ROW!");
     }
   });
+  
+  console.log("✅ applyRowLimit complete. Visible rows:", max);
 }
 function sortByColumn(table, colIdx, thEl, dir){
   const tbody = table.tBodies[0];
@@ -493,6 +496,36 @@ function ensureFarmerColgroup(t) {
   }
   t.classList.add('has-colgroup');
 }
+// Build a lightweight preview (date, status, advice) from the first few rows of the farmer table
+function generateInsightPreview(table, limit=3){
+  const previewEl = document.getElementById('insightsPreview');
+  if (!previewEl || !table || !table.tBodies || !table.tBodies[0]) return;
+
+  const all = Array.from(table.tBodies[0].rows || []);
+  const rows = all.slice(0, Math.max(1, limit));
+  if (!rows.length){ previewEl.innerHTML = ''; return; }
+
+  const toCell = (row, sel, idx) => row.querySelector(sel) || row.cells[idx] || null;
+  let html = '<div class="insight-preview-grid">';
+  rows.forEach(r=>{
+    const dateCell   = toCell(r, 'td.date-cell',   0);
+    const statusCell = toCell(r, 'td.status-cell', 1);
+    const actionCell = toCell(r, 'td.action-cell', 2);
+    const date   = (dateCell?.innerText || '').trim();
+    const sSpan  = statusCell ? statusCell.querySelector('span') : null;
+    const status = (sSpan?.innerText || statusCell?.innerText || '').trim();
+    const sClass = sSpan?.className || '';
+    const advice = (actionCell?.innerText || '').trim();
+    html += `
+      <div class="insight-preview-item">
+        <div class="preview-date">${date}</div>
+        <div class="preview-status"><span class="${sClass}">${status}</span></div>
+        <div class="preview-advice">${advice}</div>
+      </div>`;
+  });
+  html += '</div>';
+  previewEl.innerHTML = html;
+}
 function buildDonutMatchBars(){
   const svg  = document.querySelector('.scale-donut');
   const segs = svg ? svg.querySelectorAll('.segments .seg') : null;
@@ -517,21 +550,34 @@ function buildDonutMatchBars(){
 function renderTables(){
   console.log("🔧 renderTables() called at:", new Date().toISOString());
   console.log("🔧 Tech mode:", window.__techMode__);
+  console.log("🔧 Expanded Farmer:", window.__expandedFarmer__);
+  console.log("🔧 Expanded Tech:", window.__expandedTech__);
   console.log("🔧 Farmer HTML length:", window.__farmerHTML__?.length || 0);
   console.log("🔧 Tech HTML length:", window.__techHTML__?.length || 0);
   
   const maxF = Number(tableWrap?.dataset?.max ?? 5);
   const maxT = Number(tableWrap?.dataset?.techMax ?? 5);
+  
+  console.log("🔧 maxF (farmer rows to show):", maxF);
+  console.log("🔧 maxT (tech rows to show):", maxT);
 
   if (window.__techMode__) {
     title.innerHTML = 'Technical Details <span class="hint" data-tip="Detailed raw indicators from Sentinel-1 (VH/VV, ratios, etc.). Useful for agronomists and advanced users."></span>';
     tableWrap.innerHTML = window.__techHTML__ || "<div class='empty'>No records.</div>";
-    moreBtn.textContent = window.__expandedTech__ ? 'Show less' : 'Show more';
+    moreBtn.innerHTML = window.__expandedTech__ ? '<i class="fas fa-chevron-up"></i> Show less' : '<i class="fas fa-chevron-down"></i> Show more';
     techBtn.textContent = 'Exit Technical Details';
+    const previewEl = document.getElementById('insightsPreview'); if (previewEl) previewEl.style.display='none';
     const t = tableWrap.querySelector('table');
     if (t){ t.classList.add('minitable','tech'); makeSortableAndSparky(t, true);
       const dateTH = t.querySelector('thead th:first-child'); if (dateTH) sortByColumn(t, 0, dateTH, 'desc');
       if (!window.__expandedTech__) applyRowLimit(t, maxT);
+      
+      // Update button with row count
+      const totalRows = t.tBodies[0]?.rows.length || 0;
+      const hiddenRows = Math.max(0, totalRows - maxT);
+      if (!window.__expandedTech__ && hiddenRows > 0) {
+        moreBtn.innerHTML = `<i class="fas fa-chevron-down"></i> Show ${hiddenRows} more`;
+      }
     }
   } else {
     title.innerHTML = 'Per-pass Insights <span class="hint" data-tip="Shows each satellite pass. Farmers can check the date, risk status, and suggested action. Helpful for deciding when to irrigate or drain."></span>';
@@ -539,19 +585,71 @@ function renderTables(){
     // Debug what we're setting
     console.log("🔧 Setting farmer HTML (first 200 chars):", window.__farmerHTML__?.substring(0, 200));
     
+    console.log("🔧 About to set tableWrap.innerHTML");
+    console.log("🔧 Farmer HTML length:", window.__farmerHTML__?.length);
+    console.log("🔧 Farmer HTML sample:", window.__farmerHTML__?.substring(0, 300));
+    
     tableWrap.innerHTML = window.__farmerHTML__ || "<div class='empty'>No records.</div>";
-    moreBtn.textContent = window.__expandedFarmer__ ? 'Show less' : 'Show more';
+    
+    // Make sure table wrapper is visible
+    tableWrap.style.display = 'block';
+    tableWrap.style.visibility = 'visible';
+    tableWrap.style.opacity = '1';
+    
+    console.log("🔧 tableWrap.innerHTML after setting:", tableWrap.innerHTML.substring(0, 300));
+    
+    moreBtn.innerHTML = window.__expandedFarmer__ ? '<i class="fas fa-chevron-up"></i> Show less' : '<i class="fas fa-chevron-down"></i> Show more';
     techBtn.textContent = 'Show Technical Details';
 
-    const t = tableWrap.querySelector('table');
+  const t = tableWrap.querySelector('table');
+    console.log("🔧 Found table:", !!t);
     if (t){
+      console.log("🔧 Table found, processing...");
       ensureFarmerColgroup(t);
       t.classList.add('minitable','farmer');
       const dateTH = t.querySelector('thead th:first-child');
       if (dateTH) sortByColumn(t, 0, dateTH, 'desc');
-      if (!window.__expandedFarmer__) applyRowLimit(t, maxF);
+      
+      const totalRows = t.tBodies[0]?.rows.length || 0;
+      console.log("🔧 Total rows in table:", totalRows);
+      
+      if (!window.__expandedFarmer__) {
+        console.log("🔧 Applying row limit:", maxF);
+        applyRowLimit(t, maxF);
+      }
+      // Build and show preview when not expanded (only if preview container exists)
+      const previewEl = document.getElementById('insightsPreview');
+      if (!window.__expandedFarmer__) {
+        if (previewEl) {
+          previewEl.style.display='block';
+          generateInsightPreview(t, maxF);
+          // Hide full table only when preview is present
+          tableWrap.style.display = 'none';
+        } else {
+          // No preview container; keep the limited table visible
+          tableWrap.style.display = 'block';
+        }
+      } else {
+        if (previewEl) previewEl.style.display='none';
+        tableWrap.style.display = 'block';
+      }
+      
+      // Update button with row count
+      const hiddenRows = Math.max(0, totalRows - maxF);
+      console.log("🔧 Hidden rows:", hiddenRows);
+      if (!window.__expandedFarmer__ && hiddenRows > 0) {
+        moreBtn.innerHTML = `<i class="fas fa-chevron-down"></i> Show ${hiddenRows} more`;
+      }
+    } else {
+      console.log("⚠️ No table found in tableWrap!");
+      console.log("⚠️ tableWrap.innerHTML:", tableWrap?.innerHTML?.substring(0, 500));
+      const previewEl = document.getElementById('insightsPreview'); if (previewEl) previewEl.style.display='none';
     }
   }
+  
+  // Update button expanded state
+  moreBtn.classList.toggle('expanded', window.__techMode__ ? window.__expandedTech__ : window.__expandedFarmer__);
+  
   buildDonutMatchBars();
 }
 
@@ -570,12 +668,19 @@ techBtn.onclick = ()=>{ window.__techMode__ = !window.__techMode__; renderTables
 function setMapOnly(on){
   document.body.classList.toggle('map-only', !!on);
   const isOn = document.body.classList.contains('map-only');
-  mapBtn.textContent  = isOn ? 'Exit Map Only' : 'Map Only';
-  exitBtn.style.display = isOn ? '' : 'none';
+  // Leave the Map Only button label static; the dedicated exit button appears in map-only mode
+  
+  // Show helpful toast messages
+  if (isOn) {
+    showToast('🗺️ Map only mode • Use the top-right button or press Escape to exit');
+  } else {
+    showToast('📊 Back to full dashboard');
+  }
+  
   setTimeout(()=> map.invalidateSize(true), 200);
 }
 mapBtn.onclick  = ()=> setMapOnly(!document.body.classList.contains('map-only'));
-exitBtn.onclick = ()=> setMapOnly(false);
+if (exitBtn) exitBtn.onclick = ()=> setMapOnly(false);
 document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') setMapOnly(false); });
 
 // Function to load insights data
@@ -608,7 +713,17 @@ async function loadInsights() {
     document.getElementById("plotSection").innerHTML = plotHTML;
     document.getElementById("legendRows").innerHTML  = scaleHTML;
     
+    // Hide skeletons and show content
+    const insightsSkeleton = document.getElementById("insightsSkeleton");
+    if (insightsSkeleton) insightsSkeleton.style.display = 'none';
+    if (tableWrap) {
+      tableWrap.style.display = 'block';
+      console.log("✅ Table wrapper display set to block");
+    }
+    
     console.log("🚨 About to call renderTables() - this will replace the table!");
+    console.log("🚨 Farmer HTML exists:", !!window.__farmerHTML__);
+    console.log("🚨 Farmer HTML length:", window.__farmerHTML__?.length);
     renderTables();
     
   }catch(err){
@@ -623,3 +738,205 @@ async function loadInsights() {
 // Load insights chunks generated by your view
 loadInsights(); // ✅ Re-enabled to test row limit theory
 console.log("🔧 loadInsights() re-enabled for testing");
+
+// ============== NEW UI ENHANCEMENTS ==================
+
+// Animated counter for stat values
+function animateValue(element, start, end, duration) {
+  if (!element) return;
+  const range = end - start;
+  const increment = range / (duration / 16);
+  let current = start;
+  
+  const timer = setInterval(() => {
+    current += increment;
+    if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+      current = end;
+      clearInterval(timer);
+    }
+    element.textContent = Math.round(current);
+  }, 16);
+}
+
+// Initialize stat card animations on load
+document.addEventListener('DOMContentLoaded', () => {
+  const statValues = document.querySelectorAll('.stat-value');
+  statValues.forEach(el => {
+    const value = parseFloat(el.textContent) || 0;
+    if (value > 0) {
+      el.textContent = '0';
+      setTimeout(() => animateValue(el, 0, value, 1000), 300);
+    }
+  });
+});
+
+// Floating Action Button (FAB) functionality
+const fab = document.getElementById('fabRefresh');
+if (fab) {
+  fab.addEventListener('click', () => {
+    showToast('🔄 Refreshing dashboard data...');
+    
+    // Add spinning animation
+    fab.style.animation = 'spin 1s linear';
+    
+    // Reload the page after a brief delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
+  });
+}
+
+// Add spinning animation keyframe dynamically
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(style);
+
+// Note: The "Show more" button is handled above via renderTables()/applyRowLimit.
+// We intentionally do NOT hide the entire insights wrapper here, so the preview
+// remains visible on load and the button only expands/collapses rows.
+
+// Smooth scroll to sections
+function smoothScrollTo(target) {
+  const element = document.querySelector(target);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// Add table sorting functionality
+document.querySelectorAll('th.sortable').forEach(th => {
+  th.addEventListener('click', function() {
+    const table = this.closest('table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const index = Array.from(this.parentNode.children).indexOf(this);
+    const isAsc = this.classList.contains('asc');
+    
+    // Remove all sorting classes
+    table.querySelectorAll('th.sortable').forEach(h => {
+      h.classList.remove('asc', 'desc');
+    });
+    
+    // Add appropriate class
+    this.classList.add(isAsc ? 'desc' : 'asc');
+    
+    // Sort rows
+    rows.sort((a, b) => {
+      const aValue = a.children[index].textContent.trim();
+      const bValue = b.children[index].textContent.trim();
+      
+      const aNum = parseFloat(aValue);
+      const bNum = parseFloat(bValue);
+      
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return isAsc ? bNum - aNum : aNum - bNum;
+      }
+      
+      return isAsc ? 
+        bValue.localeCompare(aValue) : 
+        aValue.localeCompare(bValue);
+    });
+    
+    // Reorder table
+    rows.forEach(row => tbody.appendChild(row));
+  });
+});
+
+// Enhanced tooltip positioning
+document.querySelectorAll('.hint').forEach(hint => {
+  hint.addEventListener('mouseenter', function(e) {
+    const tooltip = window.getComputedStyle(this, '::after');
+    const rect = this.getBoundingClientRect();
+    
+    // Check if tooltip would go off-screen
+    if (rect.right + 340 > window.innerWidth) {
+      this.style.setProperty('--tooltip-dir', 'left');
+    }
+  });
+});
+
+// Loading state management
+function showLoadingState(container) {
+  if (!container) return;
+  container.innerHTML = `
+    <div class="loading-skeleton">
+      <div class="skeleton-row"></div>
+      <div class="skeleton-row"></div>
+      <div class="skeleton-row"></div>
+    </div>
+  `;
+}
+
+function hideLoadingState(container) {
+  if (!container) return;
+  const skeleton = container.querySelector('.loading-skeleton');
+  if (skeleton) {
+    skeleton.remove();
+  }
+}
+
+// Map fullscreen toggle
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+if (fullscreenBtn) {
+  fullscreenBtn.addEventListener('click', () => {
+    document.body.classList.toggle('map-only');
+    const isFullscreen = document.body.classList.contains('map-only');
+    showToast(isFullscreen ? '🗺️ Map fullscreen mode' : '📊 Normal view');
+    
+    // Invalidate map size after layout change
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 300);
+  });
+}
+
+// Exit button handled above via setMapOnly(false) on #exitMapOnlyBtn
+
+// Responsive table handling
+function makeTablesResponsive() {
+  document.querySelectorAll('.minitable').forEach(table => {
+    if (table.offsetWidth > table.parentElement.offsetWidth) {
+      table.parentElement.style.overflowX = 'auto';
+    }
+  });
+}
+
+// Call on load and resize
+window.addEventListener('load', makeTablesResponsive);
+window.addEventListener('resize', makeTablesResponsive);
+
+// Add keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // F key - fullscreen map
+  if (e.key === 'f' || e.key === 'F') {
+    if (!e.target.matches('input, textarea')) {
+      e.preventDefault();
+      fullscreenBtn?.click();
+    }
+  }
+  
+  // R key - refresh
+  if (e.key === 'r' || e.key === 'R') {
+    if (!e.target.matches('input, textarea') && e.ctrlKey) {
+      e.preventDefault();
+      fab?.click();
+    }
+  }
+
+  // Note: Escape to exit map-only is handled earlier via setMapOnly(false)
+});
+
+// Console welcome message
+console.log("%c🌾 CropXcel Dashboard Enhanced", 
+  "font-size: 16px; font-weight: bold; color: #0ea5e9; background: #f0f9ff; padding: 10px; border-radius: 8px;");
+console.log("%cKeyboard Shortcuts:", "font-weight: bold; color: #64748b;");
+console.log("%c  F - Toggle map fullscreen", "color: #94a3b8;");
+console.log("%c  Ctrl+R - Refresh dashboard", "color: #94a3b8;");
+console.log("%c  Escape - Exit fullscreen", "color: #94a3b8;");
+
+console.log("✅ Dashboard enhancements loaded successfully");

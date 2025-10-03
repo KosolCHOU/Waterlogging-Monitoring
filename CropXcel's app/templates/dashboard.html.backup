@@ -5,7 +5,6 @@
 {% block head %}
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v={{ job.id|default:'1' }}">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 {% endblock %}
 
 {% block content %}
@@ -14,7 +13,6 @@
   <div class="mapCard">
     <div id="map"></div>
     <div id="hoverpill"></div>
-    <!-- Button required by JS to exit map-only mode; previously removed caused JS error -->
     <button class="btn btn-brand exit-maponly" id="exitMapOnlyBtn" title="Exit Map Only">Exit Map Only</button>
   </div>  
 
@@ -33,16 +31,9 @@
       </div>
 
       <div class="tech-wrap">
-        <div class="loading-skeleton" id="insightsSkeleton">
-          <div class="skeleton-row"></div>
-          <div class="skeleton-row"></div>
-          <div class="skeleton-row"></div>
-        </div>
-  <div id="insightsTable" data-max="3" data-tech-max="3" style="display:none;"></div>
+        <div id="insightsTable" data-max="5" data-tech-max="5"></div>
       </div>
-      <button class="btn btn-ghost" id="toggleInsights">
-        <i class="fas fa-chevron-down"></i> Show more
-      </button>
+      <button class="btn" id="toggleInsights">Show more</button>
     </div>
 
     <div class="card">
