@@ -375,6 +375,31 @@ def compute_temporal_engine_s1(
     # Calculate adaptive window size for this dataset
     effective_window = adaptive_window_size(primary, ROLL_WINDOW_DAYS)
     z = robust_z(primary, effective_window, min_periods=max(2, MIN_Z_SAMPLES//2), mad_eps=MAD_EPS)
+    z_display = z.copy()
+
+    def simple_robust_z(series: pd.Series) -> pd.Series | None:
+        # Lightweight fallback when the main robust z yields no values (e.g., limited history)
+        if series is None:
+            return None
+        s = series.astype(float)
+        if s.notna().sum() < 3:
+            return None
+        med = s.median()
+        mad = (s - med).abs().median()
+        if pd.notna(mad) and mad > MAD_EPS:
+            return 0.6745 * (s - med) / mad
+        std = s.std(ddof=0)
+        if pd.notna(std) and std > 0:
+            return (s - s.mean()) / std
+        return pd.Series(0.0, index=s.index)
+
+    fallback_z = simple_robust_z(primary)
+    if fallback_z is not None:
+        if z_display.dropna().empty:
+            z_display = fallback_z.reindex(z_display.index)
+        else:
+            z_display = z_display.combine_first(fallback_z.reindex(z_display.index))
+
     WATCH_Z, ALERT_Z = WATCH_Z_DEFAULT, Z_THRESHOLD
     WATCH_ANY_DROP = -0.5
     # Require a sufficient history and valid z for gating - use adaptive window info
@@ -382,6 +407,17 @@ def compute_temporal_engine_s1(
     z_count = primary.rolling(f"{adaptive_window_used}D", closed="left").count()
     valid_z = (z_count >= MIN_Z_SAMPLES) & z.notna()
     z_ok = (z <= Z_THRESHOLD) & valid_z
+
+    # Rolling median/IQR provide a local baseline so slow drifts still register
+    try:
+        primary_med = primary.rolling(f"{adaptive_window_used}D", closed="left").median()
+    except Exception:
+        primary_med = None
+    try:
+        primary_iqr = primary.rolling(f"{adaptive_window_used}D", closed="left").quantile(0.75) - \
+                      primary.rolling(f"{adaptive_window_used}D", closed="left").quantile(0.25)
+    except Exception:
+        primary_iqr = None
 
     # ---------- rules ----------
     rule_vh_vs_base = (vh_lrdb <= MIN_ABS_DROP_DB_VH) if vh_lrdb is not None else pd.Series(False, index=df.index)
@@ -433,21 +469,42 @@ def compute_temporal_engine_s1(
     }
 
     def _clip01(x): return float(np.nanmax([0.0, np.nanmin([1.0, x])]))
-    def _nan0(x):   return 0.0 if (x is None or pd.isna(x)) else float(x)
+    def _nan0(x):
+        if x is None:
+            return 0.0
+        # Handle Series (if multiple values returned due to duplicate index)
+        if isinstance(x, pd.Series):
+            x = x.iloc[0] if len(x) > 0 else np.nan
+        return 0.0 if pd.isna(x) else float(x)
+    
+    def _safe_loc(series, t):
+        """Safely get a single value from a series, handling duplicate indices."""
+        if series is None or t not in series.index:
+            return np.nan
+        val = series.loc[t]
+        if isinstance(val, pd.Series):
+            val = val.iloc[0] if len(val) > 0 else np.nan
+        return val
+    
     def _bool_at(s, t):
-        try:    return (t in s.index) and (not pd.isna(s.loc[t])) and bool(s.loc[t])
-        except: return False
+        try:
+            val = _safe_loc(s, t)
+            return (not pd.isna(val)) and bool(val)
+        except:
+            return False
 
     def _rules_at(t):
+        z_val = _safe_loc(z, t)
+        vh_lrdb_val = _safe_loc(vh_lrdb, t)
         return {
             "vh_db_drop":     _bool_at(rule_vh_vs_base, t),
             "vv_db_drop":     _bool_at(rule_vv_vs_base, t),
             "ratio_pct_drop": _bool_at(rule_ratio_pct, t),
             "vh_low_abs":     _bool_at(rule_vh_low_abs, t),
             "smooth":         _bool_at(rule_smooth, t),
-            "z_watch":        (t in z.index and (not pd.isna(z.loc[t])) and z.loc[t] <= WATCH_Z),
-            "z_alert":        (t in z.index and (not pd.isna(z.loc[t])) and z.loc[t] <= ALERT_Z),
-            "small_drop":     (vh_lrdb is not None and t in vh_lrdb.index and (not pd.isna(vh_lrdb.loc[t])) and vh_lrdb.loc[t] <= WATCH_ANY_DROP),
+            "z_watch":        (not pd.isna(z_val) and z_val <= WATCH_Z),
+            "z_alert":        (not pd.isna(z_val) and z_val <= ALERT_Z),
+            "small_drop":     (not pd.isna(vh_lrdb_val) and vh_lrdb_val <= WATCH_ANY_DROP),
         }
 
     def reasons_at(t):
@@ -463,8 +520,8 @@ def compute_temporal_engine_s1(
             rs.append(f"VH/VV drop ≥ {int(MIN_PCT_DROP_LINEAR*100)}% vs base")
         if r["vh_low_abs"]:
             rs.append(f"VH ≤ {VH_ABS_DB_CUTOFF:.1f} dB")
-        if (t in z.index) and (not pd.isna(z.loc[t])):
-            z_val = z.loc[t]
+        z_val = _safe_loc(z, t)
+        if not pd.isna(z_val):
             rs.append(f"z = {z_val:.1f}")
             
             # Add enhanced diagnostic info
@@ -489,9 +546,9 @@ def compute_temporal_engine_s1(
             med_std_series = None
 
     def severity_confidence_at(t):
-        z_t      = _nan0(z.loc[t])       if (t in z.index) else np.nan
-        vh_lr_t  = _nan0(vh_lrdb.loc[t]) if (vh_lrdb is not None and t in vh_lrdb.index) else np.nan
-        vv_lr_t  = _nan0(vv_lrdb.loc[t]) if (vv_lrdb is not None and t in vv_lrdb.index) else np.nan
+        z_t      = _nan0(_safe_loc(z, t))
+        vh_lr_t  = _nan0(_safe_loc(vh_lrdb, t))
+        vv_lr_t  = _nan0(_safe_loc(vv_lrdb, t))
         r = _rules_at(t)
         rule_count = sum([r["vh_db_drop"], r["vv_db_drop"], r["ratio_pct_drop"], r["vh_low_abs"], r["z_watch"]])
         rule_count_norm = _clip01(rule_count / 5.0)
@@ -511,7 +568,25 @@ def compute_temporal_engine_s1(
         
         ratio_sev = 0.7 if r["ratio_pct_drop"] else 0.0
         persist_boost = 0.15 if _bool_at(alerts_mask, t) else 0.0
-        sev01 = _clip01(0.35*z_sev + 0.30*vh_sev + 0.15*vv_sev + 0.20*ratio_sev + persist_boost)
+        baseline_boost = 0.0  # Detect gradual moisture rise against recent norm
+        primary_med_val = _safe_loc(primary_med, t)
+        primary_val = _safe_loc(primary, t)
+        if not pd.isna(primary_med_val) and not pd.isna(primary_val):
+            baseline_val = float(primary_med_val)
+            current_val = float(primary_val)
+            drop = baseline_val - current_val
+            if drop > 0:
+                spread = None
+                primary_iqr_val = _safe_loc(primary_iqr, t)
+                vh_std_val = _safe_loc(vh_std, t)
+                if not pd.isna(primary_iqr_val):
+                    spread = float(primary_iqr_val)
+                elif not pd.isna(vh_std_val):
+                    spread = float(vh_std_val)
+                if spread is not None:
+                    spread = max(spread, 1e-3)
+                    baseline_boost = _clip01(drop / (spread * 1.5))
+        sev01 = _clip01(0.35*z_sev + 0.30*vh_sev + 0.15*vv_sev + 0.20*ratio_sev + persist_boost + 0.20*baseline_boost)
         severity_0_100 = int(round(sev01 * 100))
 
         conf = 0.40
@@ -519,9 +594,10 @@ def compute_temporal_engine_s1(
         conf += 0.15 * (1.0 if _bool_at(alerts_mask, t) else 0.0)
         
         # Simplified confidence calculation without rolling statistics that can vary
-        if vh_std is not None and t in vh_std.index and not pd.isna(vh_std.loc[t]) and med_std_series is not None:
-            if (t in med_std_series.index) and (not pd.isna(med_std_series.loc[t])):
-                conf += 0.10 * (1.0 if float(vh_std.loc[t]) <= 0.9 * float(med_std_series.loc[t]) else 0.0)
+        vh_std_val = _safe_loc(vh_std, t)
+        med_std_val = _safe_loc(med_std_series, t)
+        if not pd.isna(vh_std_val) and not pd.isna(med_std_val):
+            conf += 0.10 * (1.0 if float(vh_std_val) <= 0.9 * float(med_std_val) else 0.0)
                 
         key_ok = int(t in z.index and not pd.isna(z_t)) + int(vh_lrdb is not None and t in vh_lrdb.index and not pd.isna(vh_lr_t)) + int(vv_lrdb is not None and t in vv_lrdb.index and not pd.isna(vv_lr_t))
         conf += 0.10 * _clip01(key_ok / 3.0)
@@ -557,9 +633,10 @@ def compute_temporal_engine_s1(
                 return "Watch"
         else:  # base_level == "Healthy"
             # If rules say Healthy, only upgrade with very high severity
-            if sev >= 80:
+            z_val = _safe_loc(z, t)
+            if sev >= 70 or (not pd.isna(z_val) and z_val <= WATCH_Z):
                 return "Alert"
-            elif sev >= 50:
+            elif sev >= 40:
                 return "Watch"
             else:
                 return "Healthy"
@@ -569,15 +646,16 @@ def compute_temporal_engine_s1(
         sev, conf = severity_confidence_at(t)
         # Calculate status once to avoid inconsistency from multiple calls
         status = classify_level_with_severity(t)
+        z_val = _safe_loc(z, t)
         rows.append({
             "date": t,
-            "S1_VH_CURR": float(vh.loc[t])      if vh is not None and t in vh.index else np.nan,
-            "S1_VV_CURR": float(vv.loc[t])      if vv is not None and t in vv.index else np.nan,
-            "S1_VH_LOGRATIO_DB": float(vh_lrdb.loc[t]) if vh_lrdb is not None and t in vh_lrdb.index else np.nan,
-            "S1_VV_LOGRATIO_DB": float(vv_lrdb.loc[t]) if vv_lrdb is not None and t in vv_lrdb.index else np.nan,
-            "S1_VH_VV_CURR": float(ratio.loc[t]) if ratio is not None and t in ratio.index else np.nan,
-            "S1_VH_VV_DIFF": float(ratio_d.loc[t]) if ratio_d is not None and t in ratio_d.index else np.nan,
-            "zscore": float(z.loc[t]) if (t in z.index and not pd.isna(z.loc[t])) else np.nan,
+            "S1_VH_CURR": float(_safe_loc(vh, t)) if not pd.isna(_safe_loc(vh, t)) else np.nan,
+            "S1_VV_CURR": float(_safe_loc(vv, t)) if not pd.isna(_safe_loc(vv, t)) else np.nan,
+            "S1_VH_LOGRATIO_DB": float(_safe_loc(vh_lrdb, t)) if not pd.isna(_safe_loc(vh_lrdb, t)) else np.nan,
+            "S1_VV_LOGRATIO_DB": float(_safe_loc(vv_lrdb, t)) if not pd.isna(_safe_loc(vv_lrdb, t)) else np.nan,
+            "S1_VH_VV_CURR": float(_safe_loc(ratio, t)) if not pd.isna(_safe_loc(ratio, t)) else np.nan,
+            "S1_VH_VV_DIFF": float(_safe_loc(ratio_d, t)) if not pd.isna(_safe_loc(ratio_d, t)) else np.nan,
+            "zscore": float(_safe_loc(z_display, t)) if not pd.isna(_safe_loc(z_display, t)) else np.nan,
             "status": status,
             "severity_0_100": int(sev),
             "confidence_0_1": float(conf),
@@ -822,10 +900,10 @@ def render_legend_rows(scale_data: List[Dict]) -> str:
                  data-pct="{d['pct']:.1f}" style="--c:{d['color']}; --pct:{d['pct']:.1f};">
               <span class="bubble" aria-hidden="true"></span>
               <span class="lg-name">{d['label']}</span>
-              <span class="lg-pill">{d['ha']:.2f} ha</span>
               <div class="lg-bar" role="progressbar" aria-label="{d['label']} share"
                    aria-valuemin="0" aria-valuemax="100" aria-valuenow="{d['pct']:.1f}">
                 <span class="fill"></span>
+                <span class="bar-text">{d['ha']:.2f} ha</span>
               </div>
               <span class="lg-val">{d['pct']:.1f}%</span>
             </div>"""
@@ -893,8 +971,34 @@ def prepare_technical_view(insights_df: Optional[pd.DataFrame]) -> Optional[pd.D
             "S1_VH_VV_CURR","S1_VH_VV_DIFF"]
     ordered = [c for c in ordered if c in d.columns]
     d = d[ordered]
+    if "zscore" in d.columns:
+        z_vals = pd.to_numeric(d["zscore"], errors="coerce")
+        if z_vals.isna().any():
+            # Fill display-only z values from a simple robust z using the best available signal
+            fallback_source = None
+            for candidate in ["S1_VH_LOGRATIO_DB","S1_VH_CURR","S1_VH_VV_DIFF","S1_VH_VV_CURR"]:
+                if candidate in d.columns:
+                    series = pd.to_numeric(d[candidate], errors="coerce")
+                    if series.notna().sum() >= 3:
+                        fallback_source = series
+                        break
+            if fallback_source is not None:
+                med = fallback_source.median()
+                mad = (fallback_source - med).abs().median()
+                if pd.notna(mad) and mad > MAD_EPS:
+                    fallback = 0.6745 * (fallback_source - med) / mad
+                else:
+                    std = fallback_source.std(ddof=0)
+                    if pd.notna(std) and std > 0:
+                        fallback = (fallback_source - fallback_source.mean()) / std
+                    else:
+                        fallback = pd.Series(0.0, index=fallback_source.index)
+                z_vals = z_vals.combine_first(fallback.reindex(z_vals.index))
+        d["zscore"] = z_vals
     if "date" in d.columns:
-        d["date"] = pd.to_datetime(d["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        d["date"] = pd.to_datetime(d["date"], errors="coerce")
+        d = d.sort_values("date", ascending=False)
+        d["date"] = d["date"].dt.strftime("%Y-%m-%d")
     num_cols = [c for c in d.columns if c != "date"]
     for c in num_cols:
         d[c] = pd.to_numeric(d[c], errors="coerce").map(lambda x: (f"{x:.4f}" if pd.notna(x) else ""))
@@ -1007,4 +1111,3 @@ def classify_and_area(
         # return only 3 keys
         area_by_class = {"0": areas_ha[0], "1": areas_ha[1], "3": areas_ha[2]}
         return area_by_class, total_ha
-

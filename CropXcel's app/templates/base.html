@@ -99,24 +99,7 @@
       font-size: 16px;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
-    }
-
-    /* ===== Accessibility & Focus Management ===== */
-    .skip-link {
-      position: absolute;
-      top: -40px;
-      left: 6px;
-      background: var(--accent);
-      color: white;
-      padding: var(--gap-sm);
-      text-decoration: none;
-      border-radius: var(--radius-sm);
-      z-index: 10000;
-      font-weight: 600;
-      transition: top var(--transition);
-    }
-    .skip-link:focus {
-      top: 6px;
+      overflow-x: hidden;
     }
 
     *:focus-visible {
@@ -285,10 +268,13 @@
 
     /* ===== Main Content Area ===== */
     .content {
-      min-height: 100vh;
+      min-height: calc(100vh - var(--navbar-height));
+      max-height: calc(100vh - var(--navbar-height));
+      height: calc(100vh - var(--navbar-height));
       margin-top: var(--navbar-height);
       padding: var(--gap-lg) clamp(12px, 2.2vw, 28px);
       display: block;
+      overflow: hidden;
     }
 
     /* Content container */
@@ -454,6 +440,9 @@
       .content {
         padding: 16px 12px;
         margin-top: var(--navbar-height-mobile);
+        height: calc(100vh - var(--navbar-height-mobile));
+        max-height: calc(100vh - var(--navbar-height-mobile));
+        overflow: hidden;
       }
       
       .messages {
@@ -541,8 +530,6 @@
   </style>
 </head>
 <body>
-  <!-- Skip navigation for accessibility -->
-  <a href="#main-content" class="skip-link" tabindex="1">Skip to main content</a>
   
   <!-- Top Navigation Bar -->
   <nav class="navbar" id="navbar" role="navigation" aria-label="Main navigation">
