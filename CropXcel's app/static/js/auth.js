@@ -48,6 +48,13 @@
   const password2Input = document.getElementById('id_password2');
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const raf = window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : (cb => setTimeout(cb, 0));
+  const step1FieldOrder = ['username', 'password1', 'password2'];
+  const step1FieldHints = {};
+  const step1FieldErrors = {};
+  step1FieldOrder.forEach(name => {
+    step1FieldHints[name] = step1Panel?.querySelector(`[data-field-hint="${name}"]`) || null;
+    step1FieldErrors[name] = step1Panel?.querySelector(`[data-field-error="${name}"]`) || null;
+  });
 
   let currentStep = 1;
 
@@ -121,6 +128,38 @@
     step1Hint.classList.toggle('visible', Boolean(message));
   };
 
+  const setFieldError = (field, message) => {
+    const errorEl = step1FieldErrors[field];
+    const hintEl = step1FieldHints[field];
+    if (!errorEl) return;
+    if (message) {
+      errorEl.textContent = message;
+      errorEl.hidden = false;
+      if (hintEl) hintEl.hidden = true;
+    } else {
+      errorEl.textContent = '';
+      errorEl.hidden = true;
+      if (hintEl) hintEl.hidden = false;
+    }
+  };
+
+  const applyStep1Errors = (errors) => {
+    let hasError = false;
+    step1FieldOrder.forEach(field => {
+      const message = errors?.[field] || '';
+      if (message) {
+        hasError = true;
+      }
+      setFieldError(field, message);
+    });
+    return hasError;
+  };
+
+  const getFirstStep1Error = (errors) => {
+    const field = step1FieldOrder.find(name => errors?.[name]);
+    return field ? errors[field] : '';
+  };
+
   const passwordMinLength = (() => {
     if (!password1Input) return 0;
     const attr = parseInt(password1Input.getAttribute('minlength') || '', 10);
@@ -132,25 +171,30 @@
   })();
 
   const evaluateStep1 = () => {
+    const errors = {};
     const usernameValue = (usernameInput?.value || '').trim();
     const pwd1 = password1Input?.value || '';
     const pwd2 = password2Input?.value || '';
     if (!usernameValue) {
-      return { ok: false, reason: 'Please choose a username before continuing.' };
+      errors.username = '🌱 Please enter a username — it’s required.';
     }
     if (!pwd1) {
-      return { ok: false, reason: 'Enter a password to continue.' };
-    }
-    if (passwordMinLength > 0 && pwd1.length < passwordMinLength) {
-      return { ok: false, reason: `Password must be at least ${passwordMinLength} characters.` };
+      errors.password1 = '🔒 Enter a password to continue.';
+    } else if (passwordMinLength > 0 && pwd1.length < passwordMinLength) {
+      errors.password1 = `🔒 Password must be at least ${passwordMinLength} characters.`;
     }
     if (!pwd2) {
-      return { ok: false, reason: 'Please confirm your password.' };
+      errors.password2 = '✍️ Please confirm your password.';
+    } else if (!errors.password1 && pwd1 !== pwd2) {
+      errors.password2 = '✍️ Your confirmation doesn’t match the password.';
     }
-    if (pwd1 !== pwd2) {
-      return { ok: false, reason: 'Passwords must match before continuing.' };
-    }
-    return { ok: true, reason: '' };
+    const firstField = step1FieldOrder.find(name => errors[name]);
+    return {
+      ok: !firstField,
+      errors,
+      firstField,
+      firstMessage: firstField ? errors[firstField] : ''
+    };
   };
 
   const reportStep1Fields = () => {
@@ -159,9 +203,10 @@
     password2Input?.reportValidity?.();
   };
 
-  const step2HasErrors = !!step2Panel?.querySelector('.field-error');
-  const step1HasErrors = !!step1Panel?.querySelector('.field-error');
+  const step2HasErrors = !!step2Panel?.querySelector('.field-error:not([hidden])');
+  const step1HasErrors = !!step1Panel?.querySelector('.field-error:not([hidden])');
   const initialStep = step2HasErrors ? 2 : 1;
+  let step1Attempted = step1HasErrors;
 
   setActiveStep(initialStep);
 
@@ -171,7 +216,10 @@
   }
 
   if (intro && startBtn && !showFormImmediately) {
-    startBtn.addEventListener('click', () => {
+    startBtn.addEventListener('click', (event) => {
+      if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
       intro.classList.add('is-hidden');
       setTimeout(() => intro.remove(), 400);
       revealForm();
@@ -181,12 +229,14 @@
 
   if (nextBtn) {
     nextBtn.addEventListener('click', () => {
+      step1Attempted = true;
       const result = evaluateStep1();
-      if (result.ok) {
+      const hasErrors = applyStep1Errors(result.errors);
+      if (!hasErrors) {
         clearStep1Hint();
         setActiveStep(2);
       } else if (step1Hint) {
-        showStep1Hint(result.reason);
+        showStep1Hint(getFirstStep1Error(result.errors));
         reportStep1Fields();
       }
     });
@@ -199,12 +249,13 @@
   [usernameInput, password1Input, password2Input].forEach(input => {
     if (!input) return;
     input.addEventListener('input', () => {
-      if (!step1Hint || !step1Hint.classList.contains('visible')) return;
+      if (!step1Attempted) return;
       const result = evaluateStep1();
-      if (result.ok) {
+      const hasErrors = applyStep1Errors(result.errors);
+      if (!hasErrors) {
         clearStep1Hint();
       } else {
-        showStep1Hint(result.reason);
+        showStep1Hint(getFirstStep1Error(result.errors));
       }
     });
   });
@@ -213,12 +264,14 @@
     form.addEventListener('submit', event => {
       if (currentStep === 1) {
         event.preventDefault();
+        step1Attempted = true;
         const result = evaluateStep1();
-        if (result.ok) {
+        const hasErrors = applyStep1Errors(result.errors);
+        if (!hasErrors) {
           clearStep1Hint();
           setActiveStep(2);
         } else if (step1Hint) {
-          showStep1Hint(result.reason);
+          showStep1Hint(getFirstStep1Error(result.errors));
           reportStep1Fields();
         }
       }

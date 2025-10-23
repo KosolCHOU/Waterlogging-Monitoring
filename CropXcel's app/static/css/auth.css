@@ -1,7 +1,8 @@
 body.auth-page{
   min-height:100vh;
   min-height:100dvh;
-  overflow:hidden;
+  overflow-x:hidden;
+  overflow-y:auto;
   background:
     radial-gradient(1200px 800px at -10% -10%, rgba(45,212,191,.18), transparent 60%),
     radial-gradient(1200px 800px at 110% 20%, rgba(14,165,233,.18), transparent 65%),
@@ -42,7 +43,7 @@ body.auth-page{
   background:#fff;
   border-radius:20px;
   box-shadow:0 20px 50px rgba(0,0,0,.10);
-  padding:32px 28px;
+  padding:clamp(24px,6vh,32px) clamp(20px,4vw,28px);
   position:relative;
   overflow:visible;
   max-height:none;
@@ -52,7 +53,28 @@ body.auth-page{
 }
 .auth-card details summary{color:#ffffff;font-weight:700;cursor:pointer}
 
-.signup-card{overflow:visible;}
+.signup-card{
+  overflow:visible;
+  display:flex;
+  flex-direction:column;
+  max-height:min(92vh,760px);
+}
+
+@media (max-height:780px){
+  .login-wrap{
+    align-items:flex-start;
+    padding-top:clamp(32px,8vh,56px);
+    padding-bottom:48px;
+  }
+  .auth-card{
+    margin-top:16px;
+    margin-bottom:24px;
+    padding:clamp(20px,5vh,28px) clamp(18px,4vw,24px);
+  }
+  .signup-card{
+    max-height:calc(100vh - 96px);
+  }
+}
 
 .ribbon{
   position:absolute;
@@ -368,10 +390,31 @@ body.auth-page{
 }
 
 .step-content.is-hidden{display:none;}
+.step-content{
+  flex:1 1 auto;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding-right:4px;
+  padding-bottom:16px;
+  scrollbar-gutter:stable both-edges;
+}
+.step-content:focus-within{
+  outline:0;
+}
+.step-content::-webkit-scrollbar{
+  width:8px;
+}
+.step-content::-webkit-scrollbar-thumb{
+  background:rgba(100,116,139,.45);
+  border-radius:999px;
+}
+.step-content::-webkit-scrollbar-track{
+  background:transparent;
+}
 
 /* ---------- Responsive tweaks ---------- */
 @media (min-width:768px){
-  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .form-grid{grid-template-columns:1fr;}
 }
 @media (max-width:640px){
   .login-wrap{
@@ -386,6 +429,9 @@ body.auth-page{
     max-width:100%;
     padding:24px 16px 28px;
     border-radius:16px;
+  }
+  .signup-card{
+    max-height:calc(100dvh - 48px);
   }
   .title{font-size:1.35rem;margin-top:2px;}
   .subtitle{font-size:.95rem;margin-bottom:16px;}
@@ -471,4 +517,69 @@ body.auth-page{
   .sprout{animation:none;}
   .intro-screen,
   .login-wrap{transition:none;}
+}
+
+.intro-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #e3f9e5 0%, #ffffff 100%);
+  color: #064e3b;
+  text-align: center;
+  padding: 2rem;
+  font-family: "Inter", system-ui, sans-serif;
+  animation: fadeIn 1.2s ease-in-out;
+}
+
+.sprout-logo {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  animation: bounce 2s infinite;
+}
+
+.brand {
+  color: #059669;
+  font-weight: 800;
+}
+
+.intro-tagline {
+  max-width: 500px;
+  font-size: 1.1rem;
+  margin: 0.5rem 0 1.5rem;
+  color: #065f46;
+}
+
+.start-btn {
+  background-color: #10b981;
+  border: none;
+  color: white;
+  padding: 0.8rem 1.8rem;
+  border-radius: 2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.start-btn:hover {
+  background-color: #059669;
+  transform: translateY(-3px);
+}
+
+.intro-note {
+  font-size: 0.95rem;
+  color: #374151;
+  margin-top: 1.5rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }

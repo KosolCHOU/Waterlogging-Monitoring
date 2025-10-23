@@ -205,10 +205,38 @@ body.lands-page .content .container {
 body.lands-page .shell {
   flex:1;
   min-height:0;
+  display:flex;
+  flex-direction:column;
 }
 @media (max-width:640px){ 
   :root { --header-h:200px; } 
   
+  body.lands-page {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  body.lands-page .shell {
+    flex: 1;
+    min-height: 0;
+    padding: 0 12px 16px;
+  }
+
+  body.lands-page .content {
+    height: calc(100vh - var(--navbar-height-mobile));
+    max-height: calc(100vh - var(--navbar-height-mobile));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.lands-page .content .container {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+  }
+
   /* Mobile adjustments for crop recommendation button */
   .titlebar {
     flex-direction: column;
@@ -233,8 +261,74 @@ body.lands-page .shell {
     text-align: center;
   }
   
+  .listwrap {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 16px;
+    -webkit-overflow-scrolling: touch; /* smooth momentum scroll on iOS */
+  }
+
   #addFieldBtn {
     flex-shrink: 0;
     padding: 16px 18px;
   }
 }
+
+/* 1) Define the missing variable with a safe default (mobile navbar height) */
+:root { 
+  --navbar-height-mobile: 56px; /* <-- add this (adjust to your navbar) */
+}
+
+/* 2) Replace 100vh with 100dvh on mobile to avoid the browser UI height bug */
+@media (max-width:640px){
+  body.lands-page {
+    /* let the page match the visible viewport height on mobile */
+    height: 100dvh;            /* was 100vh */
+    overflow: hidden;          /* keep if you want only the inner list to scroll */
+  }
+
+  body.lands-page .content {
+    /* these were using var(--navbar-height-mobile) but the var was missing */
+    height: calc(100dvh - var(--navbar-height-mobile));
+    max-height: calc(100dvh - var(--navbar-height-mobile));
+    overflow: hidden;          /* the list inside will host the scroll */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;             /* ensure children can shrink to enable scrolling */
+  }
+
+  /* ensure the immediate flex parent doesn’t clamp children */
+  body.lands-page .content .container {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;             /* critical for nested scroll areas */
+  }
+}
+
+/* 3) Make the scrolling region buttery on iOS/Android */
+.listwrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;  /* momentum scroll */
+}
+
+/* 4) Drawer/mask: don’t intercept touches when closed */
+.drawer-mask { 
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.28);
+  display: none;
+  z-index: 1000;
+  pointer-events: none;        /* default: inert */
+}
+
+.drawer-mask.open { 
+  display: block;
+  pointer-events: auto;        /* only block when actually open */
+}
+
+/* 5) Drawer heights also use 100dvh to avoid the same bug */
+.drawer { height: 100dvh; }    /* was 100vh */
+.drawer-body { height: calc(100dvh - 56px); } /* adjust 56px to your header */

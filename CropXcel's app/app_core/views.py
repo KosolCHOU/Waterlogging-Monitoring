@@ -867,8 +867,14 @@ def signup(request):
     Signup with optional profile fields. Only username/password are required.
     """
     next_url = request.GET.get("next") or request.POST.get("next") or "profile"
+    # Allow query params such as ?start=1 or ?step=form to bypass the intro screen.
+    requested_direct_form = request.GET.get("start") in {"1", "true", "yes"} or request.GET.get("step") == "form"
+    show_intro = not requested_direct_form
+
     if request.method == "POST":
         form = SignupForm(request.POST)
+        # Once the user posts the form we always show the form panel.
+        show_intro = False
         if form.is_valid():
             user = form.save(commit=True)  # creates user AND writes profile via form.save()
 
@@ -897,12 +903,22 @@ def signup(request):
                         error_list.append(err)  # e.g. password mismatch
                     else:
                         error_list.append(f"{field.capitalize()}: {err}")
-            
-            # show them all in one friendly message
-            messages.error(request, "⚠️ " + " | ".join(error_list))
+
+            if error_list:
+                # show them all in one friendly message
+                messages.error(request, "⚠️ " + " | ".join(error_list))
     else:
         form = SignupForm()
-    return render(request, "registration/signup.html", {"form": form})
+
+    if form.errors:
+        show_intro = False
+
+    ctx = {
+        "form": form,
+        "show_intro": show_intro,
+        "next_url": next_url,
+    }
+    return render(request, "registration/signup.html", ctx)
 
 @login_required
 def edit_profile(request):

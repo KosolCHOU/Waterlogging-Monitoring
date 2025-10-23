@@ -24,25 +24,31 @@
 
   body.profile-page .content {
     min-height: calc(100vh - var(--navbar-height));
-    max-height: calc(100vh - var(--navbar-height));
-    height: calc(100vh - var(--navbar-height));
+    height: auto;
+    max-height: none;
+    padding: 0 clamp(12px, 2.2vw, 28px);
     box-sizing: border-box;
-    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
   }
 
   body.profile-page .container {
     height: auto;
+    flex: 1;
+    display: flex;
   }
 
-  .profile-wrap{
-    min-height:calc(100vh - 64px); /* Account for navbar */
-    display:flex;
-    justify-content:center;
-    align-items:flex-start;
-    background:var(--bg);
-    padding:20px;
-    box-sizing:border-box;
-    width:100%;
+  .profile-wrap {
+    flex: 1;
+    min-height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center; /* center vertically */
+    background: transparent;
+    padding: clamp(32px, 8vh, 88px) clamp(20px, 4vw, 32px); /* equal breathing room */
+    box-sizing: border-box;
+    width: 100%;
   }
 
   body.profile-page .card{
@@ -181,8 +187,9 @@
     }
 
     .profile-wrap {
-      padding: 12px;
-      min-height: calc(100vh - 56px); /* Smaller navbar on mobile */
+      align-items: flex-start;
+      padding: 32px 16px 48px;
+      min-height: auto; /* allow natural flow when content exceeds viewport */
     }
 
     body.profile-page {
@@ -341,16 +348,15 @@
   /* Desktop styles - 1024px and up */
 @media (min-width: 1024px) {
     body.profile-page {
-      overflow: hidden;
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
     body.profile-page .content {
       flex: 1;
-      height: calc(100vh - var(--navbar-height));
-      overflow-y: hidden;
+      min-height: calc(100vh - var(--navbar-height));
+      overflow-y: auto;
     }
 
     .profile-wrap {
@@ -435,7 +441,7 @@
   /* Print styles */
   @media print {
     .profile-wrap {
-      background: white;
+      background: transparent;
       padding: 0;
     }
 

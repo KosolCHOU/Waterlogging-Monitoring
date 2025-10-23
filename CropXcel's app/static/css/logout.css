@@ -1,8 +1,12 @@
-/* static/css/logout.css */
-
 html,
 body{
   height:100%;
+}
+
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
 }
 
 body{
@@ -10,7 +14,8 @@ body{
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
   background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);
   color:#0f172a;
-  overflow:hidden;
+  min-height:100vh;
+  overflow-x:hidden;
 }
 
 /* Page shell */
@@ -20,7 +25,7 @@ body{
   display:flex;
   justify-content:center;
   align-items:center;
-  padding:clamp(32px,8vh,48px) clamp(16px,6vw,24px);
+  padding:clamp(28px,7vh,44px) clamp(12px,5vw,24px);
   background:
     radial-gradient(1200px 600px at 20% -20%, rgba(45,212,191,.16) 0%, transparent 60%),
     radial-gradient(1200px 600px at 100% 20%, rgba(14,165,233,.14) 0%, transparent 60%),
@@ -33,7 +38,7 @@ body{
   background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);
   border-radius:20px;
   box-shadow:0 20px 50px rgba(0,0,0,.10);
-  padding:28px 24px;
+  padding:clamp(24px,4vw,32px);
   text-align:center;
   position:relative;
   overflow:hidden;
@@ -85,10 +90,22 @@ body{
   color:#065f46;
   background:#ecfdf5;
   border-radius:12px;
-  padding:10px 12px;
-  display:inline-block;
+  padding:12px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
   font-weight:600;
+  gap:8px;
   overflow-wrap:break-word;
+  margin-inline:auto;
+}
+.note-icon{
+  font-size:1.1rem;
+  line-height:1;
+}
+.note-text{
+  flex:1;
 }
 
 /* CTA Row (layout only; button visuals come from auth.css .btn rules) */
@@ -97,6 +114,7 @@ body{
   flex-wrap:wrap;
   gap:10px;
   justify-content:center;
+  align-items:center;
   margin-top:18px;
 }
 
@@ -122,30 +140,43 @@ body{
   color:#94a3b8;
 }
 
-/* Responsive tweaks for narrow screens */
-@media (max-width: 560px){
+/* Tablet down */
+@media (max-width: 768px){
+  body{
+    background:linear-gradient(180deg,#e2e8f0 0%,#e0f2fe 100%);
+  }
   .logout-wrap{
-    align-items:flex-start;
-    padding:32px 16px;
+    padding:clamp(24px,8vh,48px) clamp(16px,6vw,28px);
   }
   .logout-card{
     width:100%;
-    max-width:360px;
+    max-width:420px;
     margin:0 auto;
+  }
+  .note{flex-direction:column}
+}
+
+/* Responsive tweaks for narrow screens */
+@media (max-width: 560px){
+  .logout-card{
     padding:24px 20px;
     border-radius:16px;
+    max-width:360px;
+    margin-inline:auto;
   }
   .title{font-size:1.35rem;margin:6px 0}
   .subtitle{font-size:1rem}
   .note{
-    width:100%;
     font-size:.9rem;
     padding:12px;
+    max-width:320px;
+    margin:0 auto;
   }
   .cta-row{flex-direction:column}
   .cta-row .btn{
-    width:100%;
+    width:min(240px,100%);
     justify-content:center;
+    align-self:center;
   }
   .help{font-size:.9rem}
   .small{font-size:.8rem}
@@ -172,6 +203,8 @@ body{
   .note{
     padding:12px;
     font-size:.88rem;
+    max-width:300px;
+    margin-inline:auto;
   }
   .help,
   .small{

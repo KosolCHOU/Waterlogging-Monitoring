@@ -5,17 +5,35 @@
 {% endblock %}
 
 {% block content %}
-{% if not form.errors %}
+{% if show_intro %}
 <div class="intro-screen" aria-labelledby="signup-welcome-title" role="dialog" aria-modal="true">
   <div class="sprout-logo" role="img" aria-label="Sprout icon">🌱</div>
-  <h2 id="signup-welcome-title">Welcome to CropXcel!</h2>
-  <p>Let’s help your farm thrive with smarter water and crop insights.</p>
-  <button type="button" class="btn btn-primary" id="start-signup">Start</button>
-  <p class="intro-note">Two friendly steps — you’ll be looking at smarter insights in no time.</p>
+
+  <h2 id="signup-welcome-title">Welcome to <span class="brand">CropXcel</span>!</h2>
+  <p class="intro-tagline">
+    Where innovation meets your field — let's make your crops stronger, greener, and more resilient.
+  </p>
+
+  <a
+    href="?start=1{% if next_url and next_url != 'profile' %}&next={{ next_url|urlencode }}{% endif %}"
+    class="btn btn-primary start-btn"
+    id="start-signup"
+    role="button"
+  >
+    🚀 Get Started
+  </a>
+
+  <p class="intro-note">
+    Just <strong>two quick steps</strong> and you’ll be exploring real-time crop insights powered by data & science.
+  </p>
 </div>
 {% endif %}
 
-<div class="login-wrap{% if not form.errors %} is-hidden{% else %} fade-in{% endif %}" data-signup-container>
+{% if show_intro and not form.errors %}
+<div id="signup-form" class="login-wrap is-hidden" data-signup-container>
+{% else %}
+<div id="signup-form" class="login-wrap fade-in" data-signup-container>
+{% endif %}
   <form method="post" class="auth-card signup-card" novalidate aria-live="polite">
     <div class="ribbon" aria-hidden="true"></div>
 
@@ -47,6 +65,7 @@
     </div>
 
     {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next_url }}">
     {% if form.non_field_errors %}
       <div class="field-error non-field-error">{{ form.non_field_errors }}</div>
     {% endif %}
@@ -57,11 +76,14 @@
         <div class="field">
           <label for="{{ form.username.id_for_label }}">Username</label>
           <div class="input-wrap">{{ form.username }}</div>
-          {% if form.username.errors %}
-            <div class="field-error">🌱 Please enter a username — it’s required.</div>
-          {% else %}
-            <div class="hint">Choose something memorable — you’ll use it each time you sign in.</div>
-          {% endif %}
+          {% with error=form.username.errors.0 %}
+            <div class="hint" data-field-hint="username"{% if error %} hidden{% endif %}>Choose something memorable — you’ll use it each time you sign in.</div>
+            <div class="field-error" data-field-error="username"{% if not error %} hidden{% endif %}>
+              {% if error %}
+                {{ error }}
+              {% endif %}
+            </div>
+          {% endwith %}
         </div>
 
         <div class="field">
@@ -70,11 +92,14 @@
             {{ form.password1 }}
             <button type="button" class="toggle-eye" aria-label="Show or hide password">👁️</button>
           </div>
-          {% if form.password1.errors %}
-            <div class="field-error">🔒 Password must be at least 8 characters.</div>
-          {% else %}
-            <div class="hint">Keep your account safe with a strong password.</div>
-          {% endif %}
+          {% with error=form.password1.errors.0 %}
+            <div class="hint" data-field-hint="password1"{% if error %} hidden{% endif %}>Keep your account safe with a strong password.</div>
+            <div class="field-error" data-field-error="password1"{% if not error %} hidden{% endif %}>
+              {% if error %}
+                {{ error }}
+              {% endif %}
+            </div>
+          {% endwith %}
         </div>
 
         <div class="field">
@@ -83,11 +108,14 @@
             {{ form.password2 }}
             <button type="button" class="toggle-eye" aria-label="Show or hide password confirmation">👁️</button>
           </div>
-          {% if form.password2.errors %}
-            <div class="field-error">✍️ Your confirmation doesn’t match the password.</div>
-          {% else %}
-            <div class="hint">Just double-checking so we know it’s correct.</div>
-          {% endif %}
+          {% with error=form.password2.errors.0 %}
+            <div class="hint" data-field-hint="password2"{% if error %} hidden{% endif %}>Just double-checking so we know it’s correct.</div>
+            <div class="field-error" data-field-error="password2"{% if not error %} hidden{% endif %}>
+              {% if error %}
+                {{ error }}
+              {% endif %}
+            </div>
+          {% endwith %}
         </div>
       </div>
 
@@ -104,22 +132,37 @@
         <div class="field">
           <label for="{{ form.full_name.id_for_label }}">Full name</label>
           <div class="input-wrap">{{ form.full_name }}</div>
+          {% if form.full_name.errors %}
+            <div class="field-error">{{ form.full_name.errors.0 }}</div>
+          {% endif %}
         </div>
         <div class="field">
           <label for="{{ form.phone.id_for_label }}">Phone</label>
           <div class="input-wrap">{{ form.phone }}</div>
+          {% if form.phone.errors %}
+            <div class="field-error">{{ form.phone.errors.0 }}</div>
+          {% endif %}
         </div>
         <div class="field">
           <label for="{{ form.date_of_birth.id_for_label }}">Date of birth</label>
           <div class="input-wrap">{{ form.date_of_birth }}</div>
+          {% if form.date_of_birth.errors %}
+            <div class="field-error">{{ form.date_of_birth.errors.0 }}</div>
+          {% endif %}
         </div>
         <div class="field">
           <label for="{{ form.main_crop.id_for_label }}">Main crop</label>
           <div class="input-wrap">{{ form.main_crop }}</div>
+          {% if form.main_crop.errors %}
+            <div class="field-error">{{ form.main_crop.errors.0 }}</div>
+          {% endif %}
         </div>
         <div class="field">
           <label for="{{ form.province.id_for_label }}">Province</label>
           <div class="input-wrap">{{ form.province }}</div>
+          {% if form.province.errors %}
+            <div class="field-error">{{ form.province.errors.0 }}</div>
+          {% endif %}
         </div>
       </div>
 
