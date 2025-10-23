@@ -526,18 +526,25 @@ def dashboard(request, field_id: int):
             if os.path.exists(meta_path):
                 with open(meta_path, 'r') as f:
                     meta_data = json.load(f)
-                    # Get the event end date as the latest satellite capture
-                    satellite_capture_date = meta_data.get("event_end")
+                    # Prefer locally-adjusted acquisition date, fallback to UTC fields
+                    satellite_capture_date = (
+                        meta_data.get("acq_local")
+                        or meta_data.get("event_end")
+                        or meta_data.get("acq_utc")
+                        or meta_data.get("event_end_utc")
+                    )
                     satellite_event_count = meta_data.get("event_count")
-                    
+
                     # Format the date nicely if available
                     if satellite_capture_date:
                         from datetime import datetime
-                        try:
-                            capture_dt = datetime.strptime(satellite_capture_date, "%Y-%m-%d")
-                            satellite_capture_date = capture_dt.strftime("%b %d, %Y")
-                        except:
-                            pass  # Keep original format if parsing fails
+                        for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+                            try:
+                                capture_dt = datetime.strptime(satellite_capture_date, fmt)
+                                satellite_capture_date = capture_dt.strftime("%b %d, %Y")
+                                break
+                            except ValueError:
+                                continue
         except Exception as e:
             print(f"Could not read satellite metadata: {e}")
 

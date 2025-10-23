@@ -6,10 +6,12 @@
   --col-w: 6px;
   --col-gap: 2px;
 }
-html,body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
-.wrap{padding:12px;display:grid;grid-template-columns:1.2fr 1fr;gap:12px;margin-top:0} /* Remove top margin for navbar */
+html,body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;overflow-x:hidden;width:100%;max-width:100vw}
+.container{max-width:100%;overflow-x:hidden;padding:0;width:100%}
+.content{padding:0 !important;width:100%;max-width:100vw;box-sizing:border-box}
+.wrap{padding:12px;display:grid;grid-template-columns:1.2fr 1fr;gap:12px;margin-top:0;width:100%;max-width:100%;box-sizing:border-box} /* Remove top margin for navbar */
 @media (max-width:1024px){.wrap{grid-template-columns:1fr}}
-.card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px}
+.card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;overflow:visible;box-sizing:border-box;width:100%}
 
 /* ===== Weather today ===== */
 .today{background:var(--soft);border-radius:16px;box-shadow:inset 0 0 0 1px var(--soft-border);padding:18px}
@@ -85,6 +87,465 @@ table.mini td.date { font-weight:600; color:#374151; background:#f8fafc; }
   .p72{grid-template-columns:1fr}
 }
 
+/* ===== MOBILE RESPONSIVE STYLES ===== */
+@media (max-width: 768px) {
+  /* Ensure body and html allow scrolling */
+  html, body {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    width: 100%;
+    max-width: 100vw;
+    height: auto !important;
+    min-height: 100vh !important;
+  }
+
+  /* Override base.html content padding and height restrictions */
+  .content {
+    padding: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: calc(100vh - var(--navbar-height-mobile, 56px)) !important;
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
+  }
+
+  .container {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Main wrapper - single column, full width */
+  .wrap {
+    grid-template-columns: 1fr;
+    padding: 4px;
+    gap: 6px;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: visible;
+    margin: 0;
+    height: auto;
+  }
+
+  /* Card padding adjustment */
+  .card {
+    padding: 8px;
+    border-radius: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+    height: auto;
+    max-height: none;
+  }
+
+  /* Weather today section */
+  .today {
+    padding: 8px;
+    box-sizing: border-box;
+    height: auto;
+  }
+
+  .todayHead {
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+
+  .todayHead .title {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .todayHead .icon {
+    display: none; /* Hide the small header icon on mobile */
+  }
+
+  .todayMeta {
+    font-size: 10px;
+  }
+
+  .todayBody {
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .todayLeft {
+    justify-content: flex-start;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .todayLeft .icon {
+    font-size: 48px;
+    flex-shrink: 0;
+  }
+
+  .todayLeft .temp {
+    font-size: 40px;
+  }
+
+  .todayLeft .desc {
+    font-size: 12px;
+    margin-top: 2px;
+  }
+
+  .vbar {
+    display: none;
+  }
+
+  .aside {
+    width: auto;
+    max-width: 45%;
+    margin-left: 0;
+    flex-shrink: 0;
+  }
+
+  .rightInfo {
+    font-size: 10px;
+    padding: 5px 6px;
+    gap: 3px;
+  }
+
+  .rightInfo i {
+    font-size: 12px;
+  }
+
+  .rightInfo span {
+    font-size: 10px;
+  }
+
+  .todayFoot {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-top: 10px;
+  }
+
+  .miniStat {
+    padding: 6px 4px;
+  }
+
+  .miniStat .lbl {
+    font-size: 9px;
+  }
+
+  .miniStat .val {
+    font-size: 13px;
+  }
+
+  /* 72h panel */
+  .panel72 {
+    overflow-x: hidden;
+    margin-top: 8px;
+  }
+
+  .panel72 h4 {
+    font-size: 12px;
+    margin: 0 0 8px 0;
+  }
+
+  .p72 {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .p72-left {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .p72-right {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+
+  .kpi {
+    justify-content: center;
+    text-align: center;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 9px;
+    padding: 5px 3px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .kpi span {
+    font-size: 12px;
+  }
+
+  .kpi b {
+    font-size: 11px;
+  }
+
+  /* Plot container */
+  .plot72 {
+    height: 120px;
+    min-width: 100%;
+  }
+
+  .sparkWrap {
+    height: 100px;
+    padding: 6px 4px 16px 20px;
+  }
+
+  /* Legend */
+  .legend72 {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .legend72 span {
+    font-size: 10px;
+  }
+
+  .chip {
+    width: 100%;
+    justify-content: center;
+    padding: 6px 10px;
+    box-sizing: border-box;
+    font-size: 11px;
+  }
+
+  .chip .swatch {
+    width: 10px;
+    height: 10px;
+  }
+
+  /* 7-day table - make it scrollable */
+  .pretty {
+    font-size: 13px;
+    padding-left: 12px;
+    margin: 0 0 8px 0;
+  }
+
+  .pretty::before {
+    width: 7px;
+    height: 7px;
+    top: 3px;
+  }
+
+  /* Table wrapper for horizontal scroll */
+  table.mini {
+    font-size: 10px;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table.mini thead,
+  table.mini tbody {
+    display: table;
+    width: 100%;
+    min-width: 480px;
+  }
+
+  table.mini th,
+  table.mini td {
+    padding: 5px 6px;
+  }
+
+  /* Recommendations grid */
+  #adviceWrap {
+    gap: 6px;
+  }
+
+  .recCard {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .recIcon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .recText {
+    font-size: 11px;
+    word-break: break-word;
+  }
+
+  /* Hint tooltips - position above on mobile */
+  .hint {
+    width: 14px;
+    height: 14px;
+    margin-left: 4px;
+  }
+
+  .hint::before {
+    font-size: 10px;
+    line-height: 14px;
+  }
+
+  .hint::after {
+    left: 50%;
+    top: auto;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    min-width: 180px;
+    max-width: calc(100vw - 40px);
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+
+  .hint:hover::after {
+    transform: translateX(-50%) translateY(-4px);
+  }
+}
+
+/* Small mobile phones */
+@media (max-width: 480px) {
+  html, body {
+    height: auto !important;
+    min-height: 100vh !important;
+  }
+
+  .content {
+    padding: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+
+  .container {
+    padding: 0 !important;
+    height: auto !important;
+  }
+
+  .wrap {
+    padding: 3px;
+    gap: 5px;
+    height: auto;
+    overflow-y: visible;
+  }
+
+  .card {
+    padding: 6px;
+  }
+
+  .today {
+    padding: 6px;
+  }
+
+  .todayBody {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .aside {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .todayLeft {
+    justify-content: center;
+  }
+
+  .todayLeft .icon {
+    font-size: 42px;
+  }
+
+  .todayLeft .temp {
+    font-size: 36px;
+  }
+
+  .todayFoot {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .miniStat {
+    padding: 6px 8px;
+  }
+
+  .miniStat .lbl {
+    font-size: 10px;
+  }
+
+  .miniStat .val {
+    font-size: 15px;
+  }
+
+  .p72-right {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .kpi {
+    padding: 6px;
+    flex-direction: row;
+    justify-content: center;
+    gap: 4px;
+    font-size: 10px;
+  }
+
+  .kpi b {
+    font-size: 12px;
+  }
+
+  .rightInfo {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  table.mini {
+    font-size: 9px;
+  }
+
+  table.mini thead,
+  table.mini tbody {
+    min-width: 400px;
+  }
+
+  table.mini th,
+  table.mini td {
+    padding: 4px 5px;
+  }
+
+  .recCard {
+    padding: 6px;
+    gap: 5px;
+  }
+
+  .recIcon {
+    font-size: 15px;
+  }
+
+  .recText {
+    font-size: 10px;
+  }
+
+  .hint {
+    width: 13px;
+    height: 13px;
+  }
+
+  .hint::before {
+    font-size: 9px;
+  }
+
+  .hint::after {
+    min-width: 160px;
+    max-width: calc(100vw - 30px);
+    font-size: 9px;
+    padding: 5px 7px;
+  }
+}
+
 /* Recommendations */
 .recCard{
   display:flex; gap:10px; align-items:flex-start;
@@ -119,8 +580,6 @@ table.mini td.date { font-weight:600; color:#374151; background:#f8fafc; }
 .xAxis{position:absolute;left:28px;right:8px;bottom:0;height:16px;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:#475569}
 .gridLayer{position:absolute;left:28px;right:8px;top:6px;bottom:18px}
 .gridLayer .g{position:absolute;left:0;right:0;height:1px;background:#e5e7eb}
-
-@media (max-width:980px){ .p72{grid-template-columns:1fr} }
 
 /* Badges + hint bubbles */
 .recHead{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }

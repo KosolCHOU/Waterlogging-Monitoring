@@ -1,5 +1,6 @@
 {% block head %}
 {% load static %}
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="{% static 'css/auth.css' %}">
 {% endblock %}
 
@@ -21,9 +22,6 @@
     <p class="subtitle">Sign in to see your saved fields, alerts, and water-risk analytics.</p>
 
     {% csrf_token %}
-    {% if form.non_field_errors %}
-      <div class="error" role="alert">{{ form.non_field_errors }}</div>
-    {% endif %}
 
     {% if messages %}
       <div class="messages">
@@ -45,25 +43,28 @@
         {% if form.username.errors %}
           <div class="field-error">🌱 Username is required — it’s how we connect you to your fields.</div>
         {% else %}
-          <div class="hint">Use the username you registered with CropXcel.</div>
+          <div class="hint">Enter your CropXcel username.</div>
         {% endif %}
       </div>
 
       <!-- Password -->
       <div class="field">
-        <div class="row-between">
-          <label for="{{ form.password.id_for_label }}">Password</label>
-          <a class="btn-quiet" href="{% url 'password_reset' %}" style="font-weight:700">Forgot?</a>
-        </div>
+        <label for="{{ form.password.id_for_label }}">Password</label>
         <div class="input-wrap">
           {{ form.password }}
           <button type="button" class="toggle-eye" aria-label="Show password" title="Show/Hide">👁️</button>
+        </div>
+        <div class="forgot-wrap">
+          <a class="btn-quiet forgot-link" href="{% url 'password_reset' %}">Forgot?</a>
         </div>
         <div class="hint" id="capsWarn" style="display:none;">Caps Lock is ON — passwords are case-sensitive.</div>
         {% if form.password.errors %}
           <div class="field-error">🔒 Password is required — it keeps your farm data safe.</div>
         {% endif %}
       </div>
+      {% if form.non_field_errors %}
+        <div class="error non-field-error" role="alert">{{ form.non_field_errors }}</div>
+      {% endif %}
     </div>
 
     {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}

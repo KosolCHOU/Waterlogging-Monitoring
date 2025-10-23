@@ -1,0 +1,14 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,status,severity_0_100,confidence_0_1,reasons,actions
+2025-06-29,0.005519,0.053756,-4.729674,-2.485536,0.116989,-0.057394,,Watch,59,0.7000000000000001,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-11,0.008541,0.091662,1.168587,2.645049,0.110698,-0.036259,,Healthy,14,0.6,"VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",All good. Keep routine checks.
+2025-07-17,0.00991,0.100898,2.326704,2.913193,0.121498,-0.009312,,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-07-29,0.013752,0.121825,3.827982,3.459227,0.127829,0.010448,,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-10,0.016099,0.074735,3.865022,0.191983,0.243788,0.135344,,Healthy,0,0.5,Signals normal vs baseline,All good. Keep routine checks.
+2025-08-16,0.015679,0.082272,2.624113,-0.068443,0.205541,0.092816,,Healthy,1,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-28,0.015492,0.110739,1.151797,0.98926,0.153137,0.012218,,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-09,0.01487,0.10463,0.28824,0.46062,0.160879,0.004944,,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-15,0.014726,0.104508,-0.182537,0.013013,0.170402,0.010745,,Healthy,4,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-27,0.014775,0.101013,-0.290608,-0.031765,0.173505,0.006501,,Healthy,6,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-10-09,0.014962,0.098998,-0.049874,-0.165883,0.180732,0.021596,,Healthy,3,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-10-15,0.016092,0.099145,0.395269,-0.757918,0.239191,0.085338,,Healthy,11,0.5,Signals normal vs baseline,All good. Keep routine checks.
+2025-10-21,0.016641,0.098732,0.507163,-0.715943,0.240492,0.088135,,Healthy,11,0.5,Signals normal vs baseline,All good. Keep routine checks.

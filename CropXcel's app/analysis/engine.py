@@ -92,6 +92,7 @@ def export_stack_from_geom(
     base_days: int = 45,
     gap_days: int = 5,
     end_date: str | None = None,   # ISO 'YYYY-MM-DD' (defaults to yesterday)
+    tz: str = "Asia/Phnom_Penh",
 ) -> str:
     """
     Export Sentinel-1 stack for given AOI geometry.
@@ -117,24 +118,31 @@ def export_stack_from_geom(
     s1_search = load_s1_ic(search_start, search_end.advance(1, 'day'), geom, orbit_pass)
     
     # Get the actual end date from the most recent satellite pass
+    latest_ms = None
     try:
         times_list = s1_search.aggregate_array('system:time_start').getInfo()
         if times_list and len(times_list) > 0:
             # Use the most recent satellite acquisition as the actual end date
             latest_ms = max(times_list)
             actual_end = ee.Date(latest_ms)
-            ACTUAL_END = actual_end.format('YYYY-MM-dd').getInfo()
-            print(f"[INFO] Using actual satellite acquisition date: {ACTUAL_END}")
+            ACTUAL_END_UTC = actual_end.format('YYYY-MM-dd').getInfo()
+            ACTUAL_END_LOCAL = actual_end.format('YYYY-MM-dd', tz).getInfo()
+            ACTUAL_END = ACTUAL_END_LOCAL
+            print(f"[INFO] Using actual satellite acquisition date: {ACTUAL_END_LOCAL} ({ACTUAL_END_UTC} UTC)")
         else:
             # Fallback to theoretical date if no satellite data found
             actual_end = search_end
-            ACTUAL_END = INITIAL_END
-            print(f"[WARN] No satellite data found, using theoretical date: {ACTUAL_END}")
+            ACTUAL_END_UTC = actual_end.format('YYYY-MM-dd').getInfo()
+            ACTUAL_END_LOCAL = actual_end.format('YYYY-MM-dd', tz).getInfo()
+            ACTUAL_END = ACTUAL_END_LOCAL
+            print(f"[WARN] No satellite data found, using theoretical date: {ACTUAL_END_LOCAL} ({ACTUAL_END_UTC} UTC)")
     except Exception as e:
         # Fallback to theoretical date if query fails
         actual_end = search_end
-        ACTUAL_END = INITIAL_END
-        print(f"[WARN] Failed to get actual satellite dates ({e}), using theoretical date: {ACTUAL_END}")
+        ACTUAL_END_UTC = actual_end.format('YYYY-MM-dd').getInfo()
+        ACTUAL_END_LOCAL = actual_end.format('YYYY-MM-dd', tz).getInfo()
+        ACTUAL_END = ACTUAL_END_LOCAL
+        print(f"[WARN] Failed to get actual satellite dates ({e}), using theoretical date: {ACTUAL_END_LOCAL} ({ACTUAL_END_UTC} UTC)")
 
     # Recalculate time windows based on actual satellite acquisition date
     end   = actual_end
@@ -205,19 +213,27 @@ def export_stack_from_geom(
 
     meta = {
         "end": ACTUAL_END,
+        "end_utc": ACTUAL_END_UTC,
         "theoretical_end": INITIAL_END,
         "event_days": int(event_days),
         "base_days": int(base_days),
         "gap_days": int(gap_days),
-        "event_start": evt_s.format('YYYY-MM-dd').getInfo(),
-        "event_end": evt_e.format('YYYY-MM-dd').getInfo(),
-        "base_start": base_s.format('YYYY-MM-dd').getInfo(),
-        "base_end": base_e.format('YYYY-MM-dd').getInfo(),
+        "event_start": evt_s.format('YYYY-MM-dd', tz).getInfo(),
+        "event_end": evt_e.format('YYYY-MM-dd', tz).getInfo(),
+        "event_start_utc": evt_s.format('YYYY-MM-dd').getInfo(),
+        "event_end_utc": evt_e.format('YYYY-MM-dd').getInfo(),
+        "base_start": base_s.format('YYYY-MM-dd', tz).getInfo(),
+        "base_end": base_e.format('YYYY-MM-dd', tz).getInfo(),
+        "base_start_utc": base_s.format('YYYY-MM-dd').getInfo(),
+        "base_end_utc": base_e.format('YYYY-MM-dd').getInfo(),
         "orbit_pass": orbit_pass,
         "event_count": evt_ct,
         "base_count": base_ct,
         "uses_actual_satellite_date": True,
-        "date_synchronization": "aligned_with_timeseries"
+        "date_synchronization": "aligned_with_timeseries",
+        "acq_ms": int(latest_ms) if latest_ms is not None else None,
+        "acq_local": ACTUAL_END_LOCAL,
+        "acq_utc": ACTUAL_END_UTC,
     }
     try:
         with open(str(out_tif) + ".meta.json", "w", encoding="utf-8") as f:

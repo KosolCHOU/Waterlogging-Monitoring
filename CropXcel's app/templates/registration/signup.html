@@ -1,74 +1,132 @@
 {% block head %}
 {% load static %}
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="{% static 'css/auth.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="login-wrap">
-  <form method="post" class="auth-card" novalidate>
+{% if not form.errors %}
+<div class="intro-screen" aria-labelledby="signup-welcome-title" role="dialog" aria-modal="true">
+  <div class="sprout-logo" role="img" aria-label="Sprout icon">🌱</div>
+  <h2 id="signup-welcome-title">Welcome to CropXcel!</h2>
+  <p>Let’s help your farm thrive with smarter water and crop insights.</p>
+  <button type="button" class="btn btn-primary" id="start-signup">Start</button>
+  <p class="intro-note">Two friendly steps — you’ll be looking at smarter insights in no time.</p>
+</div>
+{% endif %}
+
+<div class="login-wrap{% if not form.errors %} is-hidden{% else %} fade-in{% endif %}" data-signup-container>
+  <form method="post" class="auth-card signup-card" novalidate aria-live="polite">
     <div class="ribbon" aria-hidden="true"></div>
 
     <!-- Sprout icon -->
     <svg class="sprout" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-      <path d="M33 46v-9" stroke="#16a34a" stroke-width="3" stroke-linecap="round"/>
-      <path d="M33 37c0-8 5-15 15-16 0 9-7 16-15 16Z" fill="#22c55e" opacity=".95"/>
-      <path d="M31 39c-7 0-13-6-14-13 7 1 13 7 14 13Z" fill="#86efac" opacity=".95"/>
-      <circle cx="32" cy="46" r="3" fill="#0ea5e9"/>
-      <path d="M10 52c7-5 15-5 22 0 7-5 15-5 22 0" stroke="#94a3b8" stroke-width="2" opacity=".5" stroke-linecap="round"/>
+      <path d="M33 46v-9" stroke="#16a34a" stroke-width="3" stroke-linecap="round"></path>
+      <path d="M33 37c0-8 5-15 15-16 0 9-7 16-15 16Z" fill="#22c55e" opacity=".95"></path>
+      <path d="M31 39c-7 0-13-6-14-13 7 1 13 7 14 13Z" fill="#86efac" opacity=".95"></path>
+      <circle cx="32" cy="46" r="3" fill="#0ea5e9"></circle>
+      <path d="M10 52c7-5 15-5 22 0 7-5 15-5 22 0" stroke="#94a3b8" stroke-width="2" opacity=".5" stroke-linecap="round"></path>
     </svg>
 
     <div class="welcome-msg">
       🌱 Welcome to CropXcel! Smarter water alerts, healthier rice, and higher yields — all in one place.
     </div>
-    <p class="subtitle">It only takes a minute to sign up and unlock personalized tools for your fields.</p>
     <h1 class="title">Create your account</h1>
+    <p class="subtitle comfy">We’ll guide you through two relaxed steps to personalise your farming insights.</p>
 
-    {% csrf_token %}
-    <div class="form-grid">
-      <div class="field">
-        <label>Username</label>
-        <div class="input-wrap">{{ form.username }}</div>
-        {% if form.username.errors %}
-          <div class="field-error">🌱 Please enter a username — it’s required.</div>
-        {% endif %}
+    <div class="progress-bar" aria-label="Signup progress" role="list">
+      <div class="step active" data-step="1" role="listitem">
+        <span class="step-number">1</span>
+        <span class="step-label">Account</span>
       </div>
-
-      <div class="field">
-        <label>Password</label>
-        <div class="input-wrap">
-          {{ form.password1 }}
-          <button type="button" class="toggle-eye" aria-label="Show/Hide password">👁️</button>
-        </div>
-        {% if form.password1.errors %}
-          <div class="field-error">🔒 Password must be at least 8 characters.</div>
-        {% endif %}
-      </div>
-
-      <div class="field">
-        <label>Confirm password</label>
-        <div class="input-wrap">
-          {{ form.password2 }}
-          <button type="button" class="toggle-eye" aria-label="Show/Hide password">👁️</button>
-        </div>
-        {% if form.password2.errors %}
-          <div class="field-error">✍️ Your confirmation doesn’t match the password.</div>
-        {% endif %}
+      <div class="line" data-progress-line aria-hidden="true"></div>
+      <div class="step" data-step="2" role="listitem">
+        <span class="step-number">2</span>
+        <span class="step-label">Profile</span>
       </div>
     </div>
 
-    <details {% if form.errors %}open{% endif %} style="margin-top:12px">
-      <summary>More details (optional)</summary>
-      <div class="form-grid" style="margin-top:10px">
-        <div class="field"><label>Full name</label>{{ form.full_name }}</div>
-        <div class="field"><label>Phone</label>{{ form.phone }}</div>
-        <div class="field"><label>Date of birth</label>{{ form.date_of_birth }}</div>
-        <div class="field"><label>Main crop</label>{{ form.main_crop }}</div>
-        <div class="field"><label>Province</label>{{ form.province }}</div>
-      </div>
-    </details>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="field-error non-field-error">{{ form.non_field_errors }}</div>
+    {% endif %}
 
-    <div class="cta">
-      <button class="btn btn-primary" type="submit">🌱 Create account</button>
+    <!-- STEP 1 -->
+    <div class="step-content" data-step="1">
+      <div class="form-grid">
+        <div class="field">
+          <label for="{{ form.username.id_for_label }}">Username</label>
+          <div class="input-wrap">{{ form.username }}</div>
+          {% if form.username.errors %}
+            <div class="field-error">🌱 Please enter a username — it’s required.</div>
+          {% else %}
+            <div class="hint">Choose something memorable — you’ll use it each time you sign in.</div>
+          {% endif %}
+        </div>
+
+        <div class="field">
+          <label for="{{ form.password1.id_for_label }}">Password</label>
+          <div class="input-wrap">
+            {{ form.password1 }}
+            <button type="button" class="toggle-eye" aria-label="Show or hide password">👁️</button>
+          </div>
+          {% if form.password1.errors %}
+            <div class="field-error">🔒 Password must be at least 8 characters.</div>
+          {% else %}
+            <div class="hint">Keep your account safe with a strong password.</div>
+          {% endif %}
+        </div>
+
+        <div class="field">
+          <label for="{{ form.password2.id_for_label }}">Confirm password</label>
+          <div class="input-wrap">
+            {{ form.password2 }}
+            <button type="button" class="toggle-eye" aria-label="Show or hide password confirmation">👁️</button>
+          </div>
+          {% if form.password2.errors %}
+            <div class="field-error">✍️ Your confirmation doesn’t match the password.</div>
+          {% else %}
+            <div class="hint">Just double-checking so we know it’s correct.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="cta step-actions">
+        <button type="button" class="btn btn-primary" id="next-btn">Continue</button>
+        <div class="hint step-hint" id="step1-hint" aria-live="polite">Add a username plus matching passwords (minimum 8 characters) before continuing.</div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step-content" data-step="2">
+      <p class="subtitle step-subtitle">These details are optional, but they help us tailor alerts to your fields.</p>
+      <div class="form-grid profile-grid">
+        <div class="field">
+          <label for="{{ form.full_name.id_for_label }}">Full name</label>
+          <div class="input-wrap">{{ form.full_name }}</div>
+        </div>
+        <div class="field">
+          <label for="{{ form.phone.id_for_label }}">Phone</label>
+          <div class="input-wrap">{{ form.phone }}</div>
+        </div>
+        <div class="field">
+          <label for="{{ form.date_of_birth.id_for_label }}">Date of birth</label>
+          <div class="input-wrap">{{ form.date_of_birth }}</div>
+        </div>
+        <div class="field">
+          <label for="{{ form.main_crop.id_for_label }}">Main crop</label>
+          <div class="input-wrap">{{ form.main_crop }}</div>
+        </div>
+        <div class="field">
+          <label for="{{ form.province.id_for_label }}">Province</label>
+          <div class="input-wrap">{{ form.province }}</div>
+        </div>
+      </div>
+
+      <div class="cta step-actions dual">
+        <button type="button" class="btn btn-secondary" id="back-btn">← Back</button>
+        <button class="btn btn-primary" type="submit">🌱 Create account</button>
+      </div>
     </div>
 
     <div class="help">Already have one? <a href="{% url 'login' %}">Sign in</a></div>

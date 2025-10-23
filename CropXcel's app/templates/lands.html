@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <link rel="stylesheet" href="{% static 'css/lands.css' %}?v=20240930b">
+  <link rel="stylesheet" href="{% static 'css/lands.css' %}?v=20251021b">
 {% endblock %}
 
 {% block content %}
@@ -45,7 +45,7 @@
       data-save-url="{% url 'aoi_upload' %}">
     <div class="drawer-head">
       <b>Add field</b>
-      <button id="closeDrawer" class="btn">Close</button>
+      <button id="closeDrawer" class="btn close-btn">✕ Close</button>
     </div>
     <div class="drawer-body">
       <div class="card map-card" style="position:relative">

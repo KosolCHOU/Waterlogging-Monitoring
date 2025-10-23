@@ -1,0 +1,14 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,status,severity_0_100,confidence_0_1,reasons,actions
+2025-06-29,0.004936,0.059654,-5.053288,-1.453176,0.094249,-0.104231,,Watch,59,0.7000000000000001,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-11,0.007182,0.091775,-0.167521,1.984767,0.089138,-0.053178,,Watch,17,0.6,"VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-17,0.008082,0.103355,1.420143,2.35794,0.090262,-0.016477,,Healthy,14,0.6,"VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",All good. Keep routine checks.
+2025-07-29,0.013025,0.123601,3.721301,3.021616,0.115555,0.020563,,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-10,0.016141,0.073918,4.378867,-0.307537,0.252168,0.166471,,Healthy,5,0.5,Signals normal vs baseline,All good. Keep routine checks.
+2025-08-16,0.014434,0.094335,2.768505,0.218649,0.173891,0.080921,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-28,0.015032,0.125448,1.46189,1.454986,0.136537,0.005936,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-09,0.014998,0.109256,0.743915,0.321522,0.15988,0.02381,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-15,0.014115,0.101027,-0.292907,-0.502227,0.168569,0.020866,,Healthy,33,0.65,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-27,0.013514,0.09101,-0.699594,-0.773781,0.176375,0.016657,,Watch,46,0.55,"VH slightly lower vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-10-09,0.01346,0.088661,-0.410289,-1.194906,0.208308,0.056881,,Watch,23,0.6,"VV logΔ ≤ -1.0 dB, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-10-15,0.013093,0.067845,-0.41779,-2.881923,0.306427,0.161465,,Watch,43,0.7,"VV logΔ ≤ -1.0 dB, VH ≤ -18.0 dB, VV logΔ low & smooth",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-10-21,0.013286,0.067052,-0.303405,-2.730969,0.304616,0.157481,,Watch,21,0.6,"VV logΔ ≤ -1.0 dB, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.

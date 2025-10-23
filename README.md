@@ -49,6 +49,10 @@ CropXcel provides **early warning systems for Cambodian farmers** to combat wate
    git clone https://github.com/KosolCHOU/Waterlogging-Monitoring.git
    cd Waterlogging-Monitoring/CropXcel's app
    ```
+2. **Activate Environment**
+   ```bash
+   source '~/Waterlogging-Monitoring/.venv/bin/activate'
+   ```
 2. **Install dependencies:**
    ```bash
    pip install -r requirements.txt

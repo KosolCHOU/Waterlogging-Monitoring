@@ -1,0 +1,13 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,status,severity_0_100,confidence_0_1,reasons,actions
+2025-06-29,0.008897,0.107482,-2.214484,-0.383051,0.09291,-0.042226,-1.1321625208860038,Watch,50,0.65,"VH logΔ ≤ -1.5 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-11,0.009942,0.092092,0.674066,0.168558,0.11572,0.012671,-0.10618674364757429,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-07-23,0.011918,0.09235,2.322667,0.234529,0.150303,0.064268,0.47937510999215904,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-07-29,0.014114,0.100353,2.728298,0.378782,0.191127,0.095561,0.6234500197209163,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-10,0.017941,0.073955,2.925359,-0.82177,0.278441,0.160813,0.6934435502599001,Healthy,12,0.5,Signals normal vs baseline,All good. Keep routine checks.
+2025-08-22,0.014089,0.087955,0.980714,-0.336505,0.182139,0.0456,0.0027306786364816515,Healthy,25,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-28,0.010922,0.089164,-1.43078,-0.32383,0.140598,-0.027408,-0.8538009482890723,Watch,67,0.6,"VH slightly lower vs base, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-09,0.009283,0.095502,-2.789495,-0.122117,0.110524,-0.072648,-1.3363990262764753,Watch,66,0.75,"VH logΔ ≤ -1.5 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-21,0.00876,0.133484,-2.547087,2.021563,0.076101,-0.116014,-1.2502988250652054,Watch,44,0.65,"VH logΔ ≤ -1.5 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-27,0.010695,0.158046,-0.749003,2.521945,0.083031,-0.073489,-0.6116425340403023,Watch,29,0.7,"VH slightly lower vs base, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-10-09,0.012736,0.146404,0.973026,1.554041,0.103533,-0.007101,0.0,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-10-21,0.017252,0.115503,3.003418,-0.186918,0.190531,0.103655,0.7211691022480792,Healthy,3,0.5,Signals normal vs baseline,All good. Keep routine checks.

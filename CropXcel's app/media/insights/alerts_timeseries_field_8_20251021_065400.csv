@@ -1,0 +1,2 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,severity_0_100,confidence_0_1,status,reasons,actions
+2025-09-27,0.009682,0.065677,-2.706718,-1.192587,0.165567,-0.041011,,79,0.8,Alert,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB, VV logΔ low & smooth",Check field now. Drain standing water if possible (open outlets/pump).

@@ -894,6 +894,27 @@ def build_scale_data(
         })
     return rows
 
+def _is_dark_color(hex_color: Optional[str]) -> bool:
+    """Return True when the given hex color is visually dark."""
+    if not hex_color:
+        return False
+    s = str(hex_color).strip()
+    if s.startswith("#"):
+        s = s[1:]
+    if len(s) == 3:
+        s = "".join(ch * 2 for ch in s)
+    if len(s) != 6:
+        return False
+    try:
+        r = int(s[0:2], 16)
+        g = int(s[2:4], 16)
+        b = int(s[4:6], 16)
+    except ValueError:
+        return False
+    brightness = 0.299 * r + 0.587 * g + 0.114 * b
+    return brightness < 150
+
+
 def render_legend_rows(scale_data: List[Dict]) -> str:
     return "\n".join([
         f"""<div class="legrow" data-k="{d['k']}" data-ha="{d['ha']:.2f}"
@@ -901,6 +922,7 @@ def render_legend_rows(scale_data: List[Dict]) -> str:
               <span class="bubble" aria-hidden="true"></span>
               <span class="lg-name">{d['label']}</span>
               <div class="lg-bar" role="progressbar" aria-label="{d['label']} share"
+                   data-dark-fill="{str(_is_dark_color(d['color'])).lower()}"
                    aria-valuemin="0" aria-valuemax="100" aria-valuenow="{d['pct']:.1f}">
                 <span class="fill"></span>
                 <span class="bar-text">{d['ha']:.2f} ha</span>

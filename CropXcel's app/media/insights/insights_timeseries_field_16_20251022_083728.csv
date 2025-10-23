@@ -1,0 +1,13 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,status,severity_0_100,confidence_0_1,reasons,actions
+2025-06-29,0.00735,0.106167,-3.469326,-1.33407,0.078737,-0.034378,,Watch,59,0.7000000000000001,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-11,0.011004,0.137413,0.747597,1.07176,0.090755,-0.003435,,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-07-23,0.017046,0.140881,4.287079,1.50804,0.149111,0.06992,,Healthy,0,0.5,Signals normal vs baseline,All good. Keep routine checks.
+2025-07-29,0.018645,0.122417,3.773418,0.011805,0.189975,0.108621,,Healthy,20,0.5,Signals normal vs baseline,All good. Keep routine checks.
+2025-08-10,0.018327,0.081622,2.445379,-1.60864,0.244923,0.145725,,Watch,15,0.55,VV logΔ ≤ -1.0 dB,Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-08-22,0.014797,0.080236,-0.178453,-1.983131,0.196097,0.073821,,Watch,19,0.6,"VV logΔ ≤ -1.0 dB, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-08-28,0.012267,0.094786,-1.839407,-0.886012,0.152231,-0.002456,,Watch,63,0.7,"VH logΔ ≤ -1.5 dB, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-09,0.009995,0.104827,-3.032584,-0.224592,0.104845,-0.071672,,Watch,47,0.75,"VH logΔ ≤ -1.5 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-21,0.011448,0.140483,-1.758854,1.674925,0.09404,-0.084563,,Watch,44,0.75,"VH logΔ ≤ -1.5 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-09-27,0.013824,0.165444,0.257046,2.608407,0.103811,-0.052648,,Healthy,14,0.6,"VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",All good. Keep routine checks.
+2025-10-09,0.01724,0.17291,2.021958,2.36727,0.128442,0.000483,,Healthy,0,0.5,Signals normal vs baseline,All good. Keep routine checks.
+2025-10-21,0.022744,0.158446,3.480108,1.173628,0.184907,0.080069,,Healthy,0,0.5,Signals normal vs baseline,All good. Keep routine checks.

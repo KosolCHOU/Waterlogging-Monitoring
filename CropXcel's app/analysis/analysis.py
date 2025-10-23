@@ -47,22 +47,49 @@ def _pct_stretch(a, pmin=2, pmax=98):
     return np.clip((a - lo) / (hi - lo), 0, 1).astype("float32")
 
 def _risk_palette():
-    # green → yellow → orange → red
-    return mcolors.ListedColormap(
-        ["#006400","#2a8a2a","#7bdc46","#ffff66","#ffc04d","#ff8a4d","#ff5233","#b51212"]
+    """Bright agronomic palette tuned for Healthy→Watch→Alert."""
+    return mcolors.LinearSegmentedColormap.from_list(
+        "cropxcel_risk",
+        [
+            (0.00, "#005e0d"),   # deep green
+            (0.25, "#3ecf5c"),   # vibrant healthy
+            (0.45, "#f7eb4d"),   # caution yellow
+            (0.65, "#ff9e1b"),   # watch orange
+            (0.85, "#ff5131"),   # alert red
+            (1.00, "#b80026"),   # critical crimson
+        ],
+        N=512
     )
 
-def _save_png01(arr01, out_png):
-    rgba = cm.ScalarMappable(norm=mcolors.Normalize(0,1), cmap=_risk_palette()).to_rgba(arr01, bytes=True)
-    rgba[~np.isfinite(arr01), 3] = 0
-    imageio.imwrite(out_png, rgba)
+def _save_png01(arr01, out_png, alpha: float = 0.78):
+    """Persist risk grid to PNG with partial transparency and subtle relief."""
+    data = np.nan_to_num(arr01.astype("float32"), nan=0.0, posinf=0.0, neginf=0.0)
+    data = np.clip(data, 0.0, 1.0)
+
+    mapper = cm.ScalarMappable(norm=mcolors.Normalize(0, 1), cmap=_risk_palette())
+    rgba = mapper.to_rgba(data, bytes=True).astype("float32")
+
+    # Edge shading to accentuate transitions without new deps
+    grad_y, grad_x = np.gradient(data)
+    edges = np.sqrt(grad_x**2 + grad_y**2)
+    max_edge = float(np.nanmax(edges)) if np.isfinite(edges).any() else 0.0
+    if max_edge > 0:
+        shading = 1.0 - ((edges / max_edge) * 0.45)  # darken where gradient is high
+        rgba[..., :3] *= shading[..., None]
+
+    mask = ~np.isfinite(arr01)
+    rgba[mask, 3] = 0.0
+    rgba[~mask, 3] = np.clip(rgba[~mask, 3] * alpha, 0, 255)
+
+    rgba_uint8 = np.ascontiguousarray(np.clip(rgba, 0, 255).round().astype("uint8"))
+    imageio.imwrite(out_png, rgba_uint8)
 
 # ---- main API (called by your tasks/view) ------------------------------------
 def run_analysis_from_notebook(
     aoi_geojson: dict,
     *,
     stack_tif_path: str | Path,     # ← path to the exported S1 stack (your notebook export)
-    max_web_width: int = 4000,      # downsample for web
+    max_web_width: int = 8000,      # allow finer detail before downsampling
 ) -> dict:
     """
     Returns:
@@ -120,9 +147,10 @@ def run_analysis_from_notebook(
             dst_nodata=np.nan, resampling=Resampling.bilinear
         )
 
+    # Only downsample very large rasters; keep most native detail.
     if dst_w > max_web_width:
         scale = max_web_width / float(dst_w)
-        web_w, web_h = max_web_width, max(1, int(round(dst_h*scale)))
+        web_w, web_h = max_web_width, max(1, int(round(dst_h * scale)))
     else:
         web_w, web_h = dst_w, dst_h
 
@@ -132,7 +160,7 @@ def run_analysis_from_notebook(
         risk4326, risk_web,
         src_transform=dst_tr, src_crs=dst_crs,
         dst_transform=web_tr, dst_crs=dst_crs,
-        dst_nodata=np.nan, resampling=Resampling.max
+        dst_nodata=np.nan, resampling=Resampling.bilinear
     )
 
     # Build a proper profile for the web grid (EPSG:4326, float32, nodata)
@@ -170,17 +198,30 @@ def run_analysis_from_notebook(
 
     ov_dir = Path("media") / "overlays"
     ov_dir.mkdir(parents=True, exist_ok=True)
+    # Emphasize dynamic range for visualization while keeping data in 0..1
+    risk_view = np.clip(risk_web, 0.0, 1.0).astype("float32")
+    finite_mask = np.isfinite(risk_view)
+    if finite_mask.any():
+        rv_min = float(risk_view[finite_mask].min())
+        rv_max = float(risk_view[finite_mask].max())
+    else:
+        rv_min, rv_max = 0.0, 0.0
+    if rv_max > rv_min:
+        # Gentle gamma + contrast lift to match agronomic palettes
+        normalized = (risk_view - rv_min) / (rv_max - rv_min + 1e-6)
+        risk_view = np.power(np.clip(normalized, 0, 1), 0.85)
+
     risk_tif_abs = ov_dir / risk_name
 
     with rasterio.open(str(risk_tif_abs), "w", **profile_web) as dst:
-        dst.write(np.nan_to_num(risk_web, nan=-9999.0).astype("float32"), 1)
+        dst.write(np.nan_to_num(risk_view, nan=-9999.0).astype("float32"), 1)
 
     risk_tif_url = f"/media/overlays/{risk_name}"
 
     # --- 4) Save one overlay PNG (no legend; clean for Leaflet ImageOverlay)
     tag = uuid.uuid4().hex[:8]
     out_png = OVER_DIR / f"risk_{tag}.png"
-    _save_png01(risk_web, str(out_png))
+    _save_png01(risk_view, str(out_png))
 
     # --- 4b) Save a compact client-side probe (risk_web -> Uint16 + meta)
     PROBE_DIR = MEDIA_ROOT / "probes"
@@ -278,4 +319,3 @@ def run_analysis_from_notebook(
         "risk_tif_path": str(risk_tif_abs),
         "risk_tif_url": risk_tif_url,
     }
-

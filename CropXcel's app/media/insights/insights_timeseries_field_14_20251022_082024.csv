@@ -1,0 +1,13 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,status,severity_0_100,confidence_0_1,reasons,actions
+2025-06-29,0.003989,0.051017,-5.898129,-2.454573,0.092658,-0.08142,,Watch,59,0.7000000000000001,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-11,0.005771,0.078096,-1.81012,0.542979,0.086526,-0.059587,,Watch,44,0.65,"VH logΔ ≤ -1.5 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-23,0.008265,0.100414,2.093875,2.45977,0.090262,-0.011545,,Healthy,14,0.6,"VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",All good. Keep routine checks.
+2025-07-29,0.011577,0.111235,3.787155,2.772118,0.116559,0.024308,,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-10,0.0154,0.057261,4.600582,-1.046476,0.317841,0.230842,,Watch,15,0.6,"VV logΔ ≤ -1.0 dB, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-08-22,0.013371,0.095282,2.763986,0.623249,0.166964,0.071508,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-28,0.013675,0.11149,1.528728,1.763412,0.145229,0.004781,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-09,0.013443,0.101028,0.455392,0.463646,0.152843,0.008495,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-21,0.012854,0.104305,-0.456987,0.188736,0.151945,-0.00601,,Healthy,29,0.65,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-27,0.013321,0.105102,-0.488653,0.235104,0.161464,-0.009203,,Healthy,30,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-10-09,0.013072,0.085875,-0.194088,-0.997389,0.200748,0.049595,,Healthy,19,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-10-21,0.011973,0.056404,-0.513138,-3.676612,0.342523,0.199889,,Watch,45,0.6,"VH slightly lower vs base, VV logΔ ≤ -1.0 dB, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.

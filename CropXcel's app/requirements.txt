@@ -1,6 +1,7 @@
 # Core Django
 Django>=4.2,<5.0
 django-environ>=0.10.0
+djangorestframework>=3.14.0
 
 # Database
 psycopg2-binary>=2.9.0  # PostgreSQL adapter (remove if using SQLite)
@@ -15,6 +16,8 @@ shapely>=2.0.0
 pyproj>=3.4.0
 folium>=0.14.0
 geemap>=0.20.0
+imageio>=2.26.0
+scikit-image>=0.21.0
 
 # Scientific Computing & Data Analysis
 numpy==2.2.6
@@ -23,6 +26,7 @@ scipy>=1.9.0
 scikit-learn>=1.2.0
 matplotlib==3.10.5
 seaborn>=0.12.0
+statsmodels>=0.14.0
 
 # Image Processing
 Pillow==11.3.0

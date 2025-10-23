@@ -2,7 +2,7 @@
 
 body { margin:0; background:var(--bg); font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:var(--text); }
 
-.shell { max-width:1200px; margin:16px auto; padding:0 16px; }
+.shell { max-width:1200px; margin:16px auto; padding:0 16px; display:flex; flex-direction:column; gap:16px; min-height:0; }
 .crumbs { font-size:12px; color:var(--muted); margin-bottom:8px; }
 .titlebar { display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .title { font-size:28px; margin:0; color:#065f46; font-weight:800; }
@@ -134,6 +134,50 @@ body { margin:0; background:var(--bg); font-family:system-ui,-apple-system,"Sego
 .drawer-head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid #eef2f7; flex:0 0 auto; }
 .drawer-body { padding:12px 16px; overflow:auto; height:calc(100vh - 56px); }
 
+/* Beautiful Modern Close Button */
+.close-btn { 
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  padding: 10px 18px !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.25), 0 2px 6px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  letter-spacing: 0.3px !important;
+}
+
+.close-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #475569, #334155);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 10px;
+}
+
+.close-btn:hover::before {
+  opacity: 1;
+}
+
+.close-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 18px rgba(100, 116, 139, 0.35), 0 3px 10px rgba(0, 0, 0, 0.15) !important;
+}
+
+.close-btn:active {
+  transform: translateY(0) !important;
+  transition: all 0.15s ease !important;
+}
+
 .map-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
 .map-head .btn { background:var(--pill); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; }
 
@@ -147,7 +191,21 @@ body { margin:0; background:var(--bg); font-family:system-ui,-apple-system,"Sego
 .save { width:100%; padding:12px; background:var(--accent); border:none; color:#fff; border-radius:12px; font-weight:600; cursor:pointer; }
 
 :root { --header-h:172px; }
-.listwrap { max-height:calc(100vh - var(--header-h)); overflow:auto; padding-bottom:12px; }
+.listwrap { flex:1 1 auto; min-height:0; overflow:auto; padding-bottom:24px; }
+body.lands-page .content {
+  display:flex;
+  flex-direction:column;
+}
+body.lands-page .content .container {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+body.lands-page .shell {
+  flex:1;
+  min-height:0;
+}
 @media (max-width:640px){ 
   :root { --header-h:200px; } 
   

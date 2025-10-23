@@ -102,6 +102,11 @@
       overflow-x: hidden;
     }
 
+    body.lands-page {
+      overflow-y: hidden;
+      height: 100vh;
+    }
+
     *:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
@@ -274,7 +279,24 @@
       margin-top: var(--navbar-height);
       padding: var(--gap-lg) clamp(12px, 2.2vw, 28px);
       display: block;
+      box-sizing: border-box;
       overflow: hidden;
+    }
+
+    @media (min-width: 1024px) {
+      body.profile-page {
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      body.profile-page .content {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
     }
 
     /* Content container */
@@ -431,6 +453,12 @@
         --pad: 12px;
         --gap: 12px;
       }
+
+      /* Allow body to expand beyond viewport */
+      html, body {
+        height: auto;
+        min-height: 100%;
+      }
       
       .navbar {
         padding: 0 var(--gap);
@@ -440,9 +468,11 @@
       .content {
         padding: 16px 12px;
         margin-top: var(--navbar-height-mobile);
-        height: calc(100vh - var(--navbar-height-mobile));
-        max-height: calc(100vh - var(--navbar-height-mobile));
-        overflow: hidden;
+        height: auto;
+        max-height: none;
+        min-height: calc(100vh - var(--navbar-height-mobile));
+        overflow-x: hidden;
+        overflow-y: auto;
       }
       
       .messages {
@@ -461,6 +491,11 @@
 
     /* Small mobile phones */
     @media (max-width: 480px) {
+      html, body {
+        height: auto;
+        min-height: 100%;
+      }
+
       .navbar {
         padding: 0 var(--gap-sm);
       }
@@ -529,7 +564,7 @@
 
   </style>
 </head>
-<body>
+<body class="{% block body_classes %}{% endblock %}{% if request.resolver_match and request.resolver_match.url_name == 'lands' %} lands-page{% endif %}{% if request.resolver_match and request.resolver_match.url_name == 'profile' %} profile-page{% endif %}">
   
   <!-- Top Navigation Bar -->
   <nav class="navbar" id="navbar" role="navigation" aria-label="Main navigation">

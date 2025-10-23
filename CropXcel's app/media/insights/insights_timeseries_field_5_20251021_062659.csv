@@ -1,0 +1,14 @@
+date,S1_VH_CURR,S1_VV_CURR,S1_VH_LOGRATIO_DB,S1_VV_LOGRATIO_DB,S1_VH_VV_CURR,S1_VH_VV_DIFF,zscore,status,severity_0_100,confidence_0_1,reasons,actions
+2025-06-29,0.005345,0.054204,-4.782484,-2.556588,0.113473,-0.054748,,Watch,59,0.7000000000000001,"VH logΔ ≤ -1.5 dB, VV logΔ ≤ -1.0 dB, VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-07-11,0.008488,0.09269,1.41996,2.807019,0.108611,-0.03306,,Healthy,14,0.6,"VH/VV drop ≥ 8% vs base, VH ≤ -18.0 dB",All good. Keep routine checks.
+2025-07-17,0.01,0.101811,2.653525,3.196584,0.118544,-0.009444,,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-07-29,0.013765,0.116676,3.93597,3.030448,0.135542,0.024174,,Healthy,0,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-10,0.015683,0.072045,3.685093,-0.149183,0.250731,0.144671,,Healthy,22,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-16,0.015482,0.083101,2.542439,-0.010352,0.20121,0.087902,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-08-28,0.015269,0.110606,1.103523,1.070689,0.151233,0.008746,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-09,0.01497,0.104899,0.373337,0.610629,0.161378,0.003346,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-15,0.015198,0.107368,0.055637,0.250655,0.170484,0.009945,,Healthy,20,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-09-27,0.014876,0.100675,-0.205204,-0.048048,0.173679,0.006488,,Healthy,25,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-10-09,0.014435,0.095487,-0.245646,-0.542173,0.184221,0.026147,,Healthy,33,0.55,VH ≤ -18.0 dB,All good. Keep routine checks.
+2025-10-15,0.015229,0.091557,-0.042503,-1.310607,0.246489,0.092488,,Watch,16,0.7,"VV logΔ ≤ -1.0 dB, VH ≤ -18.0 dB, VV logΔ low & smooth",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.
+2025-10-21,0.015838,0.09186,0.160726,-1.189361,0.249451,0.096516,,Watch,15,0.6,"VV logΔ ≤ -1.0 dB, VH ≤ -18.0 dB",Monitor next pass (6–12 days). Walk field edges; avoid over-irrigation.

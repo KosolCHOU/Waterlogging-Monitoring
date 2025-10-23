@@ -40,7 +40,7 @@ html, body {
   width: 100vw !important;
   margin: 0 !important;
   padding: 0 !important;
-  background: #f8fafc;
+  background: #eef6f1;
   background-attachment: scroll;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
@@ -48,8 +48,6 @@ html, body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden !important;
-  position: fixed !important;
 }
 
 /* Override the base.html .content wrapper for dashboard page */
@@ -67,17 +65,34 @@ html, body {
   flex-direction: column !important;
 }
 
-/* Desktop gradient background only */
+/* Desktop background and fixed positioning */
 @media (min-width: 769px) {
   html, body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: #eef6f1 !important;
     background-attachment: fixed !important;
     overflow: hidden !important;
     position: fixed !important;
   }
 }
 
-/* Remove body overflow restriction since navbar allows natural scrolling */
+/* Mobile: allow scrolling */
+@media (max-width: 768px) {
+  html, body {
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    position: static !important;
+  }
+  
+  .content {
+    position: static !important;
+    height: auto !important;
+    overflow: visible !important;
+    min-height: 100vh;
+    margin-top: var(--navbar-height-mobile, 56px) !important;
+    padding-top: 0 !important;
+  }
+}
 
 *,
 *::before,
@@ -122,6 +137,23 @@ html, body {
   cursor: pointer; 
   position: relative; 
   overflow: hidden;
+  color: var(--text-primary);
+}
+
+/* Desktop: Black stat cards with white text */
+@media (min-width: 769px) {
+  .stat-card {
+    background: #1e293b !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  }
+  
+  .stat-value {
+    color: #ffffff !important;
+  }
+  
+  .stat-label {
+    color: #cbd5e1 !important;
+  }
 }
 
 .stat-card::before {
@@ -157,6 +189,28 @@ html, body {
   flex-shrink: 0; 
   box-shadow: var(--shadow-md);
   animation: pulse 2s infinite;
+  background: linear-gradient(135deg, #60a5fa, #3b82f6); /* Default blue */
+}
+
+/* Stat icon colors based on content */
+.stat-icon:has(.fa-expand-arrows-alt) {
+  background: linear-gradient(135deg, #3b82f6, #2563eb); /* Blue for field area */
+}
+
+.stat-icon:has(.fa-clock) {
+  background: linear-gradient(135deg, #a78bfa, #8b5cf6); /* Purple for time */
+}
+
+.stat-icon:has(.fa-exclamation-triangle):not(.risk-icon) {
+  background: linear-gradient(135deg, #fb923c, #f97316); /* Orange for alerts */
+}
+
+.stat-icon:has(.fa-satellite) {
+  background: linear-gradient(135deg, #22d3ee, #06b6d4); /* Cyan for satellite */
+}
+
+.stat-icon:has(.fa-leaf) {
+  background: linear-gradient(135deg, #34d399, #10b981); /* Green for field */
 }
 
 @keyframes pulse {
@@ -181,9 +235,9 @@ html, body {
 .stat-value {
   font-size: 20px;
   font-weight: 800;
-  color: var(--text-primary);
   line-height: 1.1;
   margin-bottom: 1px;
+  color: var(--text-primary);
 }
 
 .stat-unit {
@@ -266,13 +320,13 @@ html, body {
 /* Enhanced Dashboard Grid */
 .dash {
   display: grid; 
-  grid-template-columns: 2.2fr 1fr; 
-  gap: 12px; 
-  padding: 8px 12px; 
+  grid-template-columns: 1.6fr 1fr; 
+  gap: 10px; 
+  padding: 8px 16px; 
   flex: 1; /* Take remaining space in flex container */
   min-height: 0; /* Allow flexbox to shrink this element */
   overflow: hidden; /* Prevent dashboard from scrolling */
-  max-width: 100vw;
+  max-width: 100%;
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
   border-radius: 12px;
@@ -306,6 +360,8 @@ html, body {
     overflow: hidden; 
     position: static;
     animation: fadeInScale 1s cubic-bezier(0.4, 0, 0.2, 1);
+    height: calc(100vh - 140px); /* Fixed height to prevent expansion */
+    max-height: calc(100vh - 140px);
   }
   
   html, body {
@@ -381,7 +437,9 @@ html, body {
 
 @media (max-width: 768px) {
   .stats-bar {
-    grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 6px 12px 0;
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 6px; 
+    padding: 6px 12px 0;
   }
   
   .stat-card {
@@ -433,7 +491,8 @@ html, body {
 
 @media (max-width: 480px) {
   .stats-bar {
-    grid-template-columns: 1fr; gap: 6px;
+    grid-template-columns: 1fr; 
+    gap: 6px;
   }
   
   .stat-card {
@@ -509,7 +568,7 @@ html, body {
 }
 
 .mapCard .card-header {
-  padding: 10px 14px; 
+  padding: 8px 12px; 
   background: rgba(255, 255, 255, 0.95); 
   backdrop-filter: blur(10px); 
   border-bottom: 1px solid var(--border); 
@@ -851,9 +910,10 @@ body.map-only .exit-maponly {
   flex-direction: column; 
   gap: 10px; 
   height: 100%; 
-  overflow-y: auto; 
+  max-height: 100%;
+  overflow-y: auto !important; 
   overflow-x: hidden; 
-  padding: 10px 12px; 
+  padding: 12px 14px; 
   position: static;
   background: rgba(255, 255, 255, 0.95);
   border-radius: var(--radius-lg);
@@ -863,6 +923,26 @@ body.map-only .exit-maponly {
   backdrop-filter: blur(15px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   animation: slideInRight 0.8s ease-out;
+}
+
+/* Custom scrollbar for colR */
+.colR::-webkit-scrollbar {
+  width: 8px;
+}
+
+.colR::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.colR::-webkit-scrollbar-thumb {
+  background: rgba(14, 165, 233, 0.3);
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.colR::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 165, 233, 0.5);
 }
 
 @keyframes slideInRight {
@@ -1412,37 +1492,41 @@ th.sortable.asc::after {
 /* Legend */
 .legend {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 4px;
 }
 
 .legrow {
   display: grid;
-  grid-template-columns: auto minmax(80px, auto) minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(50px, auto) minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 10px;
+  column-gap: 12px;
   row-gap: 6px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius-md);
-  background: var(--surface-hover);
+  background: white;
   transition: var(--transition);
-  border-left: 3px solid transparent;
+  border-left: 4px solid var(--c);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  margin-bottom: 8px;
 }
 
 .legrow:hover {
-  background: white;
-  border-left-color: var(--primary);
-  transform: translateX(4px);
-  box-shadow: var(--shadow-sm);
+  background: var(--surface-hover);
+  transform: translateX(2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-left-width: 5px;
 }
 
 .bubble {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--c);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9),
-              0 2px 8px rgba(0, 0, 0, 0.1);
-  animation: pulse 2s infinite;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 1),
+              0 0 0 4px var(--c),
+              0 2px 8px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
 }
 
 .lg-name {
@@ -1453,48 +1537,75 @@ th.sortable.asc::after {
   justify-self: flex-start;
 }
 
+/* === Enhanced Centered Bar Text === */
 .lg-bar {
-  height: 20px;
-  background: var(--border);
-  border-radius: var(--radius-md);
   position: relative;
+  display: grid;
+  place-items: center;
+  height: 22px;
+  background: linear-gradient(to right, #f1f5f9, #e2e8f0);
+  border-radius: 999px;
   overflow: hidden;
-  min-width: 0;
   flex: 1;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  isolation: isolate;
 }
 
 .lg-bar .fill {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: calc(var(--pct) * 1%);
-  max-width: 100%;
-  background: linear-gradient(90deg, var(--c), var(--c));
-  border-radius: var(--radius-md);
-  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0 8px;
-  min-width: 50px;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: calc(var(--pct, 0) * 1%);
+  background: var(--c);
+  border-radius: inherit;
+  transition: width 0.5s ease-in-out;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  z-index: 0;
 }
 
-.lg-bar .fill .bar-text {
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  white-space: nowrap;
+.lg-bar .bar-text {
+  position: relative;
   z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  color: #111827;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9),
+               0 0 4px rgba(15, 23, 42, 0.25);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.3s ease, text-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.lg-bar[data-dark-fill="true"] .bar-text {
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35),
+               0 0 6px rgba(8, 47, 73, 0.4);
+}
+
+.legrow:hover .lg-bar .bar-text {
+  transform: scale(1.03);
 }
 
 .lg-val {
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   text-align: right;
-  min-width: 60px;
+  min-width: 50px;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
+  background: linear-gradient(135deg, var(--surface-hover), white);
+  padding: 4px 10px;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* === Plot Section === */
@@ -1727,7 +1838,7 @@ th.sortable.asc::after {
   }
 
   .legrow {
-    grid-template-columns: auto minmax(72px, auto) minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(50px, auto) minmax(0, 1fr) auto;
     column-gap: 10px;
     row-gap: 6px;
     padding: 8px 12px;
@@ -1759,17 +1870,12 @@ th.sortable.asc::after {
   }
 
   .lg-bar {
-    height: 20px;
+    height: 16px;
   }
 
-  .lg-bar .fill {
-    padding: 0 8px;
-    min-width: 50px;
-    justify-content: flex-start;
-  }
-
-  .lg-bar .fill .bar-text {
-    font-size: 10px;
+  .lg-bar .bar-text {
+    font-size: 11px;
+    padding: 0 6px;
   }
 }
 
@@ -1860,7 +1966,7 @@ th.sortable.asc::after {
   }
 
   .legrow {
-    grid-template-columns: auto 1fr 1fr auto;
+    grid-template-columns: auto minmax(45px, auto) 1fr auto;
     gap: 8px;
   }
 
