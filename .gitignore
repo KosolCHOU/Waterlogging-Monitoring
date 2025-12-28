@@ -17,6 +17,7 @@ venv/
 
 # Django
 /media/
+"CropXcel's app/media/"
 staticfiles/
 db.sqlite3
 
