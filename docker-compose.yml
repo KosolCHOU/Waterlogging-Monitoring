@@ -1,0 +1,45 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: cropxcel_redis
+    ports:
+      - "6380:6379"
+
+  web:
+    build: .
+    container_name: cropxcel_web
+    command: gunicorn cropxcel_project.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    volumes:
+      - "./app:/app"
+      - media_volume:/app/media
+      - "/home/kosol/.config/earthengine:/root/.config/earthengine"
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DATABASE_URL=sqlite:///app/db.sqlite3
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    container_name: cropxcel_worker
+    command: celery -A cropxcel_project worker -l info
+    volumes:
+      - "./app:/app"
+      - media_volume:/app/media
+      - "/home/kosol/.config/earthengine:/root/.config/earthengine"
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      - redis
+      - web
+
+volumes:
+  media_volume:

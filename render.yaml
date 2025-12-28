@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: cropxcel-monolith
+    env: docker
+    plan: starter
+    disk:
+      name: data
+      mountPath: /app/media
+      sizeGB: 10
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "cropxcel-monolith.onrender.com"
+      - key: CELERY_BROKER_URL
+        value: "redis://localhost:6379/0"
+      - key: CELERY_RESULT_BACKEND
+        value: "redis://localhost:6379/1"
+      # User needs to add EE_CREDENTIALS manually in the dashboard
+      # or by connecting a secret group

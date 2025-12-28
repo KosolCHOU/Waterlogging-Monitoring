@@ -340,13 +340,22 @@ function renderPill(ll){
   const p = pct(v), lvl = levelFrom(v), col = colorFor(v);
 
   const pt = map.latLngToContainerPoint(ll);
-  pill.style.display='block'; pill.style.left=(pt.x+14)+'px'; pill.style.top=(pt.y+14)+'px';
+  pill.style.display='block'; pill.style.left=(pt.x+18)+'px'; pill.style.top=(pt.y+18)+'px';
   pill.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:2px;min-width:180px">
-      <div>Waterlogging risk · ${p}% · ${lvl}</div>
-      <div style="width:100%;height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden">
-        <span style="display:block;height:100%;width:${p}%;background:${col}"></span>
+    <div style="background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+                border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 14px;
+                box-shadow:0 8px 32px rgba(0,0,0,0.25);color:#fff;min-width:200px;
+                font-family:system-ui,-apple-system,sans-serif;pointer-events:none;
+                animation:pillFadeIn 0.2s ease-out">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:rgba(255,255,255,0.6)">Risk Level</span>
+        <span style="font-size:12px;font-weight:800;color:${col}">${lvl.toUpperCase()}</span>
       </div>
+      <div style="font-size:24px;font-weight:800;margin-bottom:4px">${p}<span style="font-size:14px;font-weight:500;margin-left:2px;opacity:0.8">%</span></div>
+      <div style="width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden">
+        <span style="display:block;height:100%;width:${p}%;background:linear-gradient(90deg, ${col}88, ${col})"></span>
+      </div>
+      <div style="font-size:11px;margin-top:8px;color:rgba(255,255,255,0.5);font-style:italic">Live radar analysis</div>
     </div>`;
 }
 function loop(){

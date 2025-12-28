@@ -477,7 +477,6 @@ def dashboard(request, field_id: int):
         hotspots_url = job.result.get("hotspots_url") if job.result else None
         if hotspots_url:
             try:
-                import json
                 # Handle both /media/hotspots/file.geojson and media/hotspots/file.geojson
                 hotspots_path = hotspots_url.lstrip("/")
                 full_hotspots_path = os.path.join(settings.MEDIA_ROOT, hotspots_path)

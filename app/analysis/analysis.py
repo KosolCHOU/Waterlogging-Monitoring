@@ -47,41 +47,58 @@ def _pct_stretch(a, pmin=2, pmax=98):
     return np.clip((a - lo) / (hi - lo), 0, 1).astype("float32")
 
 def _risk_palette():
-    """Bright agronomic palette tuned for Healthy→Watch→Alert."""
+    """Premium agronomic palette tuned for Healthy→Watch→Alert."""
     return mcolors.LinearSegmentedColormap.from_list(
-        "cropxcel_risk",
+        "cropxcel_premium",
         [
-            (0.00, "#005e0d"),   # deep green
-            (0.25, "#3ecf5c"),   # vibrant healthy
-            (0.45, "#f7eb4d"),   # caution yellow
-            (0.65, "#ff9e1b"),   # watch orange
-            (0.85, "#ff5131"),   # alert red
-            (1.00, "#b80026"),   # critical crimson
+            (0.00, "#003d00"),   # deep forest green (base)
+            (0.15, "#008a00"),   # healthy green
+            (0.35, "#76d600"),   # vibrant lime
+            (0.55, "#ffd700"),   # warning gold
+            (0.75, "#ff8c00"),   # caution orange
+            (0.90, "#ff2400"),   # alert scarlet
+            (1.00, "#900000"),   # critical crimson
         ],
         N=512
     )
 
-def _save_png01(arr01, out_png, alpha: float = 0.78):
-    """Persist risk grid to PNG with partial transparency and subtle relief."""
-    data = np.nan_to_num(arr01.astype("float32"), nan=0.0, posinf=0.0, neginf=0.0)
+def _save_png01(arr01, out_png, alpha: float = 0.82):
+    """Persist risk grid to PNG with premium heatmap styling, smoothing, and subtle relief."""
+    from scipy.ndimage import gaussian_filter
+    
+    # 1) Pre-process: handle NaNs and clamp
+    data = np.nan_to_num(arr01.astype("float32"), nan=0.0)
     data = np.clip(data, 0.0, 1.0)
-
-    mapper = cm.ScalarMappable(norm=mcolors.Normalize(0, 1), cmap=_risk_palette())
-    rgba = mapper.to_rgba(data, bytes=True).astype("float32")
-
-    # Edge shading to accentuate transitions without new deps
-    grad_y, grad_x = np.gradient(data)
-    edges = np.sqrt(grad_x**2 + grad_y**2)
-    max_edge = float(np.nanmax(edges)) if np.isfinite(edges).any() else 0.0
-    if max_edge > 0:
-        shading = 1.0 - ((edges / max_edge) * 0.45)  # darken where gradient is high
-        rgba[..., :3] *= shading[..., None]
-
     mask = ~np.isfinite(arr01)
-    rgba[mask, 3] = 0.0
-    rgba[~mask, 3] = np.clip(rgba[~mask, 3] * alpha, 0, 255)
 
-    rgba_uint8 = np.ascontiguousarray(np.clip(rgba, 0, 255).round().astype("uint8"))
+    # 2) Smooth the visualization (not the data) for a professional heatmap feel
+    # Small sigma gives it a 'soft touch' without losing the field structure
+    smooth_data = gaussian_filter(data, sigma=1.2)
+    
+    # 3) Map to colors
+    mapper = cm.ScalarMappable(norm=mcolors.Normalize(0, 1), cmap=_risk_palette())
+    rgba = mapper.to_rgba(smooth_data, bytes=True).astype("float32")
+
+    # 4) Dynamic shading/relief (subtle 3D feel)
+    gy, gx = np.gradient(smooth_data)
+    slp = np.sqrt(gx**2 + gy**2)
+    slp_max = float(np.nanmax(slp)) if np.isfinite(slp).any() and np.nanmax(slp) > 0 else 1.0
+    # Highlight slopes facing 'light' (top-left)
+    shade = 0.5 * (gx + gy) / (slp + 1e-6)
+    relief = 1.0 + (shade * 0.15)
+    rgba[..., :3] *= relief[..., None]
+    
+    # 5) Feathered alpha mask (soft edges)
+    # Binary mask for where we actually have data
+    valid = (~mask).astype("float32")
+    # Soften the edges of the valid area
+    feather = gaussian_filter(valid, sigma=1.5)
+    
+    # Combine user alpha with our feathered edge
+    final_alpha = feather * alpha * 255.0
+    rgba[..., 3] = np.clip(final_alpha, 0, 255)
+
+    rgba_uint8 = np.clip(rgba, 0, 255).round().astype("uint8")
     imageio.imwrite(out_png, rgba_uint8)
 
 # ---- main API (called by your tasks/view) ------------------------------------
