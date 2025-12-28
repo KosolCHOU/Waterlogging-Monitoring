@@ -2,11 +2,7 @@ services:
   - type: web
     name: cropxcel-monolith
     env: docker
-    plan: starter
-    disk:
-      name: data
-      mountPath: /app/media
-      sizeGB: 10
+    plan: free
     envVars:
       - key: DEBUG
         value: "False"
