@@ -30,17 +30,7 @@ ENV C_INCLUDE_PATH=/usr/include/gdal
 # Install Python dependencies
 # Install Python dependencies
 COPY app/requirements.txt ./
-# Remove heavy libraries for "Lite" deployment on free tier
-# We keep essential geospatial libs but remove visualization/notebook heavyweights
-RUN sed -i '/folium/d' requirements.txt && \
-    sed -i '/geemap/d' requirements.txt && \
-    sed -i '/matplotlib/d' requirements.txt && \
-    sed -i '/seaborn/d' requirements.txt && \
-    sed -i '/statsmodels/d' requirements.txt && \
-    sed -i '/ipython/d' requirements.txt && \
-    sed -i '/jupyter/d' requirements.txt && \
-    sed -i '/opencv-python/d' requirements.txt && \
-    pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy project

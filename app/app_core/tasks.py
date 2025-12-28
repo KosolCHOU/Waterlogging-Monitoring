@@ -6,12 +6,10 @@ from datetime import datetime
 import json
 
 from .models import AnalysisJob
-from analysis.analysis import run_analysis_from_notebook
-
-# --- NEW: scale/area helpers ---
-import rasterio
-from pyproj import Geod
-from analysis.insights import classify_and_area
+# from analysis.analysis import run_analysis_from_notebook
+# import rasterio
+# from pyproj import Geod
+# from analysis.insights import classify_and_area
 
 
 # ----------------------- small path/url helpers -----------------------
@@ -106,6 +104,12 @@ def run_waterlogging_analysis(job_id: int):
         job.save(update_fields=["message"])
 
         # ---------- Run notebook-like local analysis ----------
+        # Lazy imports
+        from analysis.analysis import run_analysis_from_notebook
+        import rasterio
+        from pyproj import Geod
+        from analysis.insights import classify_and_area
+
         aoi_geojson = field.geom
         result = run_analysis_from_notebook(
             aoi_geojson,

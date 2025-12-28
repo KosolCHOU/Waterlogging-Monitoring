@@ -28,9 +28,9 @@ from .models import FieldAOI, AnalysisJob, Profile
 from app_core.ml.recommender import predict_crop
 
 from .models import FieldAOI, AnalysisJob, Profile
-from analysis.engine import export_stack_from_geom, export_s1_timeseries
-from analysis.insights import compute_temporal_engine_s1, build_insights_html, classify_and_area
-from analysis.weather import get_forecast_for_field
+# from analysis.engine import export_stack_from_geom, export_s1_timeseries
+# from analysis.insights import compute_temporal_engine_s1, build_insights_html, classify_and_area
+# from analysis.weather import get_forecast_for_field
 from .forms import SignupForm
 
 # New: local geodesic area (no GEE)
@@ -54,6 +54,9 @@ def aoi_upload(request):
             return HttpResponseBadRequest("Missing 'feature'")
 
         geom_geojson = feature["geometry"] if feature.get("type") == "Feature" else feature
+        
+        # Lazy import
+        from analysis.engine import export_stack_from_geom, export_s1_timeseries
 
         # --- area calc ---
         from shapely.geometry import shape
@@ -354,6 +357,10 @@ class FieldViewSet(viewsets.ModelViewSet):
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         fname = f"timeseries_field_{field.id}_{stamp}.csv"
         csv_path = ts_dir / fname
+        
+        # Lazy import
+        from analysis.engine import export_s1_timeseries
+
         try:
             export_s1_timeseries(
                 geom_geojson=geom_geojson,
@@ -435,6 +442,10 @@ def dashboard(request, field_id: int):
         return remember(HttpResponse(html))
 
     bounds = job.result.get("bounds") or [[...],[...]]
+    
+    # Lazy import
+    from analysis.insights import build_insights_html
+    
     # build insights HTML parts
     # Resolve insights CSV from the saved timeseries path (preferred) or fallbacks
     insights_csv = job.result.get("timeseries_path") \
@@ -578,6 +589,10 @@ def field_insights_api(request, field_id: int):
         raise Http404("No completed analysis for this field yet.")
 
     # 1) Preferred: the stored full path
+    
+    # Lazy imports
+    from analysis.insights import compute_temporal_engine_s1, build_insights_html, classify_and_area
+
     ts_path = job.result.get("timeseries_path")
 
     # 2) Fallback: try MEDIA_ROOT + relative
@@ -767,7 +782,9 @@ def forecast_json(request, field_id: int):
     Return 7-day + 72h summary forecast for a field (Open-Meteo).
     """
     field = get_object_or_404(FieldAOI, id=field_id)
+    field = get_object_or_404(FieldAOI, id=field_id)
     try:
+        from analysis.weather import get_forecast_for_field
         data = get_forecast_for_field(field)
         # Shape response the way your frontend likes:
         return JsonResponse({"ok": True, **data}, status=200)
